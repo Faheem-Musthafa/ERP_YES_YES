@@ -1,353 +1,150 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
+import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
-import { Button } from '@/app/components/ui/button';
-import { Badge } from '@/app/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/app/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/app/components/ui/table';
-import { Search } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
+import { Plus, Truck, Search } from 'lucide-react';
+import { supabase } from '@/app/supabase';
+import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 
-interface DeliveryRecord {
-  invoiceNo: string;
-  customerName: string;
-  company: string;
-  brand: string;
-  grandTotal: number;
-  transporter: string;
-  customTransporter?: string;
-  deliveryStatus: 'Pending' | 'Delivered' | 'Cancel' | 'Returned';
-  deliveredDate: string;
-}
-
 export const DeliveryManagement = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterTransporter, setFilterTransporter] = useState<string>('all');
+  const { user } = useAuth();
+  const [deliveries, setDeliveries] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ order_id: '', driver_name: '', vehicle_number: '' });
 
-  const [deliveryRecords, setDeliveryRecords] = useState<DeliveryRecord[]>([
-    {
-      invoiceNo: 'INV-2026-001',
-      customerName: 'ABC Corp',
-      company: 'YES YES',
-      brand: 'Mitsubishi',
-      grandTotal: 125000,
-      transporter: 'Razak',
-      deliveryStatus: 'Pending',
-      deliveredDate: '',
-    },
-    {
-      invoiceNo: 'INV-2026-002',
-      customerName: 'XYZ Industries',
-      company: 'LLP',
-      brand: 'Panasonic',
-      grandTotal: 85000,
-      transporter: 'Bus',
-      deliveryStatus: 'Delivered',
-      deliveredDate: '2026-02-18',
-    },
-    {
-      invoiceNo: 'INV-2026-003',
-      customerName: 'Tech Solutions',
-      company: 'Zekon',
-      brand: 'LG',
-      grandTotal: 210000,
-      transporter: 'Sideeque',
-      deliveryStatus: 'Returned',
-      deliveredDate: '2026-02-17',
-    },
-  ]);
+  const fetchData = async () => {
+    setLoading(true);
+    const [{ data: del }, { data: ord }] = await Promise.all([
+      supabase.from('deliveries').select('id, delivery_number, status, driver_name, vehicle_number, dispatched_at, delivered_at, orders(order_number, customers(name))').order('created_at', { ascending: false }),
+      supabase.from('orders').select('id, order_number, customers(name)').in('status', ['Approved', 'Billed']),
+    ]);
+    setDeliveries(del ?? []);
+    setOrders(ord ?? []);
+    setLoading(false);
+  };
+  useEffect(() => { fetchData(); }, []);
 
-  const [originalRecords] = useState<DeliveryRecord[]>(JSON.parse(JSON.stringify(deliveryRecords)));
-
-  const handleTransporterChange = (invoiceNo: string, value: string) => {
-    setDeliveryRecords((prev) =>
-      prev.map((record) =>
-        record.invoiceNo === invoiceNo
-          ? { ...record, transporter: value, customTransporter: value === 'Other' ? '' : undefined }
-          : record
-      )
-    );
+  const handleCreate = async () => {
+    if (!form.order_id) { toast.error('Select an order'); return; }
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('deliveries').insert({
+        delivery_number: `DEL-${Date.now()}`,
+        order_id: form.order_id,
+        driver_name: form.driver_name || null,
+        vehicle_number: form.vehicle_number || null,
+        status: 'Pending',
+        created_by: user?.id ?? null,
+      });
+      if (error) throw error;
+      toast.success('Delivery created!');
+      setOpen(false);
+      setForm({ order_id: '', driver_name: '', vehicle_number: '' });
+      fetchData();
+    } catch (err: any) { toast.error(err.message); } finally { setSaving(false); }
   };
 
-  const handleCustomTransporterChange = (invoiceNo: string, value: string) => {
-    setDeliveryRecords((prev) =>
-      prev.map((record) =>
-        record.invoiceNo === invoiceNo ? { ...record, customTransporter: value } : record
-      )
-    );
+  const updateStatus = async (id: string, status: string) => {
+    const updateData: any = { status };
+    if (status === 'In Transit') updateData.dispatched_at = new Date().toISOString();
+    if (status === 'Delivered') updateData.delivered_at = new Date().toISOString();
+    const { error } = await supabase.from('deliveries').update(updateData).eq('id', id);
+    if (error) toast.error(error.message); else { toast.success('Status updated'); fetchData(); }
   };
 
-  const handleDeliveryStatusChange = (invoiceNo: string, value: 'Pending' | 'Delivered' | 'Cancel' | 'Returned') => {
-    setDeliveryRecords((prev) =>
-      prev.map((record) =>
-        record.invoiceNo === invoiceNo
-          ? {
-              ...record,
-              deliveryStatus: value,
-              deliveredDate: value === 'Cancel' || value === 'Pending' ? '' : record.deliveredDate,
-            }
-          : record
-      )
-    );
+  const statusColor: Record<string, string> = {
+    Pending: 'bg-orange-100 text-orange-700',
+    'In Transit': 'bg-blue-100 text-blue-700',
+    Delivered: 'bg-green-100 text-green-700',
+    Failed: 'bg-red-100 text-red-700',
   };
 
-  const handleDeliveredDateChange = (invoiceNo: string, value: string) => {
-    setDeliveryRecords((prev) =>
-      prev.map((record) => (record.invoiceNo === invoiceNo ? { ...record, deliveredDate: value } : record))
-    );
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'Delivered':
-        return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Delivered</Badge>;
-      case 'Cancel':
-        return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Cancel</Badge>;
-      case 'Returned':
-        return <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100">Returned</Badge>;
-      case 'Pending':
-        return <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100">Pending</Badge>;
-      default:
-        return <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100">{status}</Badge>;
-    }
-  };
-
-  const isDateEnabled = (status: string) => {
-    return status === 'Delivered' || status === 'Returned';
-  };
-
-  const handleSaveUpdates = () => {
-    // Validate required fields
-    const hasErrors = deliveryRecords.some((record) => {
-      if (record.deliveryStatus === 'Delivered') {
-        if (!record.deliveredDate) {
-          toast.error(`Delivered Date is required for ${record.invoiceNo}`);
-          return true;
-        }
-        if (!record.transporter) {
-          toast.error(`Transporter is required for ${record.invoiceNo}`);
-          return true;
-        }
-        if (record.transporter === 'Other' && !record.customTransporter) {
-          toast.error(`Custom transporter name is required for ${record.invoiceNo}`);
-          return true;
-        }
-      }
-      return false;
-    });
-
-    if (!hasErrors) {
-      toast.success('Delivery updates saved successfully');
-      console.log('Saved delivery records:', deliveryRecords);
-    }
-  };
-
-  const handleResetChanges = () => {
-    setDeliveryRecords(JSON.parse(JSON.stringify(originalRecords)));
-    toast.info('Changes have been reset');
-  };
-
-  const filteredRecords = deliveryRecords.filter((record) => {
-    const matchesSearch =
-      record.invoiceNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.customerName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || record.deliveryStatus === filterStatus;
-    const matchesTransporter = filterTransporter === 'all' || record.transporter === filterTransporter;
-    return matchesSearch && matchesStatus && matchesTransporter;
-  });
+  const filtered = deliveries.filter(d => !search || (d.delivery_number ?? '').toLowerCase().includes(search.toLowerCase()) || (d.orders?.order_number ?? '').toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Delivery Management</h1>
-        <p className="text-gray-600 mt-1">Manage sales delivery updates and transporter details</p>
+      <div className="flex justify-between items-start mb-6">
+        <div><h1 className="text-2xl font-semibold text-gray-900">Delivery Management</h1><p className="text-gray-600 mt-1">Track all deliveries for orders</p></div>
+        <Button onClick={() => setOpen(true)} className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90"><Plus size={18} className="mr-2" />New Delivery</Button>
       </div>
 
-      <Card className="p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Sales Delivery List</h2>
-
-        {/* Filter Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          {/* Search */}
-          <div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <Input
-                placeholder="Search by Invoice / Customer"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          {/* Filter by Delivery Status */}
-          <div>
-            <Label className="text-sm text-gray-700 mb-1.5 block">Filter by Delivery Status</Label>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="Pending">Pending</SelectItem>
-                <SelectItem value="Delivered">Delivered</SelectItem>
-                <SelectItem value="Cancel">Cancel</SelectItem>
-                <SelectItem value="Returned">Returned</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Filter by Transporter */}
-          <div>
-            <Label className="text-sm text-gray-700 mb-1.5 block">Filter by Transporter</Label>
-            <Select value={filterTransporter} onValueChange={setFilterTransporter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Transporters" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Transporters</SelectItem>
-                <SelectItem value="Razak">Razak</SelectItem>
-                <SelectItem value="Bus">Bus</SelectItem>
-                <SelectItem value="Sideeque">Sideeque</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="border rounded-lg overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice No</TableHead>
-                <TableHead>Customer Name</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Brand</TableHead>
-                <TableHead className="text-right">Grand Total (₹)</TableHead>
-                <TableHead>Transporter</TableHead>
-                <TableHead>Delivery Status</TableHead>
-                <TableHead>Delivered Date</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRecords.map((record) => (
-                <TableRow key={record.invoiceNo} className="hover:bg-gray-50">
-                  <TableCell className="font-mono text-sm font-medium">{record.invoiceNo}</TableCell>
-                  <TableCell>{record.customerName}</TableCell>
-                  <TableCell>{record.company}</TableCell>
-                  <TableCell>{record.brand}</TableCell>
-                  <TableCell className="text-right font-semibold">
-                    ₹ {record.grandTotal.toLocaleString('en-IN')}
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-2">
-                      <Select
-                        value={record.transporter}
-                        onValueChange={(value) => handleTransporterChange(record.invoiceNo, value)}
-                      >
-                        <SelectTrigger className="w-40">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Razak">Razak</SelectItem>
-                          <SelectItem value="Bus">Bus</SelectItem>
-                          <SelectItem value="Sideeque">Sideeque</SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {record.transporter === 'Other' && (
-                        <div>
-                          <Label className="text-xs text-gray-600 mb-1 block">Enter Transporter Name</Label>
-                          <Input
-                            placeholder="Type transporter name"
-                            value={record.customTransporter || ''}
-                            onChange={(e) => handleCustomTransporterChange(record.invoiceNo, e.target.value)}
-                            className="w-40 text-sm"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={record.deliveryStatus}
-                      onValueChange={(value: any) => handleDeliveryStatusChange(record.invoiceNo, value)}
-                    >
-                      <SelectTrigger className="w-36">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Pending">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-gray-500"></span>
-                            Pending
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="Delivered">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                            Delivered
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="Cancel">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                            Cancel
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="Returned">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-orange-500"></span>
-                            Returned
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="mt-2">{getStatusBadge(record.deliveryStatus)}</div>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="date"
-                      value={record.deliveredDate}
-                      onChange={(e) => handleDeliveredDateChange(record.invoiceNo, e.target.value)}
-                      disabled={!isDateEnabled(record.deliveryStatus)}
-                      className={`w-40 ${
-                        !isDateEnabled(record.deliveryStatus) ? 'bg-gray-100 cursor-not-allowed' : ''
-                      }`}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Button size="sm" className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90">
-                      Update
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex justify-end gap-3 mt-6">
-          <Button variant="outline" onClick={handleResetChanges}>
-            Reset Changes
-          </Button>
-          <Button className="bg-green-600 hover:bg-green-700" onClick={handleSaveUpdates}>
-            Save Delivery Updates
-          </Button>
+      <Card className="p-4 mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Input placeholder="Search delivery / order..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
         </div>
       </Card>
+
+      <Card className="overflow-hidden">
+        {loading ? <div className="text-center py-12 text-gray-500">Loading...</div> : filtered.length === 0 ? (
+          <div className="text-center py-12"><Truck size={48} className="text-gray-300 mx-auto mb-4" /><p className="text-gray-500">No deliveries found</p></div>
+        ) : (
+          <div className="overflow-x-auto"><table className="w-full">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left text-xs font-semibold text-gray-700 p-3">Delivery No</th>
+                <th className="text-left text-xs font-semibold text-gray-700 p-3">Order</th>
+                <th className="text-left text-xs font-semibold text-gray-700 p-3">Customer</th>
+                <th className="text-left text-xs font-semibold text-gray-700 p-3">Driver</th>
+                <th className="text-left text-xs font-semibold text-gray-700 p-3">Vehicle</th>
+                <th className="text-center text-xs font-semibold text-gray-700 p-3">Status</th>
+                <th className="text-center text-xs font-semibold text-gray-700 p-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(d => (
+                <tr key={d.id} className="border-b hover:bg-gray-50">
+                  <td className="p-3 text-sm font-medium text-[#1e3a8a]">{d.delivery_number}</td>
+                  <td className="p-3 text-sm">{d.orders?.order_number}</td>
+                  <td className="p-3 text-sm text-gray-600">{d.orders?.customers?.name ?? '-'}</td>
+                  <td className="p-3 text-sm">{d.driver_name ?? '-'}</td>
+                  <td className="p-3 text-sm">{d.vehicle_number ?? '-'}</td>
+                  <td className="p-3 text-center"><span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor[d.status] ?? 'bg-gray-100 text-gray-700'}`}>{d.status}</span></td>
+                  <td className="p-3 text-center">
+                    <Select value={d.status} onValueChange={v => updateStatus(d.id, v)}>
+                      <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Pending">Pending</SelectItem>
+                        <SelectItem value="In Transit">In Transit</SelectItem>
+                        <SelectItem value="Delivered">Delivered</SelectItem>
+                        <SelectItem value="Failed">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table></div>
+        )}
+      </Card>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>New Delivery</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2"><Label>Order *</Label>
+              <Select value={form.order_id} onValueChange={v => setForm(f => ({ ...f, order_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select order" /></SelectTrigger>
+                <SelectContent>{orders.map(o => <SelectItem key={o.id} value={o.id}>{o.order_number} — {o.customers?.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2"><Label>Driver Name</Label><Input value={form.driver_name} onChange={e => setForm(f => ({ ...f, driver_name: e.target.value }))} placeholder="Optional" /></div>
+            <div className="space-y-2"><Label>Vehicle Number</Label><Input value={form.vehicle_number} onChange={e => setForm(f => ({ ...f, vehicle_number: e.target.value }))} placeholder="Optional" /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreate} className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90" disabled={saving}>{saving ? 'Creating...' : 'Create Delivery'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

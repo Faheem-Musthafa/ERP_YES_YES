@@ -9,21 +9,25 @@ export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login, user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     try {
-      const success = await login(email, password);
-      if (success) {
+      const result = await login(email, password);
+      if (result.success) {
         navigate('/');
       } else {
-        setError('Invalid email or password');
+        setError(result.error || 'Invalid email or password');
       }
-    } catch (err) {
+    } catch {
       setError('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -69,12 +73,14 @@ export const Login = () => {
               </div>
             )}
 
-            <Button type="submit" className="w-full bg-[#1e3a8a] hover:bg-[#1e3a8a]/90">
-              Login
+            <Button type="submit" className="w-full bg-[#1e3a8a] hover:bg-[#1e3a8a]/90" disabled={loading}>
+              {loading ? 'Signing in...' : 'Login'}
             </Button>
           </form>
 
-          {/* No demo accounts. Users must register or be approved by admin. */}
+          <div className="mt-4 text-center text-sm text-gray-500">
+            <Button variant="link" onClick={() => navigate('/register')}>Request Account Access</Button>
+          </div>
         </div>
       </div>
     </div>

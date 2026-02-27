@@ -1,231 +1,96 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
-import { Badge } from '@/app/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/app/components/ui/table';
 import { Input } from '@/app/components/ui/input';
-import { Button } from '@/app/components/ui/button';
-import { Search, Save } from 'lucide-react';
-import { toast } from 'sonner';
-
-interface StockItem {
-  brand: string;
-  product: string;
-  sku: string;
-  stock: number;
-  dp: number;
-  lastUpdated: string;
-}
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
+import { Search, Package } from 'lucide-react';
+import { supabase } from '@/app/supabase';
 
 export const InventoryStock = () => {
-  const [stockItems, setStockItems] = useState<StockItem[]>([
-    {
-      brand: 'Brand A',
-      product: 'Product 1',
-      sku: 'SKU-1001',
-      stock: 150,
-      dp: 5500,
-      lastUpdated: '2026-01-18',
-    },
-    {
-      brand: 'Brand A',
-      product: 'Product 2',
-      sku: 'SKU-1002',
-      stock: 75,
-      dp: 3200,
-      lastUpdated: '2026-01-18',
-    },
-    {
-      brand: 'Brand B',
-      product: 'Product 3',
-      sku: 'SKU-1003',
-      stock: 5,
-      dp: 8900,
-      lastUpdated: '2026-01-17',
-    },
-    {
-      brand: 'Brand B',
-      product: 'Product 4',
-      sku: 'SKU-1004',
-      stock: 200,
-      dp: 12500,
-      lastUpdated: '2026-01-17',
-    },
-    {
-      brand: 'Brand C',
-      product: 'Product 5',
-      sku: 'SKU-1005',
-      stock: 30,
-      dp: 4500,
-      lastUpdated: '2026-01-16',
-    },
-    {
-      brand: 'Brand C',
-      product: 'Product 6',
-      sku: 'SKU-1006',
-      stock: 8,
-      dp: 7800,
-      lastUpdated: '2026-01-16',
-    },
-    {
-      brand: 'Brand D',
-      product: 'Product 7',
-      sku: 'SKU-1007',
-      stock: 120,
-      dp: 15000,
-      lastUpdated: '2026-01-15',
-    },
-    {
-      brand: 'Brand D',
-      product: 'Product 8',
-      sku: 'SKU-1008',
-      stock: 3,
-      dp: 9500,
-      lastUpdated: '2026-01-15',
-    },
-  ]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [brandFilter, setBrandFilter] = useState('');
+  const [brands, setBrands] = useState<any[]>([]);
 
-  const [editingStock, setEditingStock] = useState<{ [key: string]: number }>({});
-  const [changedStock, setChangedStock] = useState<{ [key: string]: boolean }>({});
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const [{ data: prod }, { data: br }] = await Promise.all([
+        supabase.from('products').select('id, name, sku, stock_qty, dealer_price, brands(id, name)').eq('is_active', true).order('name'),
+        supabase.from('brands').select('id, name').eq('is_active', true).order('name'),
+      ]);
+      setProducts(prod ?? []);
+      setBrands(br ?? []);
+      setLoading(false);
+    };
+    fetchData();
+  }, []);
 
-  const handleStockChange = (sku: string, value: string) => {
-    const numValue = parseInt(value) || 0;
-    setEditingStock(prev => ({ ...prev, [sku]: numValue }));
-    setChangedStock(prev => ({ ...prev, [sku]: true }));
-  };
+  const filtered = products.filter(p => {
+    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
+    const matchBrand = !brandFilter || brandFilter === 'all' || (p.brands?.id === brandFilter);
+    return matchSearch && matchBrand;
+  });
 
-  const handleSaveStock = (sku: string) => {
-    setStockItems(prev =>
-      prev.map(item =>
-        item.sku === sku
-          ? {
-              ...item,
-              stock: editingStock[sku] !== undefined ? editingStock[sku] : item.stock,
-              lastUpdated: new Date().toISOString().split('T')[0],
-            }
-          : item
-      )
-    );
-
-    setChangedStock(prev => ({ ...prev, [sku]: false }));
-    toast.success('Stock quantity updated successfully');
-  };
-
-  const getStockBadge = (stock: number) => {
-    if (stock < 10) {
-      return <Badge className="bg-red-100 text-red-700">Low Stock</Badge>;
-    } else if (stock < 50) {
-      return <Badge className="bg-orange-100 text-orange-700">Medium</Badge>;
-    } else {
-      return <Badge className="bg-green-100 text-green-700">In Stock</Badge>;
-    }
+  const stockStatus = (qty: number) => {
+    if (qty === 0) return { label: 'Out of Stock', cls: 'bg-red-100 text-red-700' };
+    if (qty <= 5) return { label: 'Low Stock', cls: 'bg-orange-100 text-orange-700' };
+    return { label: 'In Stock', cls: 'bg-green-100 text-green-700' };
   };
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Stock Management</h1>
-        <p className="text-gray-600 mt-1">View and update inventory stock levels</p>
-      </div>
-
-      <Card className="p-6 mb-6">
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <Input
-              placeholder="Search by product, brand, or SKU..."
-              className="pl-10"
-            />
+      <div className="mb-6"><h1 className="text-2xl font-semibold text-gray-900">Inventory Stock</h1><p className="text-gray-600 mt-1">Current stock levels for all products</p></div>
+      <Card className="p-4 mb-6">
+        <div className="flex gap-4 flex-wrap">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <Input placeholder="Search by name / SKU..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
           </div>
+          <Select value={brandFilter} onValueChange={setBrandFilter}>
+            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filter by brand" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Brands</SelectItem>
+              {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
       </Card>
-
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Brand</TableHead>
-              <TableHead>Product</TableHead>
-              <TableHead>SKU</TableHead>
-              <TableHead>Available Stock</TableHead>
-              <TableHead className="text-right">DP (₹)</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Last Updated</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {stockItems.map((item, index) => (
-              <TableRow key={index}>
-                <TableCell className="font-medium">{item.brand}</TableCell>
-                <TableCell>{item.product}</TableCell>
-                <TableCell className="font-mono text-sm">{item.sku}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      value={editingStock[item.sku] !== undefined ? editingStock[item.sku] : item.stock}
-                      onChange={(e) => handleStockChange(item.sku, e.target.value)}
-                      className="w-28 hover:bg-blue-50"
-                    />
-                    <span className="text-sm text-gray-600">units</span>
-                    {changedStock[item.sku] && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleSaveStock(item.sku)}
-                        className="h-9 w-9 p-0 bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        <Save size={16} />
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <span className="text-sm font-semibold text-gray-900">₹ {item.dp.toLocaleString('en-IN')}</span>
-                </TableCell>
-                <TableCell>{getStockBadge(item.stock)}</TableCell>
-                <TableCell>{new Date(item.lastUpdated).toLocaleDateString()}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <Card className="overflow-hidden">
+        {loading ? <div className="text-center py-12 text-gray-500">Loading...</div> : filtered.length === 0 ? (
+          <div className="text-center py-12"><Package size={48} className="text-gray-300 mx-auto mb-4" /><p className="text-gray-500">No products found</p></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Product</th>
+                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Brand</th>
+                  <th className="text-left text-xs font-semibold text-gray-700 p-3">SKU</th>
+                  <th className="text-right text-xs font-semibold text-gray-700 p-3">Dealer Price</th>
+                  <th className="text-right text-xs font-semibold text-gray-700 p-3">Stock Qty</th>
+                  <th className="text-center text-xs font-semibold text-gray-700 p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(p => {
+                  const s = stockStatus(p.stock_qty);
+                  return (
+                    <tr key={p.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3 text-sm font-medium">{p.name}</td>
+                      <td className="p-3 text-sm text-gray-600">{p.brands?.name ?? '-'}</td>
+                      <td className="p-3 text-sm font-mono text-gray-600">{p.sku}</td>
+                      <td className="p-3 text-sm text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
+                      <td className="p-3 text-sm text-right font-bold">{p.stock_qty}</td>
+                      <td className="p-3 text-center"><span className={`px-3 py-1 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Card>
-
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4 border-l-4 border-green-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">In Stock</p>
-              <p className="text-2xl font-semibold text-gray-900">4</p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <span className="text-green-600 font-semibold">50+</span>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 border-l-4 border-orange-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Medium Stock</p>
-              <p className="text-2xl font-semibold text-gray-900">1</p>
-            </div>
-            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-              <span className="text-orange-600 font-semibold">10-49</span>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 border-l-4 border-red-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Low Stock</p>
-              <p className="text-2xl font-semibold text-gray-900">3</p>
-            </div>
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-              <span className="text-red-600 font-semibold">&lt;10</span>
-            </div>
-          </div>
-        </Card>
-      </div>
     </div>
   );
 };

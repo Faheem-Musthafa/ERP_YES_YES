@@ -1,180 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { useNavigate } from 'react-router';
-import { Search, Eye, Pencil, Plus, ClipboardCheck } from 'lucide-react';
-
-interface CollectionRecord {
-  receiptNo: string;
-  receivedDate: string;
-  company: string;
-  brand: string;
-  customerName: string;
-  modeOfReceipt: 'Cash' | 'Bank' | 'Cheque';
-  invoiceNumber: string;
-  receivedAmount: number;
-  status: 'Pending' | 'Credited' | 'Bounced';
-  creditedDate?: string;
-}
+import { Search, Plus, ClipboardCheck } from 'lucide-react';
+import { supabase } from '@/app/supabase';
+import { toast } from 'sonner';
 
 export const CollectionStatus = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [companyFilter, setCompanyFilter] = useState('');
-  const [brandFilter, setBrandFilter] = useState('');
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
   const [modeFilter, setModeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
 
-  // Sample collection data with status
-  const [collectionRecords, setCollectionRecords] = useState<CollectionRecord[]>([
-    {
-      receiptNo: 'RCPT-1001',
-      receivedDate: '15-02-2026',
-      company: 'YES YES',
-      brand: 'MITSUBISHI',
-      customerName: 'ABC Corp',
-      modeOfReceipt: 'Bank',
-      invoiceNumber: 'INV-2024-001',
-      receivedAmount: 125000,
-      status: 'Credited',
-      creditedDate: '2026-02-16'
-    },
-    {
-      receiptNo: 'RCPT-1002',
-      receivedDate: '16-02-2026',
-      company: 'LLP',
-      brand: 'PANASONIC',
-      customerName: 'XYZ Industries',
-      modeOfReceipt: 'Cheque',
-      invoiceNumber: 'INV-2024-002',
-      receivedAmount: 85000,
-      status: 'Pending'
-    },
-    {
-      receiptNo: 'RCPT-1003',
-      receivedDate: '17-02-2026',
-      company: 'Zekon',
-      brand: 'DAIKIN',
-      customerName: 'Demo Trading Co',
-      modeOfReceipt: 'Cash',
-      invoiceNumber: 'INV-2024-003',
-      receivedAmount: 45000,
-      status: 'Credited',
-      creditedDate: '2026-02-17'
-    },
-    {
-      receiptNo: 'RCPT-1004',
-      receivedDate: '17-02-2026',
-      company: 'YES YES',
-      brand: 'LG',
-      customerName: 'Tech Solutions Ltd',
-      modeOfReceipt: 'Cheque',
-      invoiceNumber: 'INV-2024-004',
-      receivedAmount: 195000,
-      status: 'Bounced'
-    },
-    {
-      receiptNo: 'RCPT-1005',
-      receivedDate: '18-02-2026',
-      company: 'LLP',
-      brand: 'DULOWSIDE',
-      customerName: 'Global Enterprises',
-      modeOfReceipt: 'Bank',
-      invoiceNumber: 'INV-2024-005',
-      receivedAmount: 320000,
-      status: 'Pending'
-    }
-  ]);
+  useEffect(() => {
+    const fetchReceipts = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('receipts')
+        .select('id, receipt_number, amount, payment_mode, created_at, orders(id, order_number, status, customers(name))')
+        .order('created_at', { ascending: false });
+      setReceipts(data ?? []);
+      setLoading(false);
+    };
+    fetchReceipts();
+  }, []);
 
-  // Filter logic
-  const filteredRecords = collectionRecords.filter(record => {
-    const matchesSearch = searchQuery === '' || 
-      record.receiptNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.customerName.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCompany = companyFilter === '' || companyFilter === 'all' || record.company === companyFilter;
-    const matchesBrand = brandFilter === '' || brandFilter === 'all' || record.brand === brandFilter;
-    const matchesMode = modeFilter === '' || modeFilter === 'all' || record.modeOfReceipt === modeFilter;
-    const matchesStatus = statusFilter === '' || statusFilter === 'all' || record.status === statusFilter;
-    
-    return matchesSearch && matchesCompany && matchesBrand && matchesMode && matchesStatus;
+  const filtered = receipts.filter(r => {
+    const match = !search ||
+      r.receipt_number.toLowerCase().includes(search.toLowerCase()) ||
+      (r.orders?.order_number ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      (r.orders?.customers?.name ?? '').toLowerCase().includes(search.toLowerCase());
+    const matchMode = !modeFilter || modeFilter === 'all' || r.payment_mode === modeFilter;
+    const matchStatus = !statusFilter || statusFilter === 'all' || r.orders?.status === statusFilter;
+    return match && matchMode && matchStatus;
   });
 
-  const handleStatusChange = (receiptNo: string, newStatus: 'Pending' | 'Credited' | 'Bounced') => {
-    setCollectionRecords(prev => 
-      prev.map(record => {
-        if (record.receiptNo === receiptNo) {
-          // Clear credited date when status changes to Bounced
-          if (newStatus === 'Bounced') {
-            return { ...record, status: newStatus, creditedDate: undefined };
-          }
-          return { ...record, status: newStatus };
-        }
-        return record;
-      })
-    );
-  };
-
-  const handleCreditedDateChange = (receiptNo: string, newDate: string) => {
-    setCollectionRecords(prev => 
-      prev.map(record => 
-        record.receiptNo === receiptNo 
-          ? { ...record, creditedDate: newDate }
-          : record
-      )
-    );
-  };
-
-  const formatDateDisplay = (dateStr?: string) => {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
-
-  const handleViewReceipt = (receiptNo: string) => {
-    console.log('View receipt:', receiptNo);
-  };
-
-  const handleEditReceipt = (receiptNo: string) => {
-    console.log('Edit receipt:', receiptNo);
-  };
-
-  const handleNewReceipt = () => {
-    navigate('/sales/receipt');
-  };
-
-  const getModeColor = (mode: 'Cash' | 'Bank' | 'Cheque') => {
-    switch (mode) {
-      case 'Cash':
-        return 'bg-green-100 text-green-700';
-      case 'Bank':
-        return 'bg-blue-100 text-blue-700';
-      case 'Cheque':
-        return 'bg-orange-100 text-orange-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
-
-  const getStatusColor = (status: 'Pending' | 'Credited' | 'Bounced') => {
-    switch (status) {
-      case 'Pending':
-        return 'bg-gray-100 text-gray-700';
-      case 'Credited':
-        return 'bg-green-100 text-green-700';
-      case 'Bounced':
-        return 'bg-red-100 text-red-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
+  const modeColor: Record<string, string> = {
+    Cash: 'bg-green-100 text-green-700',
+    Cheque: 'bg-orange-100 text-orange-700',
+    UPI: 'bg-purple-100 text-purple-700',
+    'Bank Transfer': 'bg-blue-100 text-blue-700',
   };
 
   return (
@@ -182,207 +51,78 @@ export const CollectionStatus = () => {
       <div className="flex justify-between items-start mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Collection Status</h1>
-          <p className="text-gray-600 mt-1">Monitor receipt clearance and cheque status</p>
+          <p className="text-gray-600 mt-1">Monitor all receipts and payment clearance</p>
         </div>
-        <Button 
-          onClick={handleNewReceipt}
-          className="bg-[#f97316] hover:bg-[#ea580c] text-white"
-        >
-          <Plus size={18} className="mr-2" />
-          New Receipt
+        <Button onClick={() => navigate('/sales/receipt')} className="bg-[#f97316] hover:bg-[#ea580c] text-white">
+          <Plus size={18} className="mr-2" />New Receipt
         </Button>
       </div>
 
-      {/* Filter Bar */}
       <Card className="p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-          <div className="relative lg:col-span-2">
+        <div className="flex gap-4 flex-wrap">
+          <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <Input
-              placeholder="Search by Receipt No / Customer / Invoice No"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+            <Input placeholder="Search by receipt / order / customer..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
           </div>
-
-          <Select value={companyFilter} onValueChange={setCompanyFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by Company" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Companies</SelectItem>
-              <SelectItem value="LLP">LLP</SelectItem>
-              <SelectItem value="YES YES">YES YES</SelectItem>
-              <SelectItem value="Zekon">Zekon</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={brandFilter} onValueChange={setBrandFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by Brand" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Brands</SelectItem>
-              <SelectItem value="MITSUBISHI">MITSUBISHI</SelectItem>
-              <SelectItem value="PANASONIC">PANASONIC</SelectItem>
-              <SelectItem value="LG">LG</SelectItem>
-              <SelectItem value="TRANE">TRANE</SelectItem>
-              <SelectItem value="DAIKIN">DAIKIN</SelectItem>
-              <SelectItem value="DULOWSIDE">DULOWSIDE</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-
           <Select value={modeFilter} onValueChange={setModeFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by Mode" />
-            </SelectTrigger>
+            <SelectTrigger className="w-[170px]"><SelectValue placeholder="Filter mode" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Modes</SelectItem>
               <SelectItem value="Cash">Cash</SelectItem>
-              <SelectItem value="Bank">Bank</SelectItem>
+              <SelectItem value="Bank Transfer">Bank</SelectItem>
               <SelectItem value="Cheque">Cheque</SelectItem>
+              <SelectItem value="UPI">UPI</SelectItem>
             </SelectContent>
           </Select>
-
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by Status" />
-            </SelectTrigger>
+            <SelectTrigger className="w-[170px]"><SelectValue placeholder="Order status" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="Credited">Credited</SelectItem>
-              <SelectItem value="Bounced">Bounced</SelectItem>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="Approved">Approved</SelectItem>
+              <SelectItem value="Billed">Billed</SelectItem>
+              <SelectItem value="Delivered">Delivered</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-
-        <div className="flex gap-2 mt-4">
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            placeholder="From Date"
-            className="w-48"
-          />
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            placeholder="To Date"
-            className="w-48"
-          />
         </div>
       </Card>
 
-      {/* Collection Status Table */}
       <Card className="overflow-hidden">
-        {filteredRecords.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-12 text-gray-500">Loading...</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16">
+            <ClipboardCheck size={48} className="text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 text-lg mb-4">No collection records found</p>
+            <Button onClick={() => navigate('/sales/receipt')} className="bg-[#f97316] hover:bg-[#ea580c] text-white"><Plus size={18} className="mr-2" />Add Receipt</Button>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Receipt No</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Company</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Brand</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Customer</th>
-                  <th className="text-center text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Mode</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Amount (₹)</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Invoice No</th>
-                  <th className="text-center text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Status of Receipt</th>
-                  <th className="text-center text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Credited Date</th>
-                  <th className="text-center text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Actions</th>
+                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Receipt No</th>
+                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Order No</th>
+                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Customer</th>
+                  <th className="text-center text-xs font-semibold text-gray-700 p-3">Mode</th>
+                  <th className="text-right text-xs font-semibold text-gray-700 p-3">Amount (₹)</th>
+                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Date</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredRecords.map((record, index) => (
-                  <tr key={index} className="border-b hover:bg-gray-50">
-                    <td className="p-3 text-sm font-medium text-[#1e3a8a]">{record.receiptNo}</td>
-                    <td className="p-3 text-sm text-gray-700">{record.company}</td>
-                    <td className="p-3 text-sm text-gray-700">{record.brand}</td>
-                    <td className="p-3 text-sm text-gray-700">{record.customerName}</td>
+                {filtered.map(r => (
+                  <tr key={r.id} className="border-b hover:bg-gray-50">
+                    <td className="p-3 text-sm font-medium text-[#1e3a8a]">{r.receipt_number}</td>
+                    <td className="p-3 text-sm text-gray-700">{r.orders?.order_number ?? '-'}</td>
+                    <td className="p-3 text-sm text-gray-700">{r.orders?.customers?.name ?? '-'}</td>
                     <td className="p-3 text-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${getModeColor(record.modeOfReceipt)}`}>
-                        {record.modeOfReceipt}
-                      </span>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${modeColor[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>{r.payment_mode}</span>
                     </td>
-                    <td className="p-3 text-sm text-right font-semibold text-gray-900">
-                      ₹ {record.receivedAmount.toLocaleString('en-IN')}
-                    </td>
-                    <td className="p-3 text-sm text-gray-700">{record.invoiceNumber}</td>
-                    <td className="p-3">
-                      <Select 
-                        value={record.status} 
-                        onValueChange={(value) => handleStatusChange(record.receiptNo, value as 'Pending' | 'Credited' | 'Bounced')}
-                      >
-                        <SelectTrigger className={`w-32 mx-auto ${getStatusColor(record.status)} border-0 font-medium`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Pending">Pending</SelectItem>
-                          <SelectItem value="Credited">Credited</SelectItem>
-                          <SelectItem value="Bounced">Bounced</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex flex-col items-center">
-                        <Input
-                          type="date"
-                          value={record.creditedDate || ''}
-                          onChange={(e) => handleCreditedDateChange(record.receiptNo, e.target.value)}
-                          disabled={record.status !== 'Credited'}
-                          placeholder="dd-mm-yyyy"
-                          className={`w-40 text-sm ${
-                            record.status !== 'Credited' 
-                              ? 'bg-gray-100 cursor-not-allowed opacity-50' 
-                              : ''
-                          }`}
-                        />
-                        {record.status === 'Credited' && (
-                          <span className="text-xs text-gray-500 mt-1">Enter date when payment was credited</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center justify-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewReceipt(record.receiptNo)}
-                          className="h-8"
-                        >
-                          <Eye size={14} />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditReceipt(record.receiptNo)}
-                          className="h-8"
-                        >
-                          <Pencil size={14} />
-                        </Button>
-                      </div>
-                    </td>
+                    <td className="p-3 text-sm text-right font-semibold">₹ {r.amount?.toLocaleString('en-IN')}</td>
+                    <td className="p-3 text-sm text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <div className="flex flex-col items-center justify-center">
-              <ClipboardCheck size={48} className="text-gray-300 mb-4" />
-              <p className="text-gray-500 text-lg mb-4">No collection records available</p>
-              <Button 
-                onClick={handleNewReceipt}
-                className="bg-[#f97316] hover:bg-[#ea580c] text-white"
-              >
-                <Plus size={18} className="mr-2" />
-                Add Receipt
-              </Button>
-            </div>
           </div>
         )}
       </Card>
