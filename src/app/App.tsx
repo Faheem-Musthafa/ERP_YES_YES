@@ -102,7 +102,7 @@ const AppRoutes = () => {
       {/* Accounts Routes */}
       <Route path="/accounts" element={<ProtectedRoute allowedRoles={['accounts']}><AccountsDashboard /></ProtectedRoute>} />
       <Route path="/accounts/collection-status" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><CollectionStatus /></ProtectedRoute>} />
-      <Route path="/accounts/pending-orders" element={<ProtectedRouteNoLayout allowedRoles={['accounts', 'admin']}><OrderReview /></ProtectedRouteNoLayout>} />
+      <Route path="/accounts/pending-orders" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><OrderReview /></ProtectedRoute>} />
       <Route path="/accounts/sales" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><SalesRecords /></ProtectedRoute>} />
       <Route path="/accounts/payments" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><div className="p-8"><h1 className="text-2xl font-semibold">Payments</h1><p className="text-gray-600 mt-2">Coming soon...</p></div></ProtectedRoute>} />
 

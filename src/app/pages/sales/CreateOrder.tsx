@@ -387,7 +387,7 @@ export const CreateOrder = () => {
           </Card>
 
           <div className="space-y-2">
-            <Label>Site Address *</Label>
+            <Label>Site Address </Label>
             <Textarea value={siteAddress} onChange={e => setSiteAddress(e.target.value)} placeholder="Enter delivery site address" required rows={3} />
           </div>
 
