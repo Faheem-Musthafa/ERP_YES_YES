@@ -91,24 +91,17 @@ export const StaffManagement = () => {
         const generatedPassword = generatePassword(12);
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const res = await fetch(`https://ruwkgubpowdshpucmqxc.supabase.co/functions/v1/invite-user`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session?.access_token}`,
-                },
-                body: JSON.stringify({
+            const { data: result, error: fnError } = await supabase.functions.invoke('invite-user', {
+                body: {
                     email: form.email.trim().toLowerCase(),
                     full_name: form.full_name.trim(),
                     role: form.role,
                     password: generatedPassword,
                     employee_id: form.employee_id.trim() || null,
-                }),
+                },
             });
 
-            const result = await res.json();
-            if (!res.ok || result.error) throw new Error(result.error || 'Failed to create user');
+            if (fnError || result?.error) throw new Error(result?.error || fnError?.message || 'Failed to create user');
 
             setCreatedUser({ name: form.full_name, email: form.email, password: generatedPassword });
             setCreateOpen(false);
@@ -120,6 +113,7 @@ export const StaffManagement = () => {
         } finally {
             setCreating(false);
         }
+
     };
 
     const handleCopyPassword = () => {
