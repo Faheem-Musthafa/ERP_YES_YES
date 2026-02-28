@@ -6,6 +6,8 @@ import { Login } from '@/app/pages/Login';
 import { ChangePassword } from './pages/ChangePassword';
 import { AdminDashboard } from '@/app/pages/admin/Dashboard';
 import { StaffManagement } from '@/app/pages/admin/StaffManagement';
+import { Customers } from '@/app/pages/admin/Customers';
+import { CustomerForm } from '@/app/pages/admin/CustomerForm';
 import { SalesDashboard } from '@/app/pages/sales/Dashboard';
 import { CreateOrder } from '@/app/pages/sales/CreateOrder';
 import { MyOrders } from '@/app/pages/sales/MyOrders';
@@ -82,7 +84,9 @@ const AppRoutes = () => {
       {/* Admin Routes */}
       <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
       <Route path="/admin/staff" element={<ProtectedRoute allowedRoles={['admin']}><StaffManagement /></ProtectedRoute>} />
-      <Route path="/admin/customers" element={<ProtectedRoute allowedRoles={['admin']}><div className="p-8"><h1 className="text-2xl font-semibold">Customers</h1><p className="text-gray-600 mt-2">Customer management coming soon...</p></div></ProtectedRoute>} />
+      <Route path="/admin/customers" element={<ProtectedRoute allowedRoles={['admin']}><Customers /></ProtectedRoute>} />
+      <Route path="/admin/customers/new" element={<ProtectedRoute allowedRoles={['admin']}><CustomerForm /></ProtectedRoute>} />
+      <Route path="/admin/customers/:id/edit" element={<ProtectedRoute allowedRoles={['admin']}><CustomerForm /></ProtectedRoute>} />
       <Route path="/admin/brands" element={<ProtectedRoute allowedRoles={['admin']}><Brands /></ProtectedRoute>} />
       <Route path="/admin/products" element={<ProtectedRoute allowedRoles={['admin']}><Products /></ProtectedRoute>} />
       <Route path="/admin/orders" element={<ProtectedRoute allowedRoles={['admin']}><SalesRecords /></ProtectedRoute>} />

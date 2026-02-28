@@ -4,7 +4,7 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
-import { Plus, Pencil, Search } from 'lucide-react';
+import { Plus, Pencil, Search, Trash2 } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 
@@ -55,6 +55,13 @@ export const Brands = () => {
     fetchBrands();
   };
 
+  const deleteBrand = async (b: any) => {
+    if (!window.confirm(`Delete brand "${b.name}" permanently? This cannot be undone.`)) return;
+    const { error } = await supabase.from('brands').delete().eq('id', b.id);
+    if (error) toast.error('Failed to delete brand');
+    else { toast.success('Brand deleted'); fetchBrands(); }
+  };
+
   const filtered = brands.filter(b => !search || b.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -99,6 +106,9 @@ export const Brands = () => {
                         <Button size="sm" variant="outline" onClick={() => openEdit(b)} className="h-8"><Pencil size={14} /></Button>
                         <Button size="sm" variant="outline" onClick={() => toggleActive(b)} className={`h-8 text-xs ${b.is_active ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}>
                           {b.is_active ? 'Deactivate' : 'Activate'}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => deleteBrand(b)} className="h-8 text-red-600 border-red-200 hover:bg-red-50" title="Delete permanently">
+                          <Trash2 size={14} />
                         </Button>
                       </div>
                     </td>

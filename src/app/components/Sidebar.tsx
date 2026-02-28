@@ -179,7 +179,7 @@ export const Sidebar = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-5 scrollbar-thin">
+      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-5 custom-scrollbar">
         {groups.map((group) => (
           <div key={group.title}>
             <p className="text-[10px] font-bold text-teal-800 uppercase tracking-widest px-3 mb-2">

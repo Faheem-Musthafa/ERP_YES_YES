@@ -5,7 +5,7 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
-import { Plus, Pencil, Search } from 'lucide-react';
+import { Plus, Pencil, Search, Trash2 } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 
@@ -56,6 +56,13 @@ export const Products = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const deleteProduct = async (p: any) => {
+    if (!window.confirm(`Delete "${p.name}" permanently? This cannot be undone.`)) return;
+    const { error } = await supabase.from('products').delete().eq('id', p.id);
+    if (error) toast.error('Failed to delete product');
+    else { toast.success('Product deleted'); fetchData(); }
   };
 
   const filtered = products.filter(p => {
@@ -119,7 +126,12 @@ export const Products = () => {
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{p.is_active ? 'Active' : 'Inactive'}</span>
                     </td>
                     <td className="p-3 text-center">
-                      <Button size="sm" variant="outline" onClick={() => openEdit(p)} className="h-8"><Pencil size={14} /></Button>
+                      <div className="flex justify-center gap-2">
+                        <Button size="sm" variant="outline" onClick={() => openEdit(p)} className="h-8"><Pencil size={14} /></Button>
+                        <Button size="sm" variant="outline" onClick={() => deleteProduct(p)} className="h-8 text-red-600 border-red-200 hover:bg-red-50" title="Delete permanently">
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

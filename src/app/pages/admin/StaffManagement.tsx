@@ -10,7 +10,7 @@ import {
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/app/components/ui/dialog';
-import { Search, Plus, Copy, Check, UserPlus, Eye, EyeOff, Shield, Users } from 'lucide-react';
+import { Search, Plus, Copy, Check, UserPlus, Eye, EyeOff, Shield, Users, Trash2 } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 
@@ -133,6 +133,14 @@ export const StaffManagement = () => {
         else { toast.success(`${u.full_name} ${!u.is_active ? 'activated' : 'deactivated'}`); fetchUsers(); }
     };
 
+    const handleDeleteStaff = async (u: any) => {
+        if (u.role === 'admin') { toast.error('Cannot delete admin accounts'); return; }
+        if (!window.confirm(`Delete "${u.full_name}" permanently? This cannot be undone.`)) return;
+        const { error } = await supabase.from('users').delete().eq('id', u.id);
+        if (error) toast.error('Failed to delete staff');
+        else { toast.success('Staff account deleted'); fetchUsers(); }
+    };
+
     const filtered = users.filter(u =>
         !search ||
         u.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -240,17 +248,29 @@ export const StaffManagement = () => {
                                         </td>
                                         <td className="p-3 text-sm text-gray-500">{new Date(u.created_at).toLocaleDateString()}</td>
                                         <td className="p-3 text-center">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleToggleActive(u)}
-                                                className={`h-8 text-xs ${u.is_active
-                                                    ? 'text-red-600 border-red-200 hover:bg-red-50'
-                                                    : 'text-green-600 border-green-200 hover:bg-green-50'}`}
-                                                disabled={u.role === 'admin'}
-                                            >
-                                                {u.is_active ? 'Deactivate' : 'Activate'}
-                                            </Button>
+                                            <div className="flex items-center justify-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handleToggleActive(u)}
+                                                    className={`h-8 text-xs ${u.is_active
+                                                        ? 'text-red-600 border-red-200 hover:bg-red-50'
+                                                        : 'text-green-600 border-green-200 hover:bg-green-50'}`}
+                                                    disabled={u.role === 'admin'}
+                                                >
+                                                    {u.is_active ? 'Deactivate' : 'Activate'}
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handleDeleteStaff(u)}
+                                                    className="h-8 text-red-600 border-red-200 hover:bg-red-50"
+                                                    disabled={u.role === 'admin'}
+                                                    title={u.role === 'admin' ? 'Cannot delete admin' : 'Delete permanently'}
+                                                >
+                                                    <Trash2 size={14} />
+                                                </Button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
