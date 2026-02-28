@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { AuthProvider, useAuth } from '@/app/contexts/AuthContext';
 import { Layout } from '@/app/components/Layout';
 import { Login } from '@/app/pages/Login';
-import { Register } from './pages/Register';
 import { ChangePassword } from './pages/ChangePassword';
 import { AdminDashboard } from '@/app/pages/admin/Dashboard';
 import { StaffManagement } from '@/app/pages/admin/StaffManagement';
@@ -76,7 +75,6 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={user && !user.must_change_password ? <Navigate to="/" replace /> : <Login />} />
-      <Route path="/register" element={<Register />} />
 
       {/* First-login password change — no Layout, just auth check */}
       <Route path="/change-password" element={<ChangePassword />} />

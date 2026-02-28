@@ -2,23 +2,10 @@ import React from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '@/app/contexts/AuthContext';
 import {
-  LayoutDashboard,
-  Users,
-  Package,
-  ShoppingCart,
-  TrendingUp,
-  BarChart3,
-  FileText,
-  LogOut,
-  UserCircle,
-  DollarSign,
-  FileCheck,
-  Boxes,
-  Plus,
-  Receipt,
-  Wallet,
-  ClipboardCheck,
-  Truck,
+  LayoutDashboard, Users, Package, ShoppingCart, TrendingUp,
+  BarChart3, FileText, LogOut, DollarSign, FileCheck, Boxes,
+  Plus, Receipt, Wallet, ClipboardCheck, Truck, Shield,
+  UserCircle, ChevronRight,
 } from 'lucide-react';
 
 interface NavItem {
@@ -27,99 +14,219 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+const useNavGroups = (role: string | undefined): NavGroup[] => {
+  if (role === 'admin') return [
+    {
+      title: 'Overview',
+      items: [
+        { label: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={18} /> },
+        { label: 'Staff Management', path: '/admin/staff', icon: <Users size={18} /> },
+        { label: 'Customers', path: '/admin/customers', icon: <UserCircle size={18} /> },
+      ],
+    },
+    {
+      title: 'Inventory',
+      items: [
+        { label: 'Brands', path: '/admin/brands', icon: <Package size={18} /> },
+        { label: 'Products', path: '/admin/products', icon: <Boxes size={18} /> },
+        { label: 'Stock', path: '/stock', icon: <BarChart3 size={18} /> },
+      ],
+    },
+    {
+      title: 'Sales & Finance',
+      items: [
+        { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={18} /> },
+        { label: 'All Orders', path: '/admin/orders', icon: <ShoppingCart size={18} /> },
+        { label: 'Pending Approval', path: '/accounts/pending-orders', icon: <FileCheck size={18} /> },
+        { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={18} /> },
+        { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={18} /> },
+        { label: 'Sales Records', path: '/admin/sales', icon: <TrendingUp size={18} /> },
+        { label: 'Reports', path: '/admin/reports', icon: <FileText size={18} /> },
+      ],
+    },
+  ];
+
+  if (role === 'sales') return [
+    {
+      title: 'My Performance',
+      items: [
+        { label: 'Dashboard', path: '/sales', icon: <LayoutDashboard size={18} /> },
+      ],
+    },
+    {
+      title: 'Orders',
+      items: [
+        { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={18} /> },
+        { label: 'My Orders', path: '/sales/my-orders', icon: <ShoppingCart size={18} /> },
+      ],
+    },
+    {
+      title: 'Collections',
+      items: [
+        { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={18} /> },
+        { label: 'My Collection', path: '/sales/my-collection', icon: <Wallet size={18} /> },
+      ],
+    },
+  ];
+
+  if (role === 'accounts') return [
+    {
+      title: 'Overview',
+      items: [
+        { label: 'Dashboard', path: '/accounts', icon: <LayoutDashboard size={18} /> },
+      ],
+    },
+    {
+      title: 'Approvals',
+      items: [
+        { label: 'Pending Orders', path: '/accounts/pending-orders', icon: <FileCheck size={18} /> },
+        { label: 'Sales Records', path: '/accounts/sales', icon: <TrendingUp size={18} /> },
+      ],
+    },
+    {
+      title: 'Finance',
+      items: [
+        { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={18} /> },
+        { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={18} /> },
+        { label: 'Stock View', path: '/stock', icon: <Package size={18} /> },
+      ],
+    },
+  ];
+
+  if (role === 'inventory') return [
+    {
+      title: 'Overview',
+      items: [
+        { label: 'Dashboard', path: '/inventory', icon: <LayoutDashboard size={18} /> },
+      ],
+    },
+    {
+      title: 'Stock',
+      items: [
+        { label: 'Inventory Stock', path: '/inventory/stock', icon: <Boxes size={18} /> },
+        { label: 'Stock Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={18} /> },
+        { label: 'Delivery Management', path: '/inventory/delivery', icon: <Truck size={18} /> },
+      ],
+    },
+    {
+      title: 'Catalogue',
+      items: [
+        { label: 'Brands', path: '/inventory/brands', icon: <Package size={18} /> },
+        { label: 'Products', path: '/inventory/products', icon: <ShoppingCart size={18} /> },
+        { label: 'Reports', path: '/inventory/reports', icon: <BarChart3 size={18} /> },
+      ],
+    },
+  ];
+
+  return [];
+};
+
+const ROLE_BADGE: Record<string, { label: string; color: string }> = {
+  admin: { label: 'Administrator', color: 'bg-purple-500/20 text-purple-200' },
+  sales: { label: 'Sales Executive', color: 'bg-blue-500/20 text-blue-200' },
+  accounts: { label: 'Accounts', color: 'bg-green-500/20 text-green-200' },
+  inventory: { label: 'Inventory', color: 'bg-orange-500/20 text-orange-200' },
+};
+
+const getInitials = (name: string) =>
+  name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
 export const Sidebar = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const groups = useNavGroups(user?.role);
+  const roleBadge = ROLE_BADGE[user?.role ?? ''];
 
-  const getNavItems = (): NavItem[] => {
-    if (user?.role === 'admin') {
-      return [
-        { label: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={20} /> },
-        { label: 'Staff Management', path: '/admin/staff', icon: <Users size={20} /> },
-        { label: 'Customers', path: '/admin/customers', icon: <UserCircle size={20} /> },
-        { label: 'Brands', path: '/admin/brands', icon: <Package size={20} /> },
-        { label: 'Products', path: '/admin/products', icon: <Boxes size={20} /> },
-        { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={20} /> },
-        { label: 'All Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
-        { label: 'Pending Orders', path: '/accounts/pending-orders', icon: <FileCheck size={20} /> },
-        { label: 'Sales', path: '/admin/sales', icon: <TrendingUp size={20} /> },
-        { label: 'Receipt', path: '/sales/receipt', icon: <Receipt size={20} /> },
-        { label: 'My Collection', path: '/sales/my-collection', icon: <Wallet size={20} /> },
-        { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={20} /> },
-        { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={20} /> },
-        { label: 'Stock', path: '/stock', icon: <Package size={20} /> },
-        { label: 'Reports', path: '/admin/reports', icon: <FileText size={20} /> },
-      ];
-    } else if (user?.role === 'sales') {
-      return [
-        { label: 'Dashboard', path: '/sales', icon: <LayoutDashboard size={20} /> },
-        { label: 'Create Order', path: '/sales/create-order', icon: <ShoppingCart size={20} /> },
-        { label: 'My Orders', path: '/sales/my-orders', icon: <FileText size={20} /> },
-        { label: 'Receipt', path: '/sales/receipt', icon: <Receipt size={20} /> },
-        { label: 'My Collection', path: '/sales/my-collection', icon: <Wallet size={20} /> },
-      ];
-    } else if (user?.role === 'accounts') {
-      return [
-        { label: 'Dashboard', path: '/accounts', icon: <LayoutDashboard size={20} /> },
-        { label: 'Pending Orders', path: '/accounts/pending-orders', icon: <FileCheck size={20} /> },
-        { label: 'Sales Records', path: '/accounts/sales', icon: <TrendingUp size={20} /> },
-        { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={20} /> },
-        { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={20} /> },
-        { label: 'Stock', path: '/stock', icon: <Package size={20} /> },
-      ];
-    } else if (user?.role === 'inventory') {
-      return [
-        { label: 'Dashboard', path: '/inventory', icon: <LayoutDashboard size={20} /> },
-        { label: 'Stock', path: '/inventory/stock', icon: <Boxes size={20} /> },
-        { label: 'Brands', path: '/inventory/brands', icon: <Package size={20} /> },
-        { label: 'Products', path: '/inventory/products', icon: <ShoppingCart size={20} /> },
-        { label: 'Stock Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={20} /> },
-        { label: 'Delivery Management', path: '/inventory/delivery', icon: <Truck size={20} /> },
-        { label: 'Reports', path: '/inventory/reports', icon: <BarChart3 size={20} /> },
-      ];
+  const isActive = (path: string) => {
+    if (path === '/admin' || path === '/sales' || path === '/accounts' || path === '/inventory') {
+      return location.pathname === path;
     }
-    return [];
+    return location.pathname.startsWith(path);
   };
 
-  const navItems = getNavItems();
-
   return (
-    <div className="w-64 h-screen bg-[#1e3a8a] text-white flex flex-col fixed left-0 top-0">
-      <div className="p-6 border-b border-blue-700">
-        <h1 className="text-xl font-semibold">YES YES MARKETING</h1>
-        <p className="text-sm text-blue-200 mt-1">{user?.name}</p>
+    <div className="w-64 h-screen bg-[#0f2260] text-white flex flex-col fixed left-0 top-0 shadow-2xl">
+
+      {/* Brand */}
+      <div className="px-5 pt-6 pb-5 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-gradient-to-br from-[#f97316] to-[#ea580c] rounded-xl flex items-center justify-center shadow-lg shrink-0">
+            <Shield size={18} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold text-white leading-tight">YES YES MARKETING</h1>
+            <p className="text-xs text-blue-300 mt-0.5">ERP System</p>
+          </div>
+        </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto p-4">
-        <ul className="space-y-2">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-[#f97316] text-white'
-                      : 'text-blue-100 hover:bg-blue-800 hover:text-white'
-                  }`}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+      {/* User Profile */}
+      <div className="px-4 py-4 border-b border-white/10">
+        <div className="flex items-center gap-3 bg-white/5 rounded-xl p-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#f97316] to-[#ea580c] flex items-center justify-center text-sm font-bold text-white shrink-0">
+            {getInitials(user?.full_name ?? 'U')}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white truncate">{user?.full_name}</p>
+            {roleBadge && (
+              <span className={`inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full font-medium ${roleBadge.color}`}>
+                {roleBadge.label}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-5 scrollbar-thin">
+        {groups.map((group) => (
+          <div key={group.title}>
+            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest px-3 mb-2">
+              {group.title}
+            </p>
+            <ul className="space-y-0.5">
+              {group.items.map((item) => {
+                const active = isActive(item.path);
+                return (
+                  <li key={item.path}>
+                    <Link
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group relative ${active
+                          ? 'bg-white/10 text-white'
+                          : 'text-blue-200 hover:bg-white/5 hover:text-white'
+                        }`}
+                    >
+                      {/* Active left accent */}
+                      {active && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#f97316] rounded-r-full" />
+                      )}
+                      <span className={`transition-colors ${active ? 'text-[#f97316]' : 'text-blue-300 group-hover:text-white'}`}>
+                        {item.icon}
+                      </span>
+                      <span className="flex-1">{item.label}</span>
+                      {active && <ChevronRight size={14} className="text-[#f97316] opacity-70" />}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
-      <div className="p-4 border-t border-blue-700">
+      {/* Logout */}
+      <div className="px-3 py-4 border-t border-white/10">
         <button
           onClick={logout}
-          className="flex items-center gap-3 px-4 py-3 rounded-lg text-blue-100 hover:bg-blue-800 hover:text-white transition-colors w-full"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-blue-200 hover:bg-red-500/10 hover:text-red-400 transition-all duration-150 group"
         >
-          <LogOut size={20} />
-          <span>Logout</span>
+          <LogOut size={18} className="group-hover:text-red-400 transition-colors" />
+          <span>Sign Out</span>
         </button>
       </div>
     </div>
