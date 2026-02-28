@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -189,20 +189,20 @@ export const ReceiptEntry = () => {
                 <div className="space-y-2">
                   <Label>Phone *</Label>
                   <div className="relative">
-                    <Input type="tel" value={customerPhone} onChange={e => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }} placeholder="Phone number" required className={phoneAutoFilled ? 'bg-blue-50 pr-10' : ''} />
-                    {phoneAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-600" />}
+                    <Input type="tel" value={customerPhone} onChange={e => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }} placeholder="Phone number" required className={phoneAutoFilled ? 'bg-teal-50 pr-10' : ''} />
+                    {phoneAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-teal-600" />}
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>GST / PAN</Label>
                   <div className="relative">
-                    <Input value={customerGst} onChange={e => { setCustomerGst(e.target.value); setGstAutoFilled(false); }} placeholder="Optional" className={gstAutoFilled ? 'bg-blue-50 pr-10' : ''} />
-                    {gstAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-600" />}
+                    <Input value={customerGst} onChange={e => { setCustomerGst(e.target.value); setGstAutoFilled(false); }} placeholder="Optional" className={gstAutoFilled ? 'bg-teal-50 pr-10' : ''} />
+                    {gstAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-teal-600" />}
                   </div>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label>Address *</Label>
-                  <Textarea value={customerAddress} onChange={e => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }} placeholder="Customer address" required rows={3} className={addressAutoFilled ? 'bg-blue-50' : ''} />
+                  <Textarea value={customerAddress} onChange={e => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }} placeholder="Customer address" required rows={3} className={addressAutoFilled ? 'bg-teal-50' : ''} />
                 </div>
               </div>
             )}
@@ -214,7 +214,7 @@ export const ReceiptEntry = () => {
               <div className="space-y-2">
                 <Label>Received Amount *</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">₹</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">â‚¹</span>
                   <Input type="number" value={receivedAmount} onChange={e => setReceivedAmount(e.target.value)} placeholder="0.00" required className="pl-8" />
                 </div>
               </div>
@@ -231,7 +231,7 @@ export const ReceiptEntry = () => {
                       <SelectItem key={o.id} value={o.id}>
                         <div className="flex flex-col py-1">
                           <span className="font-medium">{o.order_number}</span>
-                          <span className="text-xs text-gray-500">{o.customers?.name} • ₹{o.grand_total?.toLocaleString('en-IN')} • {new Date(o.created_at).toLocaleDateString()}</span>
+                          <span className="text-xs text-gray-500">{o.customers?.name} â€¢ â‚¹{o.grand_total?.toLocaleString('en-IN')} â€¢ {new Date(o.created_at).toLocaleDateString()}</span>
                         </div>
                       </SelectItem>
                     ))}

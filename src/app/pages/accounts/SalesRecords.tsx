@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Input } from '@/app/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
@@ -35,7 +35,7 @@ export const SalesRecords = () => {
 
   const statusColor: Record<string, string> = {
     Approved: 'bg-green-100 text-green-700',
-    Billed: 'bg-blue-100 text-blue-700',
+    Billed: 'bg-teal-100 text-teal-700',
     Delivered: 'bg-purple-100 text-purple-700',
   };
 
@@ -89,14 +89,14 @@ export const SalesRecords = () => {
               <tbody>
                 {filtered.map(o => (
                   <tr key={o.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 text-sm font-medium text-[#1e3a8a]">{o.order_number}</td>
+                    <td className="p-3 text-sm font-medium text-[#34b0a7]">{o.order_number}</td>
                     <td className="p-3 text-sm text-gray-700">{o.customers?.name ?? '-'}</td>
                     <td className="p-3 text-sm text-gray-700">{o.company}</td>
                     <td className="p-3 text-sm text-gray-700">{o.invoice_type}</td>
                     <td className="p-3 text-center">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor[o.status] ?? 'bg-gray-100 text-gray-600'}`}>{o.status}</span>
                     </td>
-                    <td className="p-3 text-sm text-right font-semibold">₹ {o.grand_total?.toLocaleString('en-IN')}</td>
+                    <td className="p-3 text-sm text-right font-semibold">â‚¹ {o.grand_total?.toLocaleString('en-IN')}</td>
                     <td className="p-3 text-sm text-gray-500">{o.approved_at ? new Date(o.approved_at).toLocaleDateString() : '-'}</td>
                   </tr>
                 ))}

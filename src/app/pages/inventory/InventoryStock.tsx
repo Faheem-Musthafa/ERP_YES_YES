@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Input } from '@/app/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
@@ -34,7 +34,7 @@ export const InventoryStock = () => {
 
   const stockStatus = (qty: number) => {
     if (qty === 0) return { label: 'Out of Stock', cls: 'bg-red-100 text-red-700' };
-    if (qty <= 5) return { label: 'Low Stock', cls: 'bg-orange-100 text-orange-700' };
+    if (qty <= 5) return { label: 'Low Stock', cls: 'bg-teal-100 text-teal-700' };
     return { label: 'In Stock', cls: 'bg-green-100 text-green-700' };
   };
 
@@ -80,7 +80,7 @@ export const InventoryStock = () => {
                       <td className="p-3 text-sm font-medium">{p.name}</td>
                       <td className="p-3 text-sm text-gray-600">{p.brands?.name ?? '-'}</td>
                       <td className="p-3 text-sm font-mono text-gray-600">{p.sku}</td>
-                      <td className="p-3 text-sm text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
+                      <td className="p-3 text-sm text-right">â‚¹ {p.dealer_price?.toLocaleString('en-IN')}</td>
                       <td className="p-3 text-sm text-right font-bold">{p.stock_qty}</td>
                       <td className="p-3 text-center"><span className={`px-3 py-1 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span></td>
                     </tr>

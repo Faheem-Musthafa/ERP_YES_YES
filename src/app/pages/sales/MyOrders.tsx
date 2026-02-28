@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -38,10 +38,10 @@ export const MyOrders = () => {
   });
 
   const statusColor: Record<string, string> = {
-    Pending: 'bg-orange-100 text-orange-700',
+    Pending: 'bg-teal-100 text-teal-700',
     Approved: 'bg-green-100 text-green-700',
     Rejected: 'bg-red-100 text-red-700',
-    Billed: 'bg-blue-100 text-blue-700',
+    Billed: 'bg-teal-100 text-teal-700',
     Delivered: 'bg-purple-100 text-purple-700',
   };
 
@@ -79,7 +79,7 @@ export const MyOrders = () => {
           <div className="text-center py-12">
             <FileText size={48} className="text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500">No orders found.</p>
-            <Button className="mt-4 bg-[#f97316] hover:bg-[#f97316]/90" onClick={() => navigate('/sales/create-order')}>Create Order</Button>
+            <Button className="mt-4 bg-[#34b0a7] hover:bg-[#34b0a7]/90" onClick={() => navigate('/sales/create-order')}>Create Order</Button>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -99,11 +99,11 @@ export const MyOrders = () => {
               <tbody>
                 {filtered.map(order => (
                   <tr key={order.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 text-sm font-medium text-[#1e3a8a]">{order.order_number}</td>
+                    <td className="p-3 text-sm font-medium text-[#34b0a7]">{order.order_number}</td>
                     <td className="p-3 text-sm text-gray-700">{order.customers?.name ?? '-'}</td>
                     <td className="p-3 text-sm text-gray-700">{order.company}</td>
                     <td className="p-3 text-sm text-gray-700">{order.invoice_type}</td>
-                    <td className="p-3 text-sm text-right font-semibold">₹ {order.grand_total?.toLocaleString('en-IN')}</td>
+                    <td className="p-3 text-sm text-right font-semibold">â‚¹ {order.grand_total?.toLocaleString('en-IN')}</td>
                     <td className="p-3 text-sm text-gray-700">{order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : '-'}</td>
                     <td className="p-3 text-center">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor[order.status] ?? 'bg-gray-100 text-gray-700'}`}>{order.status}</span>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import {
@@ -7,14 +7,14 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router';
 
-const fmt = (n: number) => `₹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-const fmtK = (n: number) => n >= 100000 ? `₹ ${(n / 100000).toFixed(1)}L` : n >= 1000 ? `₹ ${(n / 1000).toFixed(1)}K` : fmt(n);
+const fmt = (n: number) => `â‚¹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+const fmtK = (n: number) => n >= 100000 ? `â‚¹ ${(n / 100000).toFixed(1)}L` : n >= 1000 ? `â‚¹ ${(n / 1000).toFixed(1)}K` : fmt(n);
 
 const STATUS_COLOR: Record<string, string> = {
   Pending: 'bg-yellow-100 text-yellow-700',
   Approved: 'bg-green-100 text-green-700',
   Rejected: 'bg-red-100 text-red-700',
-  Billed: 'bg-blue-100 text-blue-700',
+  Billed: 'bg-teal-100 text-teal-700',
   Delivered: 'bg-purple-100 text-purple-700',
 };
 
@@ -85,7 +85,7 @@ export const SalesDashboard = () => {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
@@ -98,19 +98,19 @@ export const SalesDashboard = () => {
           <p className="text-gray-500 mt-1">Welcome back, {user?.full_name}. Here's your performance overview.</p>
         </div>
         <Link to="/sales/create-order">
-          <button className="bg-[#1e3a8a] hover:bg-[#1e40af] text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors">
+          <button className="bg-[#34b0a7] hover:bg-[#1e40af] text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors">
             <ShoppingCart size={16} /> New Order
           </button>
         </Link>
       </div>
 
       {/* Target Card */}
-      <div className="bg-gradient-to-r from-[#1e3a8a] to-[#1e40af] rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-[#34b0a7] to-[#1e40af] rounded-2xl p-6 text-white">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-blue-200 text-sm font-medium">{monthName} Target</p>
+            <p className="text-teal-200 text-sm font-medium">{monthName} Target</p>
             <p className="text-3xl font-bold mt-1">{fmtK(stats.myMonthSales)}</p>
-            <p className="text-blue-200 text-sm mt-1">of {fmtK(MONTHLY_TARGET)} target</p>
+            <p className="text-teal-200 text-sm mt-1">of {fmtK(MONTHLY_TARGET)} target</p>
           </div>
           <div className="relative w-20 h-20">
             <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
@@ -128,8 +128,8 @@ export const SalesDashboard = () => {
         <div className="h-2 bg-white/20 rounded-full overflow-hidden">
           <div className="h-full bg-white rounded-full transition-all duration-700" style={{ width: `${targetPct}%` }} />
         </div>
-        <div className="flex justify-between mt-2 text-xs text-blue-200">
-          <span>₹0</span>
+        <div className="flex justify-between mt-2 text-xs text-teal-200">
+          <span>â‚¹0</span>
           <span>{fmtK(MONTHLY_TARGET)}</span>
         </div>
       </div>
@@ -138,8 +138,8 @@ export const SalesDashboard = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Total My Sales', value: fmtK(stats.myOrdersTotal), sub: `${stats.totalOrders} orders total`, icon: <TrendingUp size={20} />, color: 'bg-green-50 text-green-600' },
-          { label: 'This Month Orders', value: stats.myMonthOrders, sub: `${stats.myPending} pending`, icon: <ShoppingCart size={20} />, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Month Collection', value: fmtK(stats.myMonthCollected), sub: `Total: ${fmtK(stats.myCollected)}`, icon: <DollarSign size={20} />, color: 'bg-orange-50 text-orange-600' },
+          { label: 'This Month Orders', value: stats.myMonthOrders, sub: `${stats.myPending} pending`, icon: <ShoppingCart size={20} />, color: 'bg-teal-50 text-teal-600' },
+          { label: 'Month Collection', value: fmtK(stats.myMonthCollected), sub: `Total: ${fmtK(stats.myCollected)}`, icon: <DollarSign size={20} />, color: 'bg-teal-50 text-teal-600' },
           { label: 'Approved Orders', value: stats.myApproved, sub: `${stats.myPending} pending approval`, icon: <CheckCircle size={20} />, color: 'bg-purple-50 text-purple-600' },
         ].map((c, i) => (
           <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
@@ -156,7 +156,7 @@ export const SalesDashboard = () => {
         {/* Weekly Performance */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-base font-semibold text-gray-800 mb-5 flex items-center gap-2">
-            <Activity size={18} className="text-[#1e3a8a]" /> {monthName} Weekly Performance
+            <Activity size={18} className="text-[#34b0a7]" /> {monthName} Weekly Performance
           </h2>
           <div className="flex items-end gap-3 h-32">
             {monthlyData.map((d, i) => {
@@ -166,7 +166,7 @@ export const SalesDashboard = () => {
                   <span className="text-xs text-gray-500 font-medium">{fmtK(d.sales)}</span>
                   <div className="w-full flex items-end" style={{ height: '80px' }}>
                     <div
-                      className="w-full rounded-t-lg bg-[#1e3a8a] transition-all duration-700 hover:bg-[#1e40af]"
+                      className="w-full rounded-t-lg bg-[#34b0a7] transition-all duration-700 hover:bg-[#1e40af]"
                       style={{ height: `${Math.max(pct, 4)}%` }}
                     />
                   </div>
@@ -181,9 +181,9 @@ export const SalesDashboard = () => {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-gray-800 flex items-center gap-2">
-              <Clock size={18} className="text-[#1e3a8a]" /> My Recent Orders
+              <Clock size={18} className="text-[#34b0a7]" /> My Recent Orders
             </h2>
-            <Link to="/sales/my-orders" className="text-xs text-[#1e3a8a] font-medium hover:underline flex items-center gap-1">
+            <Link to="/sales/my-orders" className="text-xs text-[#34b0a7] font-medium hover:underline flex items-center gap-1">
               View all <ArrowRight size={12} />
             </Link>
           </div>
@@ -194,8 +194,8 @@ export const SalesDashboard = () => {
               {recentOrders.map(order => (
                 <div key={order.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                   <div>
-                    <p className="text-sm font-medium text-gray-800">{(order.customers as any)?.name ?? '—'}</p>
-                    <p className="text-xs text-gray-400">{order.order_number} · {new Date(order.created_at).toLocaleDateString('en-IN')}</p>
+                    <p className="text-sm font-medium text-gray-800">{(order.customers as any)?.name ?? 'â€”'}</p>
+                    <p className="text-xs text-gray-400">{order.order_number} Â· {new Date(order.created_at).toLocaleDateString('en-IN')}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-gray-700">{fmt(order.grand_total ?? 0)}</span>
@@ -211,9 +211,9 @@ export const SalesDashboard = () => {
       {/* Quick Actions */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Create Order', icon: <ShoppingCart size={20} />, to: '/sales/create-order', color: 'bg-[#1e3a8a] text-white' },
+          { label: 'Create Order', icon: <ShoppingCart size={20} />, to: '/sales/create-order', color: 'bg-[#34b0a7] text-white' },
           { label: 'Add Receipt', icon: <DollarSign size={20} />, to: '/sales/receipt', color: 'bg-green-600 text-white' },
-          { label: 'My Collection', icon: <Package size={20} />, to: '/sales/my-collection', color: 'bg-orange-600 text-white' },
+          { label: 'My Collection', icon: <Package size={20} />, to: '/sales/my-collection', color: 'bg-teal-600 text-white' },
         ].map((a, i) => (
           <Link key={i} to={a.to}>
             <div className={`${a.color} rounded-xl p-4 flex flex-col items-center gap-2 hover:opacity-90 transition-opacity cursor-pointer`}>

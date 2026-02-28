@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Badge } from '@/app/components/ui/badge';
@@ -134,7 +134,7 @@ export const OrderReview = () => {
           </Button>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="p-6">
-              <h2 className="text-xl font-bold mb-4 text-[#1e3a8a]">Order Details</h2>
+              <h2 className="text-xl font-bold mb-4 text-[#34b0a7]">Order Details</h2>
               <div className="space-y-2 text-sm text-gray-700 mb-6">
                 <div className="flex justify-between"><span className="text-gray-500">Order No:</span><span className="font-semibold">{selectedOrder.order_number}</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">Company:</span><span>{selectedOrder.company}</span></div>
@@ -157,22 +157,22 @@ export const OrderReview = () => {
                     <tr key={i.id} className="border-b">
                       <td className="p-2">{i.productName}</td>
                       <td className="p-2 text-right">{i.quantity}</td>
-                      <td className="p-2 text-right">₹{i.dealer_price.toLocaleString('en-IN')}</td>
+                      <td className="p-2 text-right">â‚¹{i.dealer_price.toLocaleString('en-IN')}</td>
                       <td className="p-2 text-right">{i.discount_pct}%</td>
-                      <td className="p-2 text-right font-medium">₹{i.amount.toLocaleString('en-IN')}</td>
+                      <td className="p-2 text-right font-medium">â‚¹{i.amount.toLocaleString('en-IN')}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="font-bold border-t">
                     <td colSpan={4} className="p-2 text-right">Requested Total:</td>
-                    <td className="p-2 text-right">₹{requestedTotal.toLocaleString('en-IN')}</td>
+                    <td className="p-2 text-right">â‚¹{requestedTotal.toLocaleString('en-IN')}</td>
                   </tr>
                 </tfoot>
               </table>
             </Card>
             <Card className="p-6">
-              <h2 className="text-xl font-bold mb-4 text-[#1e3a8a]">Pricing Approval</h2>
+              <h2 className="text-xl font-bold mb-4 text-[#34b0a7]">Pricing Approval</h2>
               <table className="w-full text-sm mb-4">
                 <thead className="bg-gray-50 border-b">
                   <tr>
@@ -192,14 +192,14 @@ export const OrderReview = () => {
                       <td className="p-2">
                         <input type="number" min="0" max="100" value={i.approvedDiscount} onChange={e => updateApprovedField(i.id, 'approvedDiscount', Number(e.target.value))} className="w-20 text-right border rounded px-2 py-1 text-sm" />
                       </td>
-                      <td className="p-2 text-right font-medium text-green-700">₹{i.approvedAmount.toLocaleString('en-IN')}</td>
+                      <td className="p-2 text-right font-medium text-green-700">â‚¹{i.approvedAmount.toLocaleString('en-IN')}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="font-bold border-t">
                     <td colSpan={3} className="p-2 text-right">Approved Total:</td>
-                    <td className="p-2 text-right text-green-700">₹{approvedTotal.toLocaleString('en-IN')}</td>
+                    <td className="p-2 text-right text-green-700">â‚¹{approvedTotal.toLocaleString('en-IN')}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -236,13 +236,13 @@ export const OrderReview = () => {
               <Card key={order.id} className="p-5 hover:shadow-md transition-shadow cursor-pointer" onClick={() => selectOrder(order)}>
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-bold text-[#1e3a8a]">{order.order_number}</p>
-                    <p className="text-sm text-gray-600 mt-1">{order.customers?.name ?? 'Unknown Customer'} • {order.company} • {order.invoice_type}</p>
+                    <p className="font-bold text-[#34b0a7]">{order.order_number}</p>
+                    <p className="text-sm text-gray-600 mt-1">{order.customers?.name ?? 'Unknown Customer'} â€¢ {order.company} â€¢ {order.invoice_type}</p>
                     <p className="text-xs text-gray-400 mt-1">{new Date(order.created_at).toLocaleDateString()}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-gray-900">₹ {order.grand_total?.toLocaleString('en-IN')}</p>
-                    <Badge className="mt-1 bg-orange-100 text-orange-700 border-0">Pending Review</Badge>
+                    <p className="font-bold text-gray-900">â‚¹ {order.grand_total?.toLocaleString('en-IN')}</p>
+                    <Badge className="mt-1 bg-teal-100 text-teal-700 border-0">Pending Review</Badge>
                   </div>
                 </div>
               </Card>

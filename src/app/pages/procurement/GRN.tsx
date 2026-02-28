@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -64,7 +64,7 @@ export const GRN = () => {
               <Input placeholder="Any additional notes" />
             </div>
 
-            <Button type="submit" className="w-full bg-[#1e3a8a] hover:bg-blue-900">
+            <Button type="submit" className="w-full bg-[#34b0a7] hover:bg-teal-900">
               <Plus size={16} className="mr-2" />
               Create GRN & Update Stock
             </Button>
@@ -76,7 +76,7 @@ export const GRN = () => {
           <div className="space-y-3">
             <div className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-blue-600">PO-2024-175</span>
+                <span className="text-sm font-medium text-teal-600">PO-2024-175</span>
                 <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">In Transit</span>
               </div>
               <p className="text-xs text-gray-600">Supplier A - 15 items</p>
@@ -85,7 +85,7 @@ export const GRN = () => {
 
             <div className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-blue-600">PO-2024-177</span>
+                <span className="text-sm font-medium text-teal-600">PO-2024-177</span>
                 <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">In Transit</span>
               </div>
               <p className="text-xs text-gray-600">Supplier C - 22 items</p>
@@ -113,7 +113,7 @@ export const GRN = () => {
               {recentGRNs.map((grn, index) => (
                 <tr key={index} className="border-b hover:bg-gray-50">
                   <td className="p-3 text-sm font-medium text-gray-900">{grn.grnNumber}</td>
-                  <td className="p-3 text-sm text-blue-600">{grn.poNumber}</td>
+                  <td className="p-3 text-sm text-teal-600">{grn.poNumber}</td>
                   <td className="p-3 text-sm">{grn.supplier}</td>
                   <td className="p-3 text-sm text-center">{grn.items}</td>
                   <td className="p-3 text-sm">{new Date(grn.receivedDate).toLocaleDateString()}</td>

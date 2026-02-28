@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import {
@@ -8,14 +8,14 @@ import {
 import { Link } from 'react-router';
 import { useNavigate } from 'react-router';
 
-const fmt = (n: number) => `₹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-const fmtK = (n: number) => n >= 100000 ? `₹ ${(n / 100000).toFixed(1)}L` : n >= 1000 ? `₹ ${(n / 1000).toFixed(1)}K` : fmt(n);
+const fmt = (n: number) => `â‚¹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+const fmtK = (n: number) => n >= 100000 ? `â‚¹ ${(n / 100000).toFixed(1)}L` : n >= 1000 ? `â‚¹ ${(n / 1000).toFixed(1)}K` : fmt(n);
 
 const STATUS_COLOR: Record<string, string> = {
   Pending: 'bg-yellow-100 text-yellow-700',
   Approved: 'bg-green-100 text-green-700',
   Rejected: 'bg-red-100 text-red-700',
-  Billed: 'bg-blue-100 text-blue-700',
+  Billed: 'bg-teal-100 text-teal-700',
   Delivered: 'bg-purple-100 text-purple-700',
 };
 
@@ -75,7 +75,7 @@ export const AccountsDashboard = () => {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
@@ -89,7 +89,7 @@ export const AccountsDashboard = () => {
         <p className="text-gray-500 mt-1">Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {user?.full_name}. Here's the financial overview.</p>
       </div>
 
-      {/* Alert Banner — if there are pending orders */}
+      {/* Alert Banner â€” if there are pending orders */}
       {stats.pendingOrders > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -121,7 +121,7 @@ export const AccountsDashboard = () => {
           {
             label: 'Total Collected', value: fmtK(stats.totalCollected),
             sub: `${stats.totalReceipts} receipts total`,
-            icon: <DollarSign size={20} />, color: 'bg-blue-50 text-blue-600',
+            icon: <DollarSign size={20} />, color: 'bg-teal-50 text-teal-600',
           },
           {
             label: 'Pending Approval', value: stats.pendingOrders,
@@ -154,23 +154,23 @@ export const AccountsDashboard = () => {
                 <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">{stats.pendingOrders}</span>
               )}
             </h2>
-            <Link to="/accounts/pending-orders" className="text-xs text-[#1e3a8a] font-medium hover:underline flex items-center gap-1">
+            <Link to="/accounts/pending-orders" className="text-xs text-[#34b0a7] font-medium hover:underline flex items-center gap-1">
               Review all <ArrowRight size={12} />
             </Link>
           </div>
           {pendingOrders.length === 0 ? (
             <div className="text-center py-8">
               <CheckCircle size={32} className="text-green-400 mx-auto mb-2" />
-              <p className="text-gray-400 text-sm">No pending orders — all clear!</p>
+              <p className="text-gray-400 text-sm">No pending orders â€” all clear!</p>
             </div>
           ) : (
             <div className="space-y-3">
               {pendingOrders.map(order => (
                 <div key={order.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                   <div>
-                    <p className="text-sm font-medium text-gray-800">{(order.customers as any)?.name ?? '—'}</p>
+                    <p className="text-sm font-medium text-gray-800">{(order.customers as any)?.name ?? 'â€”'}</p>
                     <p className="text-xs text-gray-400">
-                      {order.order_number} · by {(order.users as any)?.full_name ?? 'Unknown'}
+                      {order.order_number} Â· by {(order.users as any)?.full_name ?? 'Unknown'}
                     </p>
                   </div>
                   <div className="text-right">
@@ -187,9 +187,9 @@ export const AccountsDashboard = () => {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-gray-800 flex items-center gap-2">
-              <Receipt size={18} className="text-[#1e3a8a]" /> Recent Collections
+              <Receipt size={18} className="text-[#34b0a7]" /> Recent Collections
             </h2>
-            <Link to="/accounts/collection-status" className="text-xs text-[#1e3a8a] font-medium hover:underline flex items-center gap-1">
+            <Link to="/accounts/collection-status" className="text-xs text-[#34b0a7] font-medium hover:underline flex items-center gap-1">
               View all <ArrowRight size={12} />
             </Link>
           </div>
@@ -200,9 +200,9 @@ export const AccountsDashboard = () => {
               {recentReceipts.map(r => (
                 <div key={r.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                   <div>
-                    <p className="text-sm font-medium text-gray-800">{(r.orders as any)?.customers?.name ?? '—'}</p>
+                    <p className="text-sm font-medium text-gray-800">{(r.orders as any)?.customers?.name ?? 'â€”'}</p>
                     <p className="text-xs text-gray-400">
-                      {(r.orders as any)?.order_number ?? '—'} · {r.payment_mode ?? 'Cash'}
+                      {(r.orders as any)?.order_number ?? 'â€”'} Â· {r.payment_mode ?? 'Cash'}
                     </p>
                   </div>
                   <div className="text-right">
@@ -219,9 +219,9 @@ export const AccountsDashboard = () => {
       {/* Quick Actions */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Review Orders', icon: <FileText size={20} />, to: '/accounts/pending-orders', color: 'bg-[#1e3a8a] text-white' },
+          { label: 'Review Orders', icon: <FileText size={20} />, to: '/accounts/pending-orders', color: 'bg-[#34b0a7] text-white' },
           { label: 'Collection Status', icon: <TrendingUp size={20} />, to: '/accounts/collection-status', color: 'bg-green-600 text-white' },
-          { label: 'Sales Records', icon: <Receipt size={20} />, to: '/accounts/sales', color: 'bg-orange-600 text-white' },
+          { label: 'Sales Records', icon: <Receipt size={20} />, to: '/accounts/sales', color: 'bg-teal-600 text-white' },
         ].map((a, i) => (
           <Link key={i} to={a.to}>
             <div className={`${a.color} rounded-xl p-4 flex flex-col items-center gap-2 hover:opacity-90 transition-opacity cursor-pointer`}>

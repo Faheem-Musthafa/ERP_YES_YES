@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
+﻿import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import type { UserRole } from '../types/database';
 
@@ -69,12 +69,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      // *** SYNCHRONOUS handler *** — must NOT be async.
+      // *** SYNCHRONOUS handler *** â€” must NOT be async.
       // Calling supabase DB queries (even via fetchUserProfile) directly inside an async
       // onAuthStateChange handler causes a deadlock with Supabase's internal token refresh
       // on page reload: the DB query internally calls getSession() which waits for the
       // token refresh, but the token refresh fires TOKEN_REFRESHED which can't be processed
-      // until the current INITIAL_SESSION handler returns → deadlock → loading loop.
+      // until the current INITIAL_SESSION handler returns â†’ deadlock â†’ loading loop.
       //
       // Fix: Keep handler sync, defer DB work to next macrotask via setTimeout(0).
       (event, session) => {

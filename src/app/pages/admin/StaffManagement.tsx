@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -23,9 +23,9 @@ const ROLES = [
 
 const ROLE_COLORS: Record<string, string> = {
     admin: 'bg-purple-100 text-purple-700',
-    sales: 'bg-blue-100 text-blue-700',
+    sales: 'bg-teal-100 text-teal-700',
     accounts: 'bg-green-100 text-green-700',
-    inventory: 'bg-orange-100 text-orange-700',
+    inventory: 'bg-teal-100 text-teal-700',
     procurement: 'bg-pink-100 text-pink-700',
 };
 
@@ -146,14 +146,14 @@ export const StaffManagement = () => {
             <div className="flex justify-between items-start mb-6">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
-                        <Users size={24} className="text-[#1e3a8a]" />
+                        <Users size={24} className="text-[#34b0a7]" />
                         <h1 className="text-2xl font-semibold text-gray-900">Staff Management</h1>
                     </div>
                     <p className="text-gray-600">Create and manage staff accounts</p>
                 </div>
                 <Button
                     onClick={() => { setCreateOpen(true); setForm({ full_name: '', email: '', role: '', employee_id: '' }); }}
-                    className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white"
+                    className="bg-[#34b0a7] hover:bg-[#34b0a7]/90 text-white"
                 >
                     <UserPlus size={18} className="mr-2" />Create Staff Account
                 </Button>
@@ -195,7 +195,7 @@ export const StaffManagement = () => {
                     <div className="text-center py-16">
                         <Users size={48} className="text-gray-300 mx-auto mb-4" />
                         <p className="text-gray-500 text-lg">No staff accounts yet</p>
-                        <Button onClick={() => setCreateOpen(true)} className="mt-4 bg-[#1e3a8a] hover:bg-[#1e3a8a]/90">
+                        <Button onClick={() => setCreateOpen(true)} className="mt-4 bg-[#34b0a7] hover:bg-[#34b0a7]/90">
                             <UserPlus size={18} className="mr-2" />Create First Account
                         </Button>
                     </div>
@@ -235,7 +235,7 @@ export const StaffManagement = () => {
                                         </td>
                                         <td className="p-3 text-center">
                                             {u.must_change_password
-                                                ? <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">Pending</span>
+                                                ? <span className="px-2 py-1 bg-teal-100 text-teal-700 rounded text-xs font-medium">Pending</span>
                                                 : <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">Done</span>}
                                         </td>
                                         <td className="p-3 text-sm text-gray-500">{new Date(u.created_at).toLocaleDateString()}</td>
@@ -265,7 +265,7 @@ export const StaffManagement = () => {
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <UserPlus size={20} className="text-[#1e3a8a]" />Create Staff Account
+                            <UserPlus size={20} className="text-[#34b0a7]" />Create Staff Account
                         </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
@@ -305,15 +305,15 @@ export const StaffManagement = () => {
                                 placeholder="e.g. EMP-001"
                             />
                         </div>
-                        <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded p-3">
-                            A secure auto-generated password will be created. Share it with the staff member — they'll be prompted to change it on first login.
+                        <p className="text-xs text-gray-500 bg-teal-50 border border-teal-100 rounded p-3">
+                            A secure auto-generated password will be created. Share it with the staff member â€” they'll be prompted to change it on first login.
                         </p>
                     </div>
                     <DialogFooter className="gap-2">
                         <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
                         <Button
                             onClick={handleCreate}
-                            className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90"
+                            className="bg-[#34b0a7] hover:bg-[#34b0a7]/90"
                             disabled={creating}
                         >
                             {creating ? 'Creating...' : 'Create Account'}
@@ -345,7 +345,7 @@ export const StaffManagement = () => {
                                     <p className="text-xs text-gray-500 mb-1">Temporary Password</p>
                                     <div className="flex items-center gap-2 bg-white border rounded-lg px-3 py-2">
                                         <code className="flex-1 font-mono text-sm tracking-wider">
-                                            {passwordVisible ? createdUser.password : '•'.repeat(createdUser.password.length)}
+                                            {passwordVisible ? createdUser.password : 'â€¢'.repeat(createdUser.password.length)}
                                         </code>
                                         <button onClick={() => setPasswordVisible(v => !v)} className="text-gray-400 hover:text-gray-700">
                                             {passwordVisible ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -359,13 +359,13 @@ export const StaffManagement = () => {
                                     </div>
                                 </div>
                             </div>
-                            <p className="text-xs text-orange-700 bg-orange-50 border border-orange-100 rounded p-3">
-                                ⚠️ Save this password now — it won't be shown again. The staff member will be required to change it on first login.
+                            <p className="text-xs text-teal-700 bg-teal-50 border border-teal-100 rounded p-3">
+                                âš ï¸ Save this password now â€” it won't be shown again. The staff member will be required to change it on first login.
                             </p>
                         </div>
                     )}
                     <DialogFooter>
-                        <Button onClick={() => { setSuccessOpen(false); setCopied(false); setPasswordVisible(false); }} className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90">
+                        <Button onClick={() => { setSuccessOpen(false); setCopied(false); setPasswordVisible(false); }} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90">
                             Done
                         </Button>
                     </DialogFooter>

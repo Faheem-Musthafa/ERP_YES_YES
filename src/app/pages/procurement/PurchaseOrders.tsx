@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -14,7 +14,7 @@ export const PurchaseOrders = () => {
 
   const getStatusBadge = (status: string) => {
     const statusColors: { [key: string]: string } = {
-      'Pending': 'bg-blue-100 text-blue-700',
+      'Pending': 'bg-teal-100 text-teal-700',
       'Approved': 'bg-green-100 text-green-700',
       'In Transit': 'bg-yellow-100 text-yellow-700',
       'Delivered': 'bg-purple-100 text-purple-700',
@@ -34,7 +34,7 @@ export const PurchaseOrders = () => {
           <h1 className="text-2xl font-semibold text-gray-900">Purchase Orders</h1>
           <p className="text-gray-600 mt-1">Manage and track purchase orders</p>
         </div>
-        <Button className="bg-[#f97316] hover:bg-orange-600">
+        <Button className="bg-[#34b0a7] hover:bg-teal-600">
           <Plus size={16} className="mr-2" />
           Create PO
         </Button>
@@ -70,10 +70,10 @@ export const PurchaseOrders = () => {
             <tbody>
               {purchaseOrders.map((po, index) => (
                 <tr key={index} className="border-b hover:bg-gray-50">
-                  <td className="p-3 text-sm font-medium text-blue-600">{po.poNumber}</td>
+                  <td className="p-3 text-sm font-medium text-teal-600">{po.poNumber}</td>
                   <td className="p-3 text-sm">{po.supplier}</td>
                   <td className="p-3 text-sm text-center">{po.items}</td>
-                  <td className="p-3 text-sm text-right font-semibold">₹ {po.amount.toLocaleString('en-IN')}</td>
+                  <td className="p-3 text-sm text-right font-semibold">â‚¹ {po.amount.toLocaleString('en-IN')}</td>
                   <td className="p-3 text-sm">{new Date(po.date).toLocaleDateString()}</td>
                   <td className="p-3 text-sm">{new Date(po.expectedDate).toLocaleDateString()}</td>
                   <td className="p-3 text-center">{getStatusBadge(po.status)}</td>

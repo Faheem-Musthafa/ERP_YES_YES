@@ -1,10 +1,10 @@
-import React from 'react';
+﻿import React from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '@/app/contexts/AuthContext';
 import {
   LayoutDashboard, Users, Package, ShoppingCart, TrendingUp,
   BarChart3, FileText, LogOut, DollarSign, FileCheck, Boxes,
-  Plus, Receipt, Wallet, ClipboardCheck, Truck, Shield,
+  Plus, Receipt, Wallet, ClipboardCheck, Truck,
   UserCircle, ChevronRight,
 } from 'lucide-react';
 
@@ -128,9 +128,9 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
 
 const ROLE_BADGE: Record<string, { label: string; color: string }> = {
   admin: { label: 'Administrator', color: 'bg-purple-500/20 text-purple-200' },
-  sales: { label: 'Sales Executive', color: 'bg-blue-500/20 text-blue-200' },
+  sales: { label: 'Sales Executive', color: 'bg-teal-500/20 text-teal-200' },
   accounts: { label: 'Accounts', color: 'bg-green-500/20 text-green-200' },
-  inventory: { label: 'Inventory', color: 'bg-orange-500/20 text-orange-200' },
+  inventory: { label: 'Inventory', color: 'bg-teal-500/20 text-teal-200' },
 };
 
 const getInitials = (name: string) =>
@@ -150,29 +150,21 @@ export const Sidebar = () => {
   };
 
   return (
-    <div className="w-64 h-screen bg-[#0f2260] text-white flex flex-col fixed left-0 top-0 shadow-2xl">
+    <div className="w-64 h-screen bg-[#34b0a7] text-white flex flex-col fixed left-0 top-0 shadow-2xl">
 
       {/* Brand */}
-      <div className="px-5 pt-6 pb-5 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-gradient-to-br from-[#f97316] to-[#ea580c] rounded-xl flex items-center justify-center shadow-lg shrink-0">
-            <Shield size={18} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-sm font-bold text-white leading-tight">YES YES MARKETING</h1>
-            <p className="text-xs text-blue-300 mt-0.5">ERP System</p>
-          </div>
-        </div>
+      <div className="px-4 pt-5 pb-4 border-b border-white/10">
+        <img src="/logo.jpg" alt="YES YES MARKETING" className="w-full h-auto object-contain rounded-xl" />
       </div>
 
       {/* User Profile */}
       <div className="px-4 py-4 border-b border-white/10">
         <div className="flex items-center gap-3 bg-white/5 rounded-xl p-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#f97316] to-[#ea580c] flex items-center justify-center text-sm font-bold text-white shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#34b0a7] to-[#115e59] flex items-center justify-center text-sm font-bold text-white shrink-0">
             {getInitials(user?.full_name ?? 'U')}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{user?.full_name}</p>
+            <p className="text-sm font-semibold text-white truncate drop-shadow-sm">{user?.full_name}</p>
             {roleBadge && (
               <span className={`inline-block mt-0.5 text-xs px-2 py-0.5 rounded-full font-medium ${roleBadge.color}`}>
                 {roleBadge.label}
@@ -186,7 +178,7 @@ export const Sidebar = () => {
       <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-5 scrollbar-thin">
         {groups.map((group) => (
           <div key={group.title}>
-            <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest px-3 mb-2">
+            <p className="text-[10px] font-bold text-teal-800 uppercase tracking-widest px-3 mb-2">
               {group.title}
             </p>
             <ul className="space-y-0.5">
@@ -197,19 +189,19 @@ export const Sidebar = () => {
                     <Link
                       to={item.path}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group relative ${active
-                          ? 'bg-white/10 text-white'
-                          : 'text-blue-200 hover:bg-white/5 hover:text-white'
+                        ? 'bg-teal-700/50 text-white shadow-sm'
+                        : 'text-teal-50 hover:bg-teal-600/30 hover:text-white'
                         }`}
                     >
                       {/* Active left accent */}
                       {active && (
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[#f97316] rounded-r-full" />
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-white rounded-r-full shadow-sm" />
                       )}
-                      <span className={`transition-colors ${active ? 'text-[#f97316]' : 'text-blue-300 group-hover:text-white'}`}>
+                      <span className={`transition-colors ${active ? 'text-white' : 'text-teal-100 group-hover:text-white'}`}>
                         {item.icon}
                       </span>
-                      <span className="flex-1">{item.label}</span>
-                      {active && <ChevronRight size={14} className="text-[#f97316] opacity-70" />}
+                      <span className="flex-1 drop-shadow-sm">{item.label}</span>
+                      {active && <ChevronRight size={14} className="text-white opacity-80" />}
                     </Link>
                   </li>
                 );
@@ -223,9 +215,9 @@ export const Sidebar = () => {
       <div className="px-3 py-4 border-t border-white/10">
         <button
           onClick={logout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-blue-200 hover:bg-red-500/10 hover:text-red-400 transition-all duration-150 group"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-teal-50 hover:bg-red-500/10 hover:text-red-100 transition-all duration-150 group"
         >
-          <LogOut size={18} className="group-hover:text-red-400 transition-colors" />
+          <LogOut size={18} className="group-hover:text-red-200 transition-colors" />
           <span>Sign Out</span>
         </button>
       </div>

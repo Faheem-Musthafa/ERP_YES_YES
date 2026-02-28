@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Input } from '@/app/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
@@ -39,7 +39,7 @@ export const StockManagement = () => {
 
   const stockStatus = (qty: number) => {
     if (qty === 0) return { label: 'Out of Stock', cls: 'bg-red-100 text-red-700' };
-    if (qty <= 5) return { label: 'Low Stock', cls: 'bg-orange-100 text-orange-700' };
+    if (qty <= 5) return { label: 'Low Stock', cls: 'bg-teal-100 text-teal-700' };
     return { label: 'In Stock', cls: 'bg-green-100 text-green-700' };
   };
 
@@ -53,9 +53,9 @@ export const StockManagement = () => {
       </div>
 
       {lowCount > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 flex items-center gap-3">
-          <AlertTriangle className="text-orange-600" size={20} />
-          <span className="text-orange-800 text-sm font-medium">{lowCount} item(s) are low on stock or out of stock</span>
+        <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-6 flex items-center gap-3">
+          <AlertTriangle className="text-teal-600" size={20} />
+          <span className="text-teal-800 text-sm font-medium">{lowCount} item(s) are low on stock or out of stock</span>
         </div>
       )}
 
@@ -93,7 +93,7 @@ export const StockManagement = () => {
                   <th className="text-left text-xs font-semibold text-gray-700 p-3">Product</th>
                   <th className="text-left text-xs font-semibold text-gray-700 p-3">Brand</th>
                   <th className="text-left text-xs font-semibold text-gray-700 p-3">SKU</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3">DP (₹)</th>
+                  <th className="text-right text-xs font-semibold text-gray-700 p-3">DP (â‚¹)</th>
                   <th className="text-right text-xs font-semibold text-gray-700 p-3">Stock Qty</th>
                   <th className="text-center text-xs font-semibold text-gray-700 p-3">Status</th>
                 </tr>
@@ -106,7 +106,7 @@ export const StockManagement = () => {
                       <td className="p-3 text-sm font-medium">{p.name}</td>
                       <td className="p-3 text-sm text-gray-600">{p.brands?.name ?? '-'}</td>
                       <td className="p-3 text-sm font-mono text-gray-600">{p.sku}</td>
-                      <td className="p-3 text-sm text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
+                      <td className="p-3 text-sm text-right">â‚¹ {p.dealer_price?.toLocaleString('en-IN')}</td>
                       <td className="p-3 text-sm text-right font-bold">{p.stock_qty}</td>
                       <td className="p-3 text-center"><span className={`px-3 py-1 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span></td>
                     </tr>

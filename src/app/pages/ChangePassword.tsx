@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
@@ -58,15 +58,15 @@ export const ChangePassword = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-[#1e3a8a] to-[#1e40af] flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-[#34b0a7] to-[#1e40af] flex items-center justify-center p-4">
             <div className="w-full max-w-md">
                 {/* Logo/Brand */}
                 <div className="text-center mb-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-lg mb-4">
-                        <Lock size={28} className="text-[#1e3a8a]" />
+                        <Lock size={28} className="text-[#34b0a7]" />
                     </div>
                     <h1 className="text-2xl font-bold text-white">Change Your Password</h1>
-                    <p className="text-blue-200 mt-2 text-sm">
+                    <p className="text-teal-200 mt-2 text-sm">
                         Welcome, <strong>{user?.full_name}</strong>! Set a new password to continue.
                     </p>
                 </div>
@@ -82,7 +82,7 @@ export const ChangePassword = () => {
                                     value={newPassword}
                                     onChange={e => setNewPassword(e.target.value)}
                                     placeholder="Enter new password"
-                                    className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/30 focus:border-[#1e3a8a] text-sm transition-all"
+                                    className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#34b0a7]/30 focus:border-[#34b0a7] text-sm transition-all"
                                     autoComplete="new-password"
                                     autoFocus
                                 />
@@ -120,7 +120,7 @@ export const ChangePassword = () => {
                                             ? passwordsMatch
                                                 ? 'border-green-400 focus:ring-green-200 focus:border-green-500 bg-green-50'
                                                 : 'border-red-300 focus:ring-red-200 focus:border-red-400 bg-red-50'
-                                            : 'border-gray-200 focus:ring-[#1e3a8a]/30 focus:border-[#1e3a8a]'
+                                            : 'border-gray-200 focus:ring-[#34b0a7]/30 focus:border-[#34b0a7]'
                                         }`}
                                     autoComplete="new-password"
                                 />
@@ -130,7 +130,7 @@ export const ChangePassword = () => {
                             </div>
                             {confirmPassword.length > 0 && (
                                 <p className={`text-xs font-medium ${passwordsMatch ? 'text-green-600' : 'text-red-500'}`}>
-                                    {passwordsMatch ? '✓ Passwords match' : '✗ Passwords do not match'}
+                                    {passwordsMatch ? 'âœ“ Passwords match' : 'âœ— Passwords do not match'}
                                 </p>
                             )}
                         </div>
@@ -138,7 +138,7 @@ export const ChangePassword = () => {
                         <button
                             type="submit"
                             disabled={!canSubmit || saving}
-                            className="w-full py-3 rounded-xl font-semibold text-white text-sm transition-all bg-[#1e3a8a] hover:bg-[#1e40af] disabled:opacity-40 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                            className="w-full py-3 rounded-xl font-semibold text-white text-sm transition-all bg-[#34b0a7] hover:bg-[#1e40af] disabled:opacity-40 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                         >
                             {saving ? 'Saving...' : 'Set New Password & Continue'}
                         </button>

@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+﻿import React, { ReactNode } from 'react';
 import { Sidebar } from '@/app/components/Sidebar';
 
 interface LayoutProps {

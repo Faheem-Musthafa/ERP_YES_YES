@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import {
@@ -7,14 +7,14 @@ import {
   DollarSign, Activity
 } from 'lucide-react';
 
-const fmt = (n: number) => `₹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-const fmtK = (n: number) => n >= 100000 ? `₹ ${(n / 100000).toFixed(1)}L` : n >= 1000 ? `₹ ${(n / 1000).toFixed(1)}K` : fmt(n);
+const fmt = (n: number) => `â‚¹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+const fmtK = (n: number) => n >= 100000 ? `â‚¹ ${(n / 100000).toFixed(1)}L` : n >= 1000 ? `â‚¹ ${(n / 1000).toFixed(1)}K` : fmt(n);
 
 const STATUS_COLOR: Record<string, string> = {
   Pending: 'bg-yellow-100 text-yellow-700',
   Approved: 'bg-green-100 text-green-700',
   Rejected: 'bg-red-100 text-red-700',
-  Billed: 'bg-blue-100 text-blue-700',
+  Billed: 'bg-teal-100 text-teal-700',
   Delivered: 'bg-purple-100 text-purple-700',
 };
 
@@ -114,7 +114,7 @@ export const AdminDashboard = () => {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
@@ -138,12 +138,12 @@ export const AdminDashboard = () => {
           {
             label: 'Total Collected', value: fmtK(stats.totalCollected),
             sub: `This month: ${fmtK(stats.monthCollected)}`,
-            icon: <TrendingUp size={22} />, color: 'bg-blue-600', light: 'bg-blue-50 text-blue-600',
+            icon: <TrendingUp size={22} />, color: 'bg-teal-600', light: 'bg-teal-50 text-teal-600',
           },
           {
             label: 'Total Orders', value: stats.totalOrders,
             sub: `${stats.pendingOrders} pending approval`,
-            icon: <ShoppingCart size={22} />, color: 'bg-orange-600', light: 'bg-orange-50 text-orange-600',
+            icon: <ShoppingCart size={22} />, color: 'bg-teal-600', light: 'bg-teal-50 text-teal-600',
           },
           {
             label: 'Active Staff', value: `${stats.activeStaff}/${stats.totalStaff}`,
@@ -172,7 +172,7 @@ export const AdminDashboard = () => {
         {/* Order Status */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <BarChart3 size={18} className="text-[#1e3a8a]" /> Orders by Status
+            <BarChart3 size={18} className="text-[#34b0a7]" /> Orders by Status
           </h2>
           <div className="space-y-3">
             {ordersByStatus.map(({ status, count }) => {
@@ -196,7 +196,7 @@ export const AdminDashboard = () => {
         {/* Top Salesmen */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <TrendingUp size={18} className="text-[#1e3a8a]" /> Top Salespeople This Month
+            <TrendingUp size={18} className="text-[#34b0a7]" /> Top Salespeople This Month
           </h2>
           {topSalesmen.length === 0 ? (
             <p className="text-gray-400 text-sm text-center py-8">No sales data this month</p>
@@ -204,14 +204,14 @@ export const AdminDashboard = () => {
             <div className="space-y-3">
               {topSalesmen.map((s, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white ${i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-orange-500' : 'bg-[#1e3a8a]'}`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white ${i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-teal-500' : 'bg-[#34b0a7]'}`}>
                     {i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{s.name}</p>
                     <p className="text-xs text-gray-400">{s.orders} orders</p>
                   </div>
-                  <span className="text-sm font-bold text-[#1e3a8a]">{fmtK(s.total)}</span>
+                  <span className="text-sm font-bold text-[#34b0a7]">{fmtK(s.total)}</span>
                 </div>
               ))}
             </div>
@@ -224,14 +224,14 @@ export const AdminDashboard = () => {
         {/* Recent Orders */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <Activity size={18} className="text-[#1e3a8a]" /> Recent Orders
+            <Activity size={18} className="text-[#34b0a7]" /> Recent Orders
           </h2>
           <div className="space-y-3">
             {recentOrders.map(order => (
               <div key={order.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                 <div>
-                  <p className="text-sm font-medium text-gray-800">{(order.customers as any)?.name ?? '—'}</p>
-                  <p className="text-xs text-gray-400">{order.order_number} · {new Date(order.created_at).toLocaleDateString('en-IN')}</p>
+                  <p className="text-sm font-medium text-gray-800">{(order.customers as any)?.name ?? 'â€”'}</p>
+                  <p className="text-xs text-gray-400">{order.order_number} Â· {new Date(order.created_at).toLocaleDateString('en-IN')}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-gray-700">{fmt(order.grand_total ?? 0)}</span>
@@ -262,7 +262,7 @@ export const AdminDashboard = () => {
                     <p className="text-sm font-medium text-gray-800">{p.name}</p>
                     <p className="text-xs text-gray-400">{(p.brands as any)?.name ?? 'Unknown brand'}</p>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${p.stock_qty === 0 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${p.stock_qty === 0 ? 'bg-red-100 text-red-700' : 'bg-teal-100 text-teal-700'}`}>
                     {p.stock_qty === 0 ? 'Out of stock' : `${p.stock_qty} left`}
                   </span>
                 </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -71,7 +71,7 @@ export const Products = () => {
           <h1 className="text-2xl font-semibold text-gray-900">Products</h1>
           <p className="text-gray-600 mt-1">Manage product catalog</p>
         </div>
-        <Button onClick={openAdd} className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90"><Plus size={18} className="mr-2" />Add Product</Button>
+        <Button onClick={openAdd} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90"><Plus size={18} className="mr-2" />Add Product</Button>
       </div>
 
       <Card className="p-4 mb-6">
@@ -111,9 +111,9 @@ export const Products = () => {
                     <td className="p-3 text-sm font-medium">{p.name}</td>
                     <td className="p-3 text-sm text-gray-600">{p.brands?.name ?? '-'}</td>
                     <td className="p-3 text-sm text-gray-600 font-mono">{p.sku}</td>
-                    <td className="p-3 text-sm text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
+                    <td className="p-3 text-sm text-right">â‚¹ {p.dealer_price?.toLocaleString('en-IN')}</td>
                     <td className="p-3 text-sm text-right font-semibold">
-                      <span className={p.stock_qty <= 5 ? 'text-orange-600' : p.stock_qty === 0 ? 'text-red-600' : 'text-gray-900'}>{p.stock_qty}</span>
+                      <span className={p.stock_qty <= 5 ? 'text-teal-600' : p.stock_qty === 0 ? 'text-red-600' : 'text-gray-900'}>{p.stock_qty}</span>
                     </td>
                     <td className="p-3 text-center">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{p.is_active ? 'Active' : 'Inactive'}</span>
@@ -142,13 +142,13 @@ export const Products = () => {
             </div>
             <div className="space-y-2"><Label>SKU *</Label><Input value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))} placeholder="Product SKU" /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Dealer Price (₹)</Label><Input type="number" value={form.dealer_price} onChange={e => setForm(f => ({ ...f, dealer_price: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Dealer Price (â‚¹)</Label><Input type="number" value={form.dealer_price} onChange={e => setForm(f => ({ ...f, dealer_price: e.target.value }))} /></div>
               <div className="space-y-2"><Label>Initial Stock</Label><Input type="number" value={form.stock_qty} onChange={e => setForm(f => ({ ...f, stock_qty: e.target.value }))} /></div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+            <Button onClick={handleSave} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

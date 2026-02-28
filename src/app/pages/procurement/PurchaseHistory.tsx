@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -20,7 +20,7 @@ export const PurchaseHistory = () => {
           <h1 className="text-2xl font-semibold text-gray-900">Purchase History</h1>
           <p className="text-gray-600 mt-1">View completed purchase orders</p>
         </div>
-        <Button className="bg-[#1e3a8a] hover:bg-blue-900">
+        <Button className="bg-[#34b0a7] hover:bg-teal-900">
           <Download size={16} className="mr-2" />
           Export History
         </Button>
@@ -60,10 +60,10 @@ export const PurchaseHistory = () => {
             <tbody>
               {history.map((record, index) => (
                 <tr key={index} className="border-b hover:bg-gray-50">
-                  <td className="p-3 text-sm font-medium text-blue-600">{record.poNumber}</td>
+                  <td className="p-3 text-sm font-medium text-teal-600">{record.poNumber}</td>
                   <td className="p-3 text-sm">{record.supplier}</td>
                   <td className="p-3 text-sm text-center">{record.items}</td>
-                  <td className="p-3 text-sm text-right font-semibold">₹ {record.amount.toLocaleString('en-IN')}</td>
+                  <td className="p-3 text-sm text-right font-semibold">â‚¹ {record.amount.toLocaleString('en-IN')}</td>
                   <td className="p-3 text-sm">{new Date(record.orderDate).toLocaleDateString()}</td>
                   <td className="p-3 text-sm">{new Date(record.deliveryDate).toLocaleDateString()}</td>
                   <td className="p-3 text-center">
@@ -86,7 +86,7 @@ export const PurchaseHistory = () => {
       </Card>
 
       <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6 border-l-4 border-blue-500">
+        <Card className="p-6 border-l-4 border-teal-500">
           <p className="text-sm text-gray-600">Total POs Completed</p>
           <p className="text-3xl font-semibold text-gray-900 mt-2">142</p>
           <p className="text-xs text-gray-500 mt-1">This month: 28</p>
@@ -94,7 +94,7 @@ export const PurchaseHistory = () => {
 
         <Card className="p-6 border-l-4 border-green-500">
           <p className="text-sm text-gray-600">Total Value</p>
-          <p className="text-3xl font-semibold text-gray-900 mt-2">₹ 52.8L</p>
+          <p className="text-3xl font-semibold text-gray-900 mt-2">â‚¹ 52.8L</p>
           <p className="text-xs text-gray-500 mt-1">This month</p>
         </Card>
 

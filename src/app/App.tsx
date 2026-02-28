@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { AuthProvider, useAuth } from '@/app/contexts/AuthContext';
 import { Layout } from '@/app/components/Layout';
@@ -28,11 +28,11 @@ import { Toaster } from '@/app/components/ui/sonner';
 // Loading spinner
 const Loader = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
-    <div className="w-8 h-8 border-4 border-[#1e3a8a] border-t-transparent rounded-full animate-spin" />
+    <div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" />
   </div>
 );
 
-// Protected Route — checks auth, active status, and must_change_password
+// Protected Route â€” checks auth, active status, and must_change_password
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { user, loading } = useAuth();
   if (loading) return <Loader />;
@@ -76,7 +76,7 @@ const AppRoutes = () => {
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={user && !user.must_change_password ? <Navigate to="/" replace /> : <Login />} />
 
-      {/* First-login password change — no Layout, just auth check */}
+      {/* First-login password change â€” no Layout, just auth check */}
       <Route path="/change-password" element={<ChangePassword />} />
 
       {/* Admin Routes */}

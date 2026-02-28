@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -19,7 +19,7 @@ export const Suppliers = () => {
           <h1 className="text-2xl font-semibold text-gray-900">Suppliers Management</h1>
           <p className="text-gray-600 mt-1">Manage supplier information and relationships</p>
         </div>
-        <Button className="bg-[#f97316] hover:bg-orange-600">
+        <Button className="bg-[#34b0a7] hover:bg-teal-600">
           <Plus size={16} className="mr-2" />
           Add Supplier
         </Button>

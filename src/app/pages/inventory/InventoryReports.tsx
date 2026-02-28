@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { BarChart2, Package, AlertTriangle, TrendingDown } from 'lucide-react';
 import { supabase } from '@/app/supabase';
@@ -33,9 +33,9 @@ export const InventoryReports = () => {
   }, []);
 
   const summaryCards = [
-    { title: 'Total Products', value: stats.totalProducts, icon: <Package size={24} className="text-blue-600" />, bg: 'bg-blue-50' },
+    { title: 'Total Products', value: stats.totalProducts, icon: <Package size={24} className="text-teal-600" />, bg: 'bg-teal-50' },
     { title: 'Total Stock Units', value: stats.totalStock, icon: <BarChart2 size={24} className="text-green-600" />, bg: 'bg-green-50' },
-    { title: 'Low Stock Items', value: stats.lowStock, icon: <AlertTriangle size={24} className="text-orange-600" />, bg: 'bg-orange-50' },
+    { title: 'Low Stock Items', value: stats.lowStock, icon: <AlertTriangle size={24} className="text-teal-600" />, bg: 'bg-teal-50' },
     { title: 'Out of Stock', value: stats.outOfStock, icon: <TrendingDown size={24} className="text-red-600" />, bg: 'bg-red-50' },
   ];
 

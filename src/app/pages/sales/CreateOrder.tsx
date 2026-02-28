@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -158,7 +158,6 @@ export const CreateOrder = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!company || !invoiceType) { toast.error('Please select company and invoice type'); return; }
-    if (!siteAddress) { toast.error('Please enter site address'); return; }
     const validItems = orderItems.filter(i => i.productId && i.quantity);
     if (validItems.length === 0) { toast.error('Please add at least one product'); return; }
     setLoading(true);
@@ -290,23 +289,23 @@ export const CreateOrder = () => {
               <div className="space-y-2">
                 <Label>Phone *</Label>
                 <div className="relative">
-                  <Input type="tel" value={customerPhone} onChange={e => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }} placeholder="Enter phone" required className={phoneAutoFilled ? 'bg-blue-50 pr-10' : ''} />
-                  {phoneAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-600" />}
+                  <Input type="tel" value={customerPhone} onChange={e => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }} placeholder="Enter phone" required className={phoneAutoFilled ? 'bg-teal-50 pr-10' : ''} />
+                  {phoneAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-teal-600" />}
                 </div>
-                {phoneAutoFilled && <p className="text-xs text-gray-500">Auto-filled — editable</p>}
+                {phoneAutoFilled && <p className="text-xs text-gray-500">Auto-filled â€” editable</p>}
               </div>
               <div className="space-y-2">
                 <Label>GST / PAN No.</Label>
                 <div className="relative">
-                  <Input value={customerGst} onChange={e => { setCustomerGst(e.target.value); setGstAutoFilled(false); }} placeholder="Optional" className={gstAutoFilled ? 'bg-blue-50 pr-10' : ''} />
-                  {gstAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-600" />}
+                  <Input value={customerGst} onChange={e => { setCustomerGst(e.target.value); setGstAutoFilled(false); }} placeholder="Optional" className={gstAutoFilled ? 'bg-teal-50 pr-10' : ''} />
+                  {gstAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-teal-600" />}
                 </div>
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label>Address *</Label>
                 <div className="relative">
-                  <Textarea value={customerAddress} onChange={e => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }} placeholder="Customer address" required rows={3} className={addressAutoFilled ? 'bg-blue-50' : ''} />
-                  {addressAutoFilled && <Info className="absolute right-3 top-3 h-4 w-4 text-blue-600" />}
+                  <Textarea value={customerAddress} onChange={e => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }} placeholder="Customer address" required rows={3} className={addressAutoFilled ? 'bg-teal-50' : ''} />
+                  {addressAutoFilled && <Info className="absolute right-3 top-3 h-4 w-4 text-teal-600" />}
                 </div>
               </div>
             </div>
@@ -346,7 +345,7 @@ export const CreateOrder = () => {
                       <td className="p-2"><Input type="number" value={item.quantity} onChange={e => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, quantity: e.target.value, lastEdited: 'quantity' } : i))} placeholder="0" className="h-9 text-right min-w-[70px]" /></td>
                       <td className="p-2">
                         <div className="relative min-w-[110px]">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600 text-sm">₹</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600 text-sm">â‚¹</span>
                           <Input type="number" value={item.dp} onChange={e => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, dp: Number(e.target.value) || 0, lastEdited: 'dp' } : i))} className="h-9 text-right pl-6" />
                         </div>
                       </td>
@@ -358,8 +357,8 @@ export const CreateOrder = () => {
                       </td>
                       <td className="p-2">
                         <div className="relative min-w-[120px]">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600 text-sm">₹</span>
-                          <Input type="number" value={item.amount} onChange={e => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, amount: e.target.value, lastEdited: 'amount' } : i))} placeholder="0.00" className="h-9 text-right pl-6 bg-blue-50" />
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600 text-sm">â‚¹</span>
+                          <Input type="number" value={item.amount} onChange={e => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, amount: e.target.value, lastEdited: 'amount' } : i))} placeholder="0.00" className="h-9 text-right pl-6 bg-teal-50" />
                         </div>
                       </td>
                       <td className="p-2 text-center">
@@ -377,18 +376,18 @@ export const CreateOrder = () => {
             <Button type="button" variant="outline" onClick={handleAddItem}><Plus size={16} className="mr-2" />Add Product Row</Button>
           </div>
 
-          <Card className="bg-blue-50 border-blue-200 p-4">
+          <Card className="bg-teal-50 border-teal-200 p-4">
             <h4 className="font-semibold text-gray-900 mb-3">Order Summary</h4>
             <div className="space-y-2">
-              <div className="flex justify-between text-sm"><span className="text-gray-700">Subtotal:</span><span className="font-semibold">₹ {subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-gray-700">Total Discount:</span><span className="font-semibold text-orange-600">- ₹ {totalDiscount.toFixed(2)}</span></div>
-              <div className="flex justify-between text-base font-bold border-t pt-2 mt-2"><span className="text-gray-900">Grand Total:</span><span className="text-[#1e3a8a]">₹ {grandTotal.toFixed(2)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-gray-700">Subtotal:</span><span className="font-semibold">â‚¹ {subtotal.toFixed(2)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-gray-700">Total Discount:</span><span className="font-semibold text-teal-600">- â‚¹ {totalDiscount.toFixed(2)}</span></div>
+              <div className="flex justify-between text-base font-bold border-t pt-2 mt-2"><span className="text-gray-900">Grand Total:</span><span className="text-[#34b0a7]">â‚¹ {grandTotal.toFixed(2)}</span></div>
             </div>
           </Card>
 
           <div className="space-y-2">
             <Label>Site Address </Label>
-            <Textarea value={siteAddress} onChange={e => setSiteAddress(e.target.value)} placeholder="Enter delivery site address" required rows={3} />
+            <Textarea value={siteAddress} onChange={e => setSiteAddress(e.target.value)} placeholder="Enter delivery site address" rows={3} />
           </div>
 
           <div className="space-y-2">
@@ -407,7 +406,7 @@ export const CreateOrder = () => {
           </div>
 
           <div className="flex gap-4 pt-4">
-            <Button type="submit" className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90" disabled={loading}>
+            <Button type="submit" className="bg-[#34b0a7] hover:bg-[#34b0a7]/90" disabled={loading}>
               {loading ? 'Submitting...' : 'Submit Order'}
             </Button>
             <Button type="button" variant="outline" onClick={() => navigate('/sales')}>Cancel</Button>

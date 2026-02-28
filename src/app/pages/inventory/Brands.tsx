@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -64,7 +64,7 @@ export const Brands = () => {
           <h1 className="text-2xl font-semibold text-gray-900">Brands</h1>
           <p className="text-gray-600 mt-1">Manage product brands</p>
         </div>
-        <Button onClick={openAdd} className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90"><Plus size={18} className="mr-2" />Add Brand</Button>
+        <Button onClick={openAdd} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90"><Plus size={18} className="mr-2" />Add Brand</Button>
       </div>
 
       <Card className="p-4 mb-6">
@@ -121,7 +121,7 @@ export const Brands = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+            <Button onClick={handleSave} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

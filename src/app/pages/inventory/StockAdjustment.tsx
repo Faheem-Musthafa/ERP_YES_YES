@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -70,10 +70,10 @@ export const StockAdjustment = () => {
               <Label>Product *</Label>
               <Select value={selectedProductId} onValueChange={setSelectedProductId}>
                 <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
-                <SelectContent>{products.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.sku}) — Stock: {p.stock_qty}</SelectItem>)}</SelectContent>
+                <SelectContent>{products.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.sku}) â€” Stock: {p.stock_qty}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            {selectedProduct && <p className="text-sm text-blue-700 bg-blue-50 p-3 rounded">Current stock: <strong>{selectedProduct.stock_qty} units</strong></p>}
+            {selectedProduct && <p className="text-sm text-teal-700 bg-teal-50 p-3 rounded">Current stock: <strong>{selectedProduct.stock_qty} units</strong></p>}
             <div className="space-y-2">
               <Label>Adjustment Type *</Label>
               <Select value={type} onValueChange={v => setType(v as 'Addition' | 'Subtraction')}>
@@ -95,7 +95,7 @@ export const StockAdjustment = () => {
               <Label>Reason *</Label>
               <Textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason for adjustment" rows={3} required />
             </div>
-            <Button type="submit" className="w-full bg-[#1e3a8a] hover:bg-[#1e3a8a]/90" disabled={saving}>{saving ? 'Saving...' : 'Apply Adjustment'}</Button>
+            <Button type="submit" className="w-full bg-[#34b0a7] hover:bg-[#34b0a7]/90" disabled={saving}>{saving ? 'Saving...' : 'Apply Adjustment'}</Button>
           </form>
         </Card>
 
@@ -121,7 +121,7 @@ export const StockAdjustment = () => {
                   <tr key={p.id} className="border-b hover:bg-gray-50">
                     <td className="p-2 font-medium text-xs">{p.name}</td>
                     <td className="p-2 text-gray-500 text-xs">{(p.brands as any)?.name}</td>
-                    <td className={`p-2 text-right font-semibold text-xs ${p.stock_qty <= 5 ? 'text-orange-600' : ''}`}>{p.stock_qty}</td>
+                    <td className={`p-2 text-right font-semibold text-xs ${p.stock_qty <= 5 ? 'text-teal-600' : ''}`}>{p.stock_qty}</td>
                   </tr>
                 ))}
               </tbody>

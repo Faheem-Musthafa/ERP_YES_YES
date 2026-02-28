@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Button } from '@/app/components/ui/button';
@@ -35,7 +35,7 @@ export const Login = () => {
   return (
     <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-4 sm:p-8 relative overflow-hidden font-sans">
       {/* Subtle background glow effects */}
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-400/10 rounded-full blur-[100px] pointer-events-none mix-blend-multiply" />
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-teal-400/10 rounded-full blur-[100px] pointer-events-none mix-blend-multiply" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-indigo-400/10 rounded-full blur-[120px] pointer-events-none mix-blend-multiply" />
 
       <div className="w-full max-w-[420px] relative z-10">
@@ -63,14 +63,14 @@ export const Login = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@yesyes.com"
                 required
-                className="w-full h-12 px-4 text-sm bg-slate-50/50 border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all rounded-xl"
+                className="w-full h-12 px-4 text-sm bg-slate-50/50 border-slate-200 focus:bg-white focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all rounded-xl"
               />
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between ml-1">
                 <Label htmlFor="password" className="text-sm font-semibold text-slate-700">Password</Label>
-                <button type="button" className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline underline-offset-4 transition-all focus:outline-none">
+                <button type="button" className="text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline underline-offset-4 transition-all focus:outline-none">
                   Forgot password?
                 </button>
               </div>
@@ -79,9 +79,9 @@ export const Login = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                 required
-                className="w-full h-12 px-4 text-sm bg-slate-50/50 border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all rounded-xl"
+                className="w-full h-12 px-4 text-sm bg-slate-50/50 border-slate-200 focus:bg-white focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all rounded-xl"
               />
             </div>
 
@@ -120,7 +120,7 @@ export const Login = () => {
               Don't have an account?{' '}
               <button
                 onClick={() => navigate('/register')}
-                className="font-bold text-slate-900 hover:text-blue-600 transition-colors focus:outline-none focus:underline underline-offset-4"
+                className="font-bold text-slate-900 hover:text-teal-600 transition-colors focus:outline-none focus:underline underline-offset-4"
                 type="button"
               >
                 Request access

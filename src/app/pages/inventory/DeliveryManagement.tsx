@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -61,8 +61,8 @@ export const DeliveryManagement = () => {
   };
 
   const statusColor: Record<string, string> = {
-    Pending: 'bg-orange-100 text-orange-700',
-    'In Transit': 'bg-blue-100 text-blue-700',
+    Pending: 'bg-teal-100 text-teal-700',
+    'In Transit': 'bg-teal-100 text-teal-700',
     Delivered: 'bg-green-100 text-green-700',
     Failed: 'bg-red-100 text-red-700',
   };
@@ -73,7 +73,7 @@ export const DeliveryManagement = () => {
     <div>
       <div className="flex justify-between items-start mb-6">
         <div><h1 className="text-2xl font-semibold text-gray-900">Delivery Management</h1><p className="text-gray-600 mt-1">Track all deliveries for orders</p></div>
-        <Button onClick={() => setOpen(true)} className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90"><Plus size={18} className="mr-2" />New Delivery</Button>
+        <Button onClick={() => setOpen(true)} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90"><Plus size={18} className="mr-2" />New Delivery</Button>
       </div>
 
       <Card className="p-4 mb-6">
@@ -102,7 +102,7 @@ export const DeliveryManagement = () => {
             <tbody>
               {filtered.map(d => (
                 <tr key={d.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3 text-sm font-medium text-[#1e3a8a]">{d.delivery_number}</td>
+                  <td className="p-3 text-sm font-medium text-[#34b0a7]">{d.delivery_number}</td>
                   <td className="p-3 text-sm">{d.orders?.order_number}</td>
                   <td className="p-3 text-sm text-gray-600">{d.orders?.customers?.name ?? '-'}</td>
                   <td className="p-3 text-sm">{d.driver_name ?? '-'}</td>
@@ -133,7 +133,7 @@ export const DeliveryManagement = () => {
             <div className="space-y-2"><Label>Order *</Label>
               <Select value={form.order_id} onValueChange={v => setForm(f => ({ ...f, order_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select order" /></SelectTrigger>
-                <SelectContent>{orders.map(o => <SelectItem key={o.id} value={o.id}>{o.order_number} — {o.customers?.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{orders.map(o => <SelectItem key={o.id} value={o.id}>{o.order_number} â€” {o.customers?.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-2"><Label>Driver Name</Label><Input value={form.driver_name} onChange={e => setForm(f => ({ ...f, driver_name: e.target.value }))} placeholder="Optional" /></div>
@@ -141,7 +141,7 @@ export const DeliveryManagement = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} className="bg-[#1e3a8a] hover:bg-[#1e3a8a]/90" disabled={saving}>{saving ? 'Creating...' : 'Create Delivery'}</Button>
+            <Button onClick={handleCreate} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90" disabled={saving}>{saving ? 'Creating...' : 'Create Delivery'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

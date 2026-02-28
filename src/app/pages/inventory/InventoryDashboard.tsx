@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Package, CheckCircle, AlertTriangle, Tag } from 'lucide-react';
 import { supabase } from '@/app/supabase';
@@ -28,9 +28,9 @@ export const InventoryDashboard = () => {
   }, []);
 
   const cards = [
-    { title: 'Total Products', value: stats.totalProducts, icon: <Package className="text-blue-600" size={24} />, bg: 'bg-blue-50' },
+    { title: 'Total Products', value: stats.totalProducts, icon: <Package className="text-teal-600" size={24} />, bg: 'bg-teal-50' },
     { title: 'In Stock', value: stats.inStock, icon: <CheckCircle className="text-green-600" size={24} />, bg: 'bg-green-50' },
-    { title: 'Low Stock Alerts', value: stats.lowStock, icon: <AlertTriangle className="text-orange-600" size={24} />, bg: 'bg-orange-50' },
+    { title: 'Low Stock Alerts', value: stats.lowStock, icon: <AlertTriangle className="text-teal-600" size={24} />, bg: 'bg-teal-50' },
     { title: 'Total Brands', value: stats.totalBrands, icon: <Tag className="text-purple-600" size={24} />, bg: 'bg-purple-50' },
   ];
 
@@ -52,7 +52,7 @@ export const InventoryDashboard = () => {
       </div>
       {lowStockItems.length > 0 && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><AlertTriangle size={20} className="text-orange-500" />Items Requiring Attention</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2"><AlertTriangle size={20} className="text-teal-500" />Items Requiring Attention</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
@@ -70,7 +70,7 @@ export const InventoryDashboard = () => {
                     <td className="p-3 text-gray-600">{(p.brands as any)?.name ?? '-'}</td>
                     <td className="p-3 text-right font-semibold">{p.stock_qty} units</td>
                     <td className="p-3 text-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${p.stock_qty === 0 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${p.stock_qty === 0 ? 'bg-red-100 text-red-700' : 'bg-teal-100 text-teal-700'}`}>
                         {p.stock_qty === 0 ? 'Out of Stock' : 'Low Stock'}
                       </span>
                     </td>

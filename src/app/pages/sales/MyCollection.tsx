@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
@@ -42,9 +42,9 @@ export const MyCollection = () => {
 
   const modeColor: Record<string, string> = {
     Cash: 'bg-green-100 text-green-700',
-    Cheque: 'bg-orange-100 text-orange-700',
+    Cheque: 'bg-teal-100 text-teal-700',
     UPI: 'bg-purple-100 text-purple-700',
-    'Bank Transfer': 'bg-blue-100 text-blue-700',
+    'Bank Transfer': 'bg-teal-100 text-teal-700',
   };
 
   return (
@@ -54,7 +54,7 @@ export const MyCollection = () => {
           <h1 className="text-2xl font-semibold text-gray-900">My Collection</h1>
           <p className="text-gray-600 mt-1">View all saved receipt entries</p>
         </div>
-        <Button onClick={() => navigate('/sales/receipt')} className="bg-[#f97316] hover:bg-[#ea580c] text-white"><Plus size={18} className="mr-2" />New Receipt</Button>
+        <Button onClick={() => navigate('/sales/receipt')} className="bg-[#34b0a7] hover:bg-[#115e59] text-white"><Plus size={18} className="mr-2" />New Receipt</Button>
       </div>
 
       <Card className="p-4 mb-6">
@@ -83,7 +83,7 @@ export const MyCollection = () => {
           <div className="text-center py-16">
             <Wallet size={48} className="text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500 text-lg mb-4">No receipts recorded yet</p>
-            <Button onClick={() => navigate('/sales/receipt')} className="bg-[#f97316] hover:bg-[#ea580c] text-white"><Plus size={18} className="mr-2" />Create First Receipt</Button>
+            <Button onClick={() => navigate('/sales/receipt')} className="bg-[#34b0a7] hover:bg-[#115e59] text-white"><Plus size={18} className="mr-2" />Create First Receipt</Button>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -94,20 +94,20 @@ export const MyCollection = () => {
                   <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Order No</th>
                   <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Customer</th>
                   <th className="text-center text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Mode</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Amount (₹)</th>
+                  <th className="text-right text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Amount (â‚¹)</th>
                   <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Date</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(r => (
                   <tr key={r.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 text-sm font-medium text-[#1e3a8a]">{r.receipt_number}</td>
+                    <td className="p-3 text-sm font-medium text-[#34b0a7]">{r.receipt_number}</td>
                     <td className="p-3 text-sm text-gray-700">{r.orders?.order_number ?? '-'}</td>
                     <td className="p-3 text-sm text-gray-700">{r.orders?.customers?.name ?? '-'}</td>
                     <td className="p-3 text-center">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${modeColor[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>{r.payment_mode}</span>
                     </td>
-                    <td className="p-3 text-sm text-right font-semibold">₹ {r.amount?.toLocaleString('en-IN')}</td>
+                    <td className="p-3 text-sm text-right font-semibold">â‚¹ {r.amount?.toLocaleString('en-IN')}</td>
                     <td className="p-3 text-sm text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
