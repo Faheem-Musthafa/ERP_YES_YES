@@ -63,7 +63,7 @@ export const PurchaseHistory = () => {
                   <td className="p-3 text-sm font-medium text-teal-600">{record.poNumber}</td>
                   <td className="p-3 text-sm">{record.supplier}</td>
                   <td className="p-3 text-sm text-center">{record.items}</td>
-                  <td className="p-3 text-sm text-right font-semibold">â‚¹ {record.amount.toLocaleString('en-IN')}</td>
+                  <td className="p-3 text-sm text-right font-semibold">₹ {record.amount.toLocaleString('en-IN')}</td>
                   <td className="p-3 text-sm">{new Date(record.orderDate).toLocaleDateString()}</td>
                   <td className="p-3 text-sm">{new Date(record.deliveryDate).toLocaleDateString()}</td>
                   <td className="p-3 text-center">
@@ -94,7 +94,7 @@ export const PurchaseHistory = () => {
 
         <Card className="p-6 border-l-4 border-green-500">
           <p className="text-sm text-gray-600">Total Value</p>
-          <p className="text-3xl font-semibold text-gray-900 mt-2">â‚¹ 52.8L</p>
+          <p className="text-3xl font-semibold text-gray-900 mt-2">₹ 52.8L</p>
           <p className="text-xs text-gray-500 mt-1">This month</p>
         </Card>
 

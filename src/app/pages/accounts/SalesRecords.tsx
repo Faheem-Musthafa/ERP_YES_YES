@@ -96,7 +96,7 @@ export const SalesRecords = () => {
                     <td className="p-3 text-center">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor[o.status] ?? 'bg-gray-100 text-gray-600'}`}>{o.status}</span>
                     </td>
-                    <td className="p-3 text-sm text-right font-semibold">â‚¹ {o.grand_total?.toLocaleString('en-IN')}</td>
+                    <td className="p-3 text-sm text-right font-semibold">₹ {o.grand_total?.toLocaleString('en-IN')}</td>
                     <td className="p-3 text-sm text-gray-500">{o.approved_at ? new Date(o.approved_at).toLocaleDateString() : '-'}</td>
                   </tr>
                 ))}

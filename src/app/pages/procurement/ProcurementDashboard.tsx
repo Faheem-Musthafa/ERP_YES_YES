@@ -148,7 +148,7 @@ export const ProcurementDashboard = () => {
                 <td className="p-3 text-sm font-medium text-teal-600">PO-2024-175</td>
                 <td className="p-3 text-sm">Supplier A</td>
                 <td className="p-3 text-sm">15 items</td>
-                <td className="p-3 text-sm text-right font-semibold">â‚¹ 2,45,000</td>
+                <td className="p-3 text-sm text-right font-semibold">₹ 2,45,000</td>
                 <td className="p-3 text-sm">Feb 25, 2026</td>
                 <td className="p-3 text-center">
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">In Transit</span>
@@ -158,7 +158,7 @@ export const ProcurementDashboard = () => {
                 <td className="p-3 text-sm font-medium text-teal-600">PO-2024-176</td>
                 <td className="p-3 text-sm">Supplier B</td>
                 <td className="p-3 text-sm">8 items</td>
-                <td className="p-3 text-sm text-right font-semibold">â‚¹ 1,82,500</td>
+                <td className="p-3 text-sm text-right font-semibold">₹ 1,82,500</td>
                 <td className="p-3 text-sm">Feb 26, 2026</td>
                 <td className="p-3 text-center">
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-700">Pending</span>
@@ -168,7 +168,7 @@ export const ProcurementDashboard = () => {
                 <td className="p-3 text-sm font-medium text-teal-600">PO-2024-177</td>
                 <td className="p-3 text-sm">Supplier C</td>
                 <td className="p-3 text-sm">22 items</td>
-                <td className="p-3 text-sm text-right font-semibold">â‚¹ 3,95,000</td>
+                <td className="p-3 text-sm text-right font-semibold">₹ 3,95,000</td>
                 <td className="p-3 text-sm">Feb 28, 2026</td>
                 <td className="p-3 text-center">
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">In Transit</span>

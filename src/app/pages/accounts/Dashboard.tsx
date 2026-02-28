@@ -8,8 +8,8 @@ import {
 import { Link } from 'react-router';
 import { useNavigate } from 'react-router';
 
-const fmt = (n: number) => `â‚¹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-const fmtK = (n: number) => n >= 100000 ? `â‚¹ ${(n / 100000).toFixed(1)}L` : n >= 1000 ? `â‚¹ ${(n / 1000).toFixed(1)}K` : fmt(n);
+const fmt = (n: number) => `₹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+const fmtK = (n: number) => n >= 100000 ? `₹ ${(n / 100000).toFixed(1)}L` : n >= 1000 ? `₹ ${(n / 1000).toFixed(1)}K` : fmt(n);
 
 const STATUS_COLOR: Record<string, string> = {
   Pending: 'bg-yellow-100 text-yellow-700',
@@ -89,7 +89,7 @@ export const AccountsDashboard = () => {
         <p className="text-gray-500 mt-1">Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {user?.full_name}. Here's the financial overview.</p>
       </div>
 
-      {/* Alert Banner â€” if there are pending orders */}
+      {/* Alert Banner — if there are pending orders */}
       {stats.pendingOrders > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -161,16 +161,16 @@ export const AccountsDashboard = () => {
           {pendingOrders.length === 0 ? (
             <div className="text-center py-8">
               <CheckCircle size={32} className="text-green-400 mx-auto mb-2" />
-              <p className="text-gray-400 text-sm">No pending orders â€” all clear!</p>
+              <p className="text-gray-400 text-sm">No pending orders — all clear!</p>
             </div>
           ) : (
             <div className="space-y-3">
               {pendingOrders.map(order => (
                 <div key={order.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                   <div>
-                    <p className="text-sm font-medium text-gray-800">{(order.customers as any)?.name ?? 'â€”'}</p>
+                    <p className="text-sm font-medium text-gray-800">{(order.customers as any)?.name ?? '—'}</p>
                     <p className="text-xs text-gray-400">
-                      {order.order_number} Â· by {(order.users as any)?.full_name ?? 'Unknown'}
+                      {order.order_number} · by {(order.users as any)?.full_name ?? 'Unknown'}
                     </p>
                   </div>
                   <div className="text-right">
@@ -200,9 +200,9 @@ export const AccountsDashboard = () => {
               {recentReceipts.map(r => (
                 <div key={r.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                   <div>
-                    <p className="text-sm font-medium text-gray-800">{(r.orders as any)?.customers?.name ?? 'â€”'}</p>
+                    <p className="text-sm font-medium text-gray-800">{(r.orders as any)?.customers?.name ?? '—'}</p>
                     <p className="text-xs text-gray-400">
-                      {(r.orders as any)?.order_number ?? 'â€”'} Â· {r.payment_mode ?? 'Cash'}
+                      {(r.orders as any)?.order_number ?? '—'} · {r.payment_mode ?? 'Cash'}
                     </p>
                   </div>
                   <div className="text-right">

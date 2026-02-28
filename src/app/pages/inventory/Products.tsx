@@ -111,7 +111,7 @@ export const Products = () => {
                     <td className="p-3 text-sm font-medium">{p.name}</td>
                     <td className="p-3 text-sm text-gray-600">{p.brands?.name ?? '-'}</td>
                     <td className="p-3 text-sm text-gray-600 font-mono">{p.sku}</td>
-                    <td className="p-3 text-sm text-right">â‚¹ {p.dealer_price?.toLocaleString('en-IN')}</td>
+                    <td className="p-3 text-sm text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
                     <td className="p-3 text-sm text-right font-semibold">
                       <span className={p.stock_qty <= 5 ? 'text-teal-600' : p.stock_qty === 0 ? 'text-red-600' : 'text-gray-900'}>{p.stock_qty}</span>
                     </td>
@@ -142,7 +142,7 @@ export const Products = () => {
             </div>
             <div className="space-y-2"><Label>SKU *</Label><Input value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))} placeholder="Product SKU" /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Dealer Price (â‚¹)</Label><Input type="number" value={form.dealer_price} onChange={e => setForm(f => ({ ...f, dealer_price: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Dealer Price (₹)</Label><Input type="number" value={form.dealer_price} onChange={e => setForm(f => ({ ...f, dealer_price: e.target.value }))} /></div>
               <div className="space-y-2"><Label>Initial Stock</Label><Input type="number" value={form.stock_qty} onChange={e => setForm(f => ({ ...f, stock_qty: e.target.value }))} /></div>
             </div>
           </div>

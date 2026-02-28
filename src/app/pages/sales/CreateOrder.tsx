@@ -292,7 +292,7 @@ export const CreateOrder = () => {
                   <Input type="tel" value={customerPhone} onChange={e => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }} placeholder="Enter phone" required className={phoneAutoFilled ? 'bg-teal-50 pr-10' : ''} />
                   {phoneAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-teal-600" />}
                 </div>
-                {phoneAutoFilled && <p className="text-xs text-gray-500">Auto-filled â€” editable</p>}
+                {phoneAutoFilled && <p className="text-xs text-gray-500">Auto-filled — editable</p>}
               </div>
               <div className="space-y-2">
                 <Label>GST / PAN No.</Label>
@@ -345,7 +345,7 @@ export const CreateOrder = () => {
                       <td className="p-2"><Input type="number" value={item.quantity} onChange={e => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, quantity: e.target.value, lastEdited: 'quantity' } : i))} placeholder="0" className="h-9 text-right min-w-[70px]" /></td>
                       <td className="p-2">
                         <div className="relative min-w-[110px]">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600 text-sm">â‚¹</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600 text-sm">₹</span>
                           <Input type="number" value={item.dp} onChange={e => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, dp: Number(e.target.value) || 0, lastEdited: 'dp' } : i))} className="h-9 text-right pl-6" />
                         </div>
                       </td>
@@ -357,7 +357,7 @@ export const CreateOrder = () => {
                       </td>
                       <td className="p-2">
                         <div className="relative min-w-[120px]">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600 text-sm">â‚¹</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600 text-sm">₹</span>
                           <Input type="number" value={item.amount} onChange={e => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, amount: e.target.value, lastEdited: 'amount' } : i))} placeholder="0.00" className="h-9 text-right pl-6 bg-teal-50" />
                         </div>
                       </td>
@@ -379,9 +379,9 @@ export const CreateOrder = () => {
           <Card className="bg-teal-50 border-teal-200 p-4">
             <h4 className="font-semibold text-gray-900 mb-3">Order Summary</h4>
             <div className="space-y-2">
-              <div className="flex justify-between text-sm"><span className="text-gray-700">Subtotal:</span><span className="font-semibold">â‚¹ {subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-gray-700">Total Discount:</span><span className="font-semibold text-teal-600">- â‚¹ {totalDiscount.toFixed(2)}</span></div>
-              <div className="flex justify-between text-base font-bold border-t pt-2 mt-2"><span className="text-gray-900">Grand Total:</span><span className="text-[#34b0a7]">â‚¹ {grandTotal.toFixed(2)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-gray-700">Subtotal:</span><span className="font-semibold">₹ {subtotal.toFixed(2)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-gray-700">Total Discount:</span><span className="font-semibold text-teal-600">- ₹ {totalDiscount.toFixed(2)}</span></div>
+              <div className="flex justify-between text-base font-bold border-t pt-2 mt-2"><span className="text-gray-900">Grand Total:</span><span className="text-[#34b0a7]">₹ {grandTotal.toFixed(2)}</span></div>
             </div>
           </Card>
 

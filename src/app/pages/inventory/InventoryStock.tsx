@@ -80,7 +80,7 @@ export const InventoryStock = () => {
                       <td className="p-3 text-sm font-medium">{p.name}</td>
                       <td className="p-3 text-sm text-gray-600">{p.brands?.name ?? '-'}</td>
                       <td className="p-3 text-sm font-mono text-gray-600">{p.sku}</td>
-                      <td className="p-3 text-sm text-right">â‚¹ {p.dealer_price?.toLocaleString('en-IN')}</td>
+                      <td className="p-3 text-sm text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
                       <td className="p-3 text-sm text-right font-bold">{p.stock_qty}</td>
                       <td className="p-3 text-center"><span className={`px-3 py-1 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span></td>
                     </tr>

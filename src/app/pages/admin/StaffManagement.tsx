@@ -306,7 +306,7 @@ export const StaffManagement = () => {
                             />
                         </div>
                         <p className="text-xs text-gray-500 bg-teal-50 border border-teal-100 rounded p-3">
-                            A secure auto-generated password will be created. Share it with the staff member â€” they'll be prompted to change it on first login.
+                            A secure auto-generated password will be created. Share it with the staff member — they'll be prompted to change it on first login.
                         </p>
                     </div>
                     <DialogFooter className="gap-2">
@@ -360,7 +360,7 @@ export const StaffManagement = () => {
                                 </div>
                             </div>
                             <p className="text-xs text-teal-700 bg-teal-50 border border-teal-100 rounded p-3">
-                                âš ï¸ Save this password now â€” it won't be shown again. The staff member will be required to change it on first login.
+                                âš ï¸ Save this password now — it won't be shown again. The staff member will be required to change it on first login.
                             </p>
                         </div>
                     )}

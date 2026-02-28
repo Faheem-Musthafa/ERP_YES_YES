@@ -93,7 +93,7 @@ export const StockManagement = () => {
                   <th className="text-left text-xs font-semibold text-gray-700 p-3">Product</th>
                   <th className="text-left text-xs font-semibold text-gray-700 p-3">Brand</th>
                   <th className="text-left text-xs font-semibold text-gray-700 p-3">SKU</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3">DP (â‚¹)</th>
+                  <th className="text-right text-xs font-semibold text-gray-700 p-3">DP (₹)</th>
                   <th className="text-right text-xs font-semibold text-gray-700 p-3">Stock Qty</th>
                   <th className="text-center text-xs font-semibold text-gray-700 p-3">Status</th>
                 </tr>
@@ -106,7 +106,7 @@ export const StockManagement = () => {
                       <td className="p-3 text-sm font-medium">{p.name}</td>
                       <td className="p-3 text-sm text-gray-600">{p.brands?.name ?? '-'}</td>
                       <td className="p-3 text-sm font-mono text-gray-600">{p.sku}</td>
-                      <td className="p-3 text-sm text-right">â‚¹ {p.dealer_price?.toLocaleString('en-IN')}</td>
+                      <td className="p-3 text-sm text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
                       <td className="p-3 text-sm text-right font-bold">{p.stock_qty}</td>
                       <td className="p-3 text-center"><span className={`px-3 py-1 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span></td>
                     </tr>

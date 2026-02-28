@@ -70,7 +70,7 @@ export const StockAdjustment = () => {
               <Label>Product *</Label>
               <Select value={selectedProductId} onValueChange={setSelectedProductId}>
                 <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
-                <SelectContent>{products.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.sku}) â€” Stock: {p.stock_qty}</SelectItem>)}</SelectContent>
+                <SelectContent>{products.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.sku}) — Stock: {p.stock_qty}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             {selectedProduct && <p className="text-sm text-teal-700 bg-teal-50 p-3 rounded">Current stock: <strong>{selectedProduct.stock_qty} units</strong></p>}

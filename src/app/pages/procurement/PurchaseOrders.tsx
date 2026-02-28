@@ -73,7 +73,7 @@ export const PurchaseOrders = () => {
                   <td className="p-3 text-sm font-medium text-teal-600">{po.poNumber}</td>
                   <td className="p-3 text-sm">{po.supplier}</td>
                   <td className="p-3 text-sm text-center">{po.items}</td>
-                  <td className="p-3 text-sm text-right font-semibold">â‚¹ {po.amount.toLocaleString('en-IN')}</td>
+                  <td className="p-3 text-sm text-right font-semibold">₹ {po.amount.toLocaleString('en-IN')}</td>
                   <td className="p-3 text-sm">{new Date(po.date).toLocaleDateString()}</td>
                   <td className="p-3 text-sm">{new Date(po.expectedDate).toLocaleDateString()}</td>
                   <td className="p-3 text-center">{getStatusBadge(po.status)}</td>

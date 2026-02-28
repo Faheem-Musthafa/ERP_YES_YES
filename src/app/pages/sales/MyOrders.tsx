@@ -103,7 +103,7 @@ export const MyOrders = () => {
                     <td className="p-3 text-sm text-gray-700">{order.customers?.name ?? '-'}</td>
                     <td className="p-3 text-sm text-gray-700">{order.company}</td>
                     <td className="p-3 text-sm text-gray-700">{order.invoice_type}</td>
-                    <td className="p-3 text-sm text-right font-semibold">â‚¹ {order.grand_total?.toLocaleString('en-IN')}</td>
+                    <td className="p-3 text-sm text-right font-semibold">₹ {order.grand_total?.toLocaleString('en-IN')}</td>
                     <td className="p-3 text-sm text-gray-700">{order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : '-'}</td>
                     <td className="p-3 text-center">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor[order.status] ?? 'bg-gray-100 text-gray-700'}`}>{order.status}</span>

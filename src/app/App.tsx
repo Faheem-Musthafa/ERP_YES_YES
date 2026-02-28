@@ -32,7 +32,7 @@ const Loader = () => (
   </div>
 );
 
-// Protected Route â€” checks auth, active status, and must_change_password
+// Protected Route — checks auth, active status, and must_change_password
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { user, loading } = useAuth();
   if (loading) return <Loader />;
@@ -76,7 +76,7 @@ const AppRoutes = () => {
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={user && !user.must_change_password ? <Navigate to="/" replace /> : <Login />} />
 
-      {/* First-login password change â€” no Layout, just auth check */}
+      {/* First-login password change — no Layout, just auth check */}
       <Route path="/change-password" element={<ChangePassword />} />
 
       {/* Admin Routes */}

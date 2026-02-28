@@ -214,7 +214,7 @@ export const ReceiptEntry = () => {
               <div className="space-y-2">
                 <Label>Received Amount *</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">â‚¹</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">₹</span>
                   <Input type="number" value={receivedAmount} onChange={e => setReceivedAmount(e.target.value)} placeholder="0.00" required className="pl-8" />
                 </div>
               </div>
@@ -231,7 +231,7 @@ export const ReceiptEntry = () => {
                       <SelectItem key={o.id} value={o.id}>
                         <div className="flex flex-col py-1">
                           <span className="font-medium">{o.order_number}</span>
-                          <span className="text-xs text-gray-500">{o.customers?.name} â€¢ â‚¹{o.grand_total?.toLocaleString('en-IN')} â€¢ {new Date(o.created_at).toLocaleDateString()}</span>
+                          <span className="text-xs text-gray-500">{o.customers?.name} â€¢ ₹{o.grand_total?.toLocaleString('en-IN')} â€¢ {new Date(o.created_at).toLocaleDateString()}</span>
                         </div>
                       </SelectItem>
                     ))}

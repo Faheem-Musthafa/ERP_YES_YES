@@ -7,8 +7,8 @@ import {
   DollarSign, Activity
 } from 'lucide-react';
 
-const fmt = (n: number) => `â‚¹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-const fmtK = (n: number) => n >= 100000 ? `â‚¹ ${(n / 100000).toFixed(1)}L` : n >= 1000 ? `â‚¹ ${(n / 1000).toFixed(1)}K` : fmt(n);
+const fmt = (n: number) => `₹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+const fmtK = (n: number) => n >= 100000 ? `₹ ${(n / 100000).toFixed(1)}L` : n >= 1000 ? `₹ ${(n / 1000).toFixed(1)}K` : fmt(n);
 
 const STATUS_COLOR: Record<string, string> = {
   Pending: 'bg-yellow-100 text-yellow-700',
@@ -230,8 +230,8 @@ export const AdminDashboard = () => {
             {recentOrders.map(order => (
               <div key={order.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                 <div>
-                  <p className="text-sm font-medium text-gray-800">{(order.customers as any)?.name ?? 'â€”'}</p>
-                  <p className="text-xs text-gray-400">{order.order_number} Â· {new Date(order.created_at).toLocaleDateString('en-IN')}</p>
+                  <p className="text-sm font-medium text-gray-800">{(order.customers as any)?.name ?? '—'}</p>
+                  <p className="text-xs text-gray-400">{order.order_number} · {new Date(order.created_at).toLocaleDateString('en-IN')}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-gray-700">{fmt(order.grand_total ?? 0)}</span>

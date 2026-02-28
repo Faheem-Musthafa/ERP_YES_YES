@@ -94,7 +94,7 @@ export const MyCollection = () => {
                   <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Order No</th>
                   <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Customer</th>
                   <th className="text-center text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Mode</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Amount (â‚¹)</th>
+                  <th className="text-right text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Amount (₹)</th>
                   <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Date</th>
                 </tr>
               </thead>
@@ -107,7 +107,7 @@ export const MyCollection = () => {
                     <td className="p-3 text-center">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${modeColor[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>{r.payment_mode}</span>
                     </td>
-                    <td className="p-3 text-sm text-right font-semibold">â‚¹ {r.amount?.toLocaleString('en-IN')}</td>
+                    <td className="p-3 text-sm text-right font-semibold">₹ {r.amount?.toLocaleString('en-IN')}</td>
                     <td className="p-3 text-sm text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}

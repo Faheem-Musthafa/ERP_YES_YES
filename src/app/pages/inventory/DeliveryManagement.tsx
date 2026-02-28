@@ -133,7 +133,7 @@ export const DeliveryManagement = () => {
             <div className="space-y-2"><Label>Order *</Label>
               <Select value={form.order_id} onValueChange={v => setForm(f => ({ ...f, order_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select order" /></SelectTrigger>
-                <SelectContent>{orders.map(o => <SelectItem key={o.id} value={o.id}>{o.order_number} â€” {o.customers?.name}</SelectItem>)}</SelectContent>
+                <SelectContent>{orders.map(o => <SelectItem key={o.id} value={o.id}>{o.order_number} — {o.customers?.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-2"><Label>Driver Name</Label><Input value={form.driver_name} onChange={e => setForm(f => ({ ...f, driver_name: e.target.value }))} placeholder="Optional" /></div>

@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      // *** SYNCHRONOUS handler *** â€” must NOT be async.
+      // *** SYNCHRONOUS handler *** — must NOT be async.
       // Calling supabase DB queries (even via fetchUserProfile) directly inside an async
       // onAuthStateChange handler causes a deadlock with Supabase's internal token refresh
       // on page reload: the DB query internally calls getSession() which waits for the
