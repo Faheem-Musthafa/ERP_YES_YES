@@ -30,11 +30,14 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
       ],
     },
     {
-      title: 'Inventory',
+      title: 'Inventory & Catalogue',
       items: [
         { label: 'Brands', path: '/admin/brands', icon: <Package size={18} /> },
         { label: 'Products', path: '/admin/products', icon: <Boxes size={18} /> },
-        { label: 'Stock', path: '/stock', icon: <BarChart3 size={18} /> },
+        { label: 'Stock View', path: '/stock', icon: <BarChart3 size={18} /> },
+        { label: 'Inventory Management', path: '/inventory/stock', icon: <Boxes size={18} /> },
+        { label: 'Stock Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={18} /> },
+        { label: 'Delivery Management', path: '/inventory/delivery', icon: <Truck size={18} /> },
       ],
     },
     {
@@ -45,6 +48,7 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
         { label: 'Pending Approval', path: '/accounts/pending-orders', icon: <FileCheck size={18} /> },
         { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={18} /> },
         { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={18} /> },
+        { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={18} /> },
         { label: 'Sales Records', path: '/admin/sales', icon: <TrendingUp size={18} /> },
         { label: 'Reports', path: '/admin/reports', icon: <FileText size={18} /> },
       ],

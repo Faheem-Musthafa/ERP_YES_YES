@@ -36,6 +36,7 @@ export const ReceiptEntry = () => {
   const [gstAutoFilled, setGstAutoFilled] = useState(false);
   const [receivedAmount, setReceivedAmount] = useState('');
   const [receivedDate, setReceivedDate] = useState('');
+  const [onAccountOf, setOnAccountOf] = useState<'Invoice' | 'Advance' | ''>('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [chequeNumber, setChequeNumber] = useState('');
   const [chequeDate, setChequeDate] = useState('');
@@ -45,7 +46,7 @@ export const ReceiptEntry = () => {
     const fetchData = async () => {
       const [{ data: custData }, { data: ordData }] = await Promise.all([
         supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
-        supabase.from('orders').select('id, order_number, grand_total, created_at, customers(name)').eq('status', 'Approved').order('created_at', { ascending: false }),
+        supabase.from('orders').select('id, order_number, grand_total, created_at, customer_id, customers(name)').eq('status', 'Approved').order('created_at', { ascending: false }),
       ]);
       if (custData) setCustomers(custData);
       if (ordData) setApprovedOrders(ordData);
@@ -75,14 +76,32 @@ export const ReceiptEntry = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedOrderId) { toast.error('Please select an invoice/order'); return; }
+    if (!customerType) { toast.error('Please select customer type'); return; }
+    if (customerType === 'existing' && !selectedCustomerId) { toast.error('Please select a customer'); return; }
+    if (customerType === 'new' && (!customerName || !customerPhone)) { toast.error('Please fill new customer details'); return; }
+    if (!onAccountOf) { toast.error('Please select On Account Of (Invoice or Advance)'); return; }
+    if (onAccountOf === 'Invoice' && !selectedOrderId) { toast.error('Please select an invoice'); return; }
     if (!receivedAmount || !receivedDate) { toast.error('Please enter amount and date'); return; }
+
     setLoading(true);
     try {
+      let finalCustomerId = selectedCustomerId;
+      if (customerType === 'new') {
+        const { data: newCust, error: errC } = await supabase.from('customers').insert({
+          name: customerName,
+          phone: customerPhone,
+          address: customerAddress,
+          gst_pan: customerGst || null,
+        }).select('id').single();
+        if (errC) throw new Error('Failed to create customer: ' + errC.message);
+        finalCustomerId = newCust.id;
+      }
+
       const receiptNumber = `RCPT-${Date.now()}`;
       const { error } = await supabase.from('receipts').insert({
         receipt_number: receiptNumber,
-        order_id: selectedOrderId,
+        customer_id: finalCustomerId,
+        order_id: onAccountOf === 'Invoice' ? selectedOrderId : null,
         amount: Number(receivedAmount),
         payment_mode: mapMode(modeOfReceipt as string),
         recorded_by: user?.id ?? null,
@@ -129,10 +148,9 @@ export const ReceiptEntry = () => {
                 <Select value={modeOfReceipt} onValueChange={v => setModeOfReceipt(v as any)}>
                   <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Bank">Bank Transfer</SelectItem>
+                    <SelectItem value="Bank">Bank</SelectItem>
                     <SelectItem value="Cash">Cash</SelectItem>
                     <SelectItem value="Cheque">Cheque</SelectItem>
-                    <SelectItem value="UPI">UPI</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -223,21 +241,36 @@ export const ReceiptEntry = () => {
                 <Input type="date" value={receivedDate} onChange={e => setReceivedDate(e.target.value)} required />
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label>Against Invoice (Order) *</Label>
-                <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
-                  <SelectTrigger><SelectValue placeholder="Select invoice" /></SelectTrigger>
+                <Label>On Account Of *</Label>
+                <Select value={onAccountOf} onValueChange={v => { setOnAccountOf(v as any); setSelectedOrderId(''); }}>
+                  <SelectTrigger><SelectValue placeholder="Select Invoice or Advance" /></SelectTrigger>
                   <SelectContent>
-                    {approvedOrders.map(o => (
-                      <SelectItem key={o.id} value={o.id}>
-                        <div className="flex flex-col py-1">
-                          <span className="font-medium">{o.order_number}</span>
-                          <span className="text-xs text-gray-500">{o.customers?.name} â€¢ ₹{o.grand_total?.toLocaleString('en-IN')} â€¢ {new Date(o.created_at).toLocaleDateString()}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="Invoice">Invoice</SelectItem>
+                    <SelectItem value="Advance">Advance</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              {onAccountOf === 'Invoice' && (
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Select Invoice *</Label>
+                  <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
+                    <SelectTrigger><SelectValue placeholder="Select invoice" /></SelectTrigger>
+                    <SelectContent>
+                      {approvedOrders.filter(o => !selectedCustomerId || o.customer_id === selectedCustomerId).map(o => (
+                        <SelectItem key={o.id} value={o.id}>
+                          <div className="flex flex-col py-1">
+                            <span className="font-medium">{o.order_number}</span>
+                            <span className="text-xs text-gray-500">{o.customers?.name} • ₹{o.grand_total?.toLocaleString('en-IN')} • {new Date(o.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                      {approvedOrders.filter(o => !selectedCustomerId || o.customer_id === selectedCustomerId).length === 0 && (
+                        <SelectItem value="none" disabled>No approved invoices found</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </div>
 
