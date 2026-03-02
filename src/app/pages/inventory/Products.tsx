@@ -1,5 +1,4 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -72,16 +71,16 @@ export const Products = () => {
   });
 
   return (
-    <div>
-      <div className="flex justify-between items-start mb-6">
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Products</h1>
-          <p className="text-gray-600 mt-1">Manage product catalog</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Products</h1>
+          <p className="text-gray-500 mt-1 text-sm">Manage product catalog</p>
         </div>
-        <Button onClick={openAdd} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90"><Plus size={18} className="mr-2" />Add Product</Button>
+        <Button onClick={openAdd} className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl"><Plus size={18} className="mr-2" />Add Product</Button>
       </div>
 
-      <Card className="p-4 mb-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <div className="flex gap-4 flex-wrap">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -95,37 +94,37 @@ export const Products = () => {
             </SelectContent>
           </Select>
         </div>
-      </Card>
+      </div>
 
-      <Card className="overflow-hidden">
-        {loading ? <div className="text-center py-12 text-gray-500">Loading...</div> : (
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {loading ? <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" /></div> : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Product</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Brand</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">SKU</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3">Dealer Price</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3">Stock</th>
-                  <th className="text-center text-xs font-semibold text-gray-700 p-3">Status</th>
-                  <th className="text-center text-xs font-semibold text-gray-700 p-3">Actions</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Product</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Brand</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">SKU</th>
+                  <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Dealer Price</th>
+                  <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Stock</th>
+                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Status</th>
+                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-50">
                 {filtered.map(p => (
-                  <tr key={p.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 text-sm font-medium">{p.name}</td>
-                    <td className="p-3 text-sm text-gray-600">{p.brands?.name ?? '-'}</td>
-                    <td className="p-3 text-sm text-gray-600 font-mono">{p.sku}</td>
-                    <td className="p-3 text-sm text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
-                    <td className="p-3 text-sm text-right font-semibold">
-                      <span className={p.stock_qty <= 5 ? 'text-teal-600' : p.stock_qty === 0 ? 'text-red-600' : 'text-gray-900'}>{p.stock_qty}</span>
+                  <tr key={p.id} className="hover:bg-gray-50/70 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-gray-900">{p.name}</td>
+                    <td className="px-4 py-3 text-gray-600">{p.brands?.name ?? '-'}</td>
+                    <td className="px-4 py-3 text-gray-600 font-mono text-xs">{p.sku}</td>
+                    <td className="px-4 py-3 text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-3 text-right font-bold">
+                      <span className={p.stock_qty <= 5 ? 'text-amber-600' : p.stock_qty === 0 ? 'text-red-600' : 'text-gray-900'}>{p.stock_qty}</span>
                     </td>
-                    <td className="p-3 text-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{p.is_active ? 'Active' : 'Inactive'}</span>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${p.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{p.is_active ? 'Active' : 'Inactive'}</span>
                     </td>
-                    <td className="p-3 text-center">
+                    <td className="px-4 py-3 text-center">
                       <div className="flex justify-center gap-2">
                         <Button size="sm" variant="outline" onClick={() => openEdit(p)} className="h-8"><Pencil size={14} /></Button>
                         <Button size="sm" variant="outline" onClick={() => deleteProduct(p)} className="h-8 text-red-600 border-red-200 hover:bg-red-50" title="Delete permanently">
@@ -139,7 +138,7 @@ export const Products = () => {
             </table>
           </div>
         )}
-      </Card>
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
@@ -160,7 +159,7 @@ export const Products = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+            <Button onClick={handleSave} className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

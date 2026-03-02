@@ -1,5 +1,4 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -65,43 +64,41 @@ export const Brands = () => {
   const filtered = brands.filter(b => !search || b.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div>
-      <div className="flex justify-between items-start mb-6">
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Brands</h1>
-          <p className="text-gray-600 mt-1">Manage product brands</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Brands</h1>
+          <p className="text-gray-500 mt-1 text-sm">Manage product brands</p>
         </div>
-        <Button onClick={openAdd} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90"><Plus size={18} className="mr-2" />Add Brand</Button>
+        <Button onClick={openAdd} className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl"><Plus size={18} className="mr-2" />Add Brand</Button>
       </div>
 
-      <Card className="p-4 mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <Input placeholder="Search brands..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
-        </div>
-      </Card>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+        <Input placeholder="Search brands..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 rounded-xl" />
+      </div>
 
-      <Card className="overflow-hidden">
-        {loading ? <div className="text-center py-12 text-gray-500">Loading...</div> : (
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {loading ? <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" /></div> : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Brand Name</th>
-                  <th className="text-center text-xs font-semibold text-gray-700 p-3">Status</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Added On</th>
-                  <th className="text-center text-xs font-semibold text-gray-700 p-3">Actions</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Brand Name</th>
+                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Status</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Added On</th>
+                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-50">
                 {filtered.map(b => (
-                  <tr key={b.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 text-sm font-medium">{b.name}</td>
-                    <td className="p-3 text-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${b.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{b.is_active ? 'Active' : 'Inactive'}</span>
+                  <tr key={b.id} className="hover:bg-gray-50/70 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-gray-900">{b.name}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${b.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{b.is_active ? 'Active' : 'Inactive'}</span>
                     </td>
-                    <td className="p-3 text-sm text-gray-500">{new Date(b.created_at).toLocaleDateString()}</td>
-                    <td className="p-3 text-center">
+                    <td className="px-4 py-3 text-xs text-gray-500">{new Date(b.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-center">
                       <div className="flex justify-center gap-2">
                         <Button size="sm" variant="outline" onClick={() => openEdit(b)} className="h-8"><Pencil size={14} /></Button>
                         <Button size="sm" variant="outline" onClick={() => toggleActive(b)} className={`h-8 text-xs ${b.is_active ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}>
@@ -118,7 +115,7 @@ export const Brands = () => {
             </table>
           </div>
         )}
-      </Card>
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
@@ -131,7 +128,7 @@ export const Brands = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+            <Button onClick={handleSave} className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

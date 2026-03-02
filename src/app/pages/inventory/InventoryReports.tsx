@@ -1,5 +1,4 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Card } from '@/app/components/ui/card';
 import { BarChart2, Package, AlertTriangle, TrendingDown } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 
@@ -33,56 +32,58 @@ export const InventoryReports = () => {
   }, []);
 
   const summaryCards = [
-    { title: 'Total Products', value: stats.totalProducts, icon: <Package size={24} className="text-teal-600" />, bg: 'bg-teal-50' },
-    { title: 'Total Stock Units', value: stats.totalStock, icon: <BarChart2 size={24} className="text-green-600" />, bg: 'bg-green-50' },
-    { title: 'Low Stock Items', value: stats.lowStock, icon: <AlertTriangle size={24} className="text-teal-600" />, bg: 'bg-teal-50' },
-    { title: 'Out of Stock', value: stats.outOfStock, icon: <TrendingDown size={24} className="text-red-600" />, bg: 'bg-red-50' },
+    { title: 'Total Products', value: stats.totalProducts, icon: <Package size={20} className="text-teal-600" />, iconBg: 'bg-teal-100 text-teal-600', border: 'border-l-4 border-l-teal-500' },
+    { title: 'Total Stock Units', value: stats.totalStock, icon: <BarChart2 size={20} className="text-emerald-600" />, iconBg: 'bg-emerald-100 text-emerald-600', border: 'border-l-4 border-l-emerald-500' },
+    { title: 'Low Stock Items', value: stats.lowStock, icon: <AlertTriangle size={20} className="text-amber-600" />, iconBg: 'bg-amber-100 text-amber-600', border: 'border-l-4 border-l-amber-500' },
+    { title: 'Out of Stock', value: stats.outOfStock, icon: <TrendingDown size={20} className="text-red-600" />, iconBg: 'bg-red-100 text-red-600', border: 'border-l-4 border-l-red-500' },
   ];
 
   return (
-    <div>
-      <div className="mb-6"><h1 className="text-2xl font-semibold text-gray-900">Inventory Reports</h1><p className="text-gray-600 mt-1">Inventory analytics and stock adjustment history</p></div>
-      {loading ? <div className="text-center py-12 text-gray-500">Loading...</div> : (
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Inventory Reports</h1>
+        <p className="text-gray-500 mt-1 text-sm">Inventory analytics and stock adjustment history</p>
+      </div>
+      {loading ? <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" /></div> : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {summaryCards.map((c, i) => (
-              <Card key={i} className="p-6">
-                <div className="flex items-start justify-between">
-                  <div><p className="text-sm text-gray-600 mb-1">{c.title}</p><p className="text-3xl font-bold text-gray-900">{c.value}</p></div>
-                  <div className={`p-3 rounded-lg ${c.bg}`}>{c.icon}</div>
-                </div>
-              </Card>
+              <div key={i} className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-5 ${c.border}`}>
+                <div className={`p-2.5 rounded-xl inline-flex mb-3 ${c.iconBg}`}>{c.icon}</div>
+                <p className="text-2xl font-bold text-gray-900">{c.value}</p>
+                <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wide">{c.title}</p>
+              </div>
             ))}
           </div>
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Recent Stock Adjustments</h3>
-            {adjustmentHistory.length === 0 ? <p className="text-gray-500 text-sm">No adjustments recorded yet.</p> : (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h3 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wide">Recent Stock Adjustments</h3>
+            {adjustmentHistory.length === 0 ? <p className="text-gray-400 text-sm">No adjustments recorded yet.</p> : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b">
+                  <thead className="bg-gray-50 border-b border-gray-100">
                     <tr>
-                      <th className="text-left p-3">Product</th>
-                      <th className="text-center p-3">Type</th>
-                      <th className="text-right p-3">Qty Change</th>
-                      <th className="text-left p-3">Date</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Product</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Type</th>
+                      <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Qty Change</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">Date</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-gray-50">
                     {adjustmentHistory.map(a => (
-                      <tr key={a.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3 font-medium">{(a.products as any)?.name}</td>
-                        <td className="p-3 text-center">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${a.type === 'Addition' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{a.type}</span>
+                      <tr key={a.id} className="hover:bg-gray-50/70 transition-colors">
+                        <td className="px-4 py-3 font-semibold">{(a.products as any)?.name}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${a.type === 'Addition' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{a.type}</span>
                         </td>
-                        <td className="p-3 text-right font-semibold">{a.type === 'Addition' ? '+' : '-'}{a.quantity}</td>
-                        <td className="p-3 text-gray-500">{new Date(a.created_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 text-right font-bold">{a.type === 'Addition' ? '+' : '-'}{a.quantity}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500">{new Date(a.created_at).toLocaleDateString()}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
-          </Card>
+          </div>
         </>
       )}
     </div>

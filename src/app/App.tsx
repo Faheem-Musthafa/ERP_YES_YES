@@ -25,6 +25,12 @@ import { Products } from '@/app/pages/inventory/Products';
 import { StockAdjustment } from '@/app/pages/inventory/StockAdjustment';
 import { InventoryReports } from '@/app/pages/inventory/InventoryReports';
 import { DeliveryManagement } from '@/app/pages/inventory/DeliveryManagement';
+import { ProcurementDashboard } from '@/app/pages/procurement/ProcurementDashboard';
+import { PurchaseOrders } from '@/app/pages/procurement/PurchaseOrders';
+import { PurchaseHistory } from '@/app/pages/procurement/PurchaseHistory';
+import { Suppliers } from '@/app/pages/procurement/Suppliers';
+import { GRN } from '@/app/pages/procurement/GRN';
+import { ProcurementReports } from '@/app/pages/procurement/ProcurementReports';
 import { Toaster } from '@/app/components/ui/sonner';
 
 // Loading spinner
@@ -56,6 +62,16 @@ const ProtectedRouteNoLayout = ({ children, allowedRoles }: { children: React.Re
   return <>{children}</>;
 };
 
+// Change Password Route — requires auth but skips the must_change_password redirect loop
+const ChangePasswordRoute = () => {
+  const { user, loading } = useAuth();
+  if (loading) return <Loader />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!user.is_active) return <Navigate to="/login" replace />;
+  if (!user.must_change_password) return <Navigate to="/" replace />;
+  return <ChangePassword />;
+};
+
 // Home redirect based on role
 const HomeRedirect = () => {
   const { user, loading } = useAuth();
@@ -67,6 +83,7 @@ const HomeRedirect = () => {
   if (user.role === 'sales') return <Navigate to="/sales" replace />;
   if (user.role === 'accounts') return <Navigate to="/accounts" replace />;
   if (user.role === 'inventory') return <Navigate to="/inventory" replace />;
+  if (user.role === 'procurement') return <Navigate to="/procurement" replace />;
   return <Navigate to="/login" replace />;
 };
 
@@ -78,8 +95,8 @@ const AppRoutes = () => {
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/login" element={user && !user.must_change_password ? <Navigate to="/" replace /> : <Login />} />
 
-      {/* First-login password change — no Layout, just auth check */}
-      <Route path="/change-password" element={<ChangePassword />} />
+      {/* First-login password change — guarded: must be logged in with must_change_password=true */}
+      <Route path="/change-password" element={<ChangePasswordRoute />} />
 
       {/* Admin Routes */}
       <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
@@ -119,6 +136,14 @@ const AppRoutes = () => {
       <Route path="/inventory/adjustment" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><StockAdjustment /></ProtectedRoute>} />
       <Route path="/inventory/reports" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><InventoryReports /></ProtectedRoute>} />
       <Route path="/inventory/delivery" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><DeliveryManagement /></ProtectedRoute>} />
+
+      {/* Procurement Routes */}
+      <Route path="/procurement" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><ProcurementDashboard /></ProtectedRoute>} />
+      <Route path="/procurement/orders" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><PurchaseOrders /></ProtectedRoute>} />
+      <Route path="/procurement/history" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><PurchaseHistory /></ProtectedRoute>} />
+      <Route path="/procurement/suppliers" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><Suppliers /></ProtectedRoute>} />
+      <Route path="/procurement/grn" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><GRN /></ProtectedRoute>} />
+      <Route path="/procurement/reports" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><ProcurementReports /></ProtectedRoute>} />
 
       {/* 404 */}
       <Route path="*" element={<Navigate to="/" replace />} />

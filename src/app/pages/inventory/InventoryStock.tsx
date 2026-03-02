@@ -1,5 +1,4 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Card } from '@/app/components/ui/card';
 import { Input } from '@/app/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Search, Package } from 'lucide-react';
@@ -39,9 +38,12 @@ export const InventoryStock = () => {
   };
 
   return (
-    <div>
-      <div className="mb-6"><h1 className="text-2xl font-semibold text-gray-900">Inventory Stock</h1><p className="text-gray-600 mt-1">Current stock levels for all products</p></div>
-      <Card className="p-4 mb-6">
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Inventory Stock</h1>
+        <p className="text-gray-500 mt-1 text-sm">Current stock levels for all products</p>
+      </div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <div className="flex gap-4 flex-wrap">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -55,34 +57,34 @@ export const InventoryStock = () => {
             </SelectContent>
           </Select>
         </div>
-      </Card>
-      <Card className="overflow-hidden">
-        {loading ? <div className="text-center py-12 text-gray-500">Loading...</div> : filtered.length === 0 ? (
-          <div className="text-center py-12"><Package size={48} className="text-gray-300 mx-auto mb-4" /><p className="text-gray-500">No products found</p></div>
+      </div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {loading ? <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" /></div> : filtered.length === 0 ? (
+          <div className="text-center py-12"><Package size={40} className="text-gray-200 mx-auto mb-3" /><p className="text-gray-400 text-sm">No products found</p></div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Product</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Brand</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">SKU</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3">Dealer Price</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3">Stock Qty</th>
-                  <th className="text-center text-xs font-semibold text-gray-700 p-3">Status</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Product</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Brand</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">SKU</th>
+                  <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Dealer Price</th>
+                  <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Stock Qty</th>
+                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-50">
                 {filtered.map(p => {
                   const s = stockStatus(p.stock_qty);
                   return (
-                    <tr key={p.id} className="border-b hover:bg-gray-50">
-                      <td className="p-3 text-sm font-medium">{p.name}</td>
-                      <td className="p-3 text-sm text-gray-600">{p.brands?.name ?? '-'}</td>
-                      <td className="p-3 text-sm font-mono text-gray-600">{p.sku}</td>
-                      <td className="p-3 text-sm text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
-                      <td className="p-3 text-sm text-right font-bold">{p.stock_qty}</td>
-                      <td className="p-3 text-center"><span className={`px-3 py-1 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span></td>
+                    <tr key={p.id} className="hover:bg-gray-50/70 transition-colors">
+                      <td className="px-4 py-3 font-semibold text-gray-900">{p.name}</td>
+                      <td className="px-4 py-3 text-gray-600">{p.brands?.name ?? '-'}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-gray-600">{p.sku}</td>
+                      <td className="px-4 py-3 text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
+                      <td className="px-4 py-3 text-right font-bold">{p.stock_qty}</td>
+                      <td className="px-4 py-3 text-center"><span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${s.cls}`}>{s.label}</span></td>
                     </tr>
                   );
                 })}
@@ -90,7 +92,7 @@ export const InventoryStock = () => {
             </table>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 };

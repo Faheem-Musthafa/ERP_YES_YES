@@ -1,5 +1,4 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -70,45 +69,46 @@ export const DeliveryManagement = () => {
   const filtered = deliveries.filter(d => !search || (d.delivery_number ?? '').toLowerCase().includes(search.toLowerCase()) || (d.orders?.order_number ?? '').toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div>
-      <div className="flex justify-between items-start mb-6">
-        <div><h1 className="text-2xl font-semibold text-gray-900">Delivery Management</h1><p className="text-gray-600 mt-1">Track all deliveries for orders</p></div>
-        <Button onClick={() => setOpen(true)} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90"><Plus size={18} className="mr-2" />New Delivery</Button>
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Delivery Management</h1>
+          <p className="text-gray-500 mt-1 text-sm">Track all deliveries for orders</p>
+        </div>
+        <Button onClick={() => setOpen(true)} className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl"><Plus size={18} className="mr-2" />New Delivery</Button>
       </div>
 
-      <Card className="p-4 mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <Input placeholder="Search delivery / order..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
-        </div>
-      </Card>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+        <Input placeholder="Search delivery / order..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 rounded-xl" />
+      </div>
 
-      <Card className="overflow-hidden">
-        {loading ? <div className="text-center py-12 text-gray-500">Loading...</div> : filtered.length === 0 ? (
-          <div className="text-center py-12"><Truck size={48} className="text-gray-300 mx-auto mb-4" /><p className="text-gray-500">No deliveries found</p></div>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {loading ? <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" /></div> : filtered.length === 0 ? (
+          <div className="text-center py-12"><Truck size={40} className="text-gray-200 mx-auto mb-3" /><p className="text-gray-400 text-sm">No deliveries found</p></div>
         ) : (
-          <div className="overflow-x-auto"><table className="w-full">
-            <thead className="bg-gray-50 border-b">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="text-left text-xs font-semibold text-gray-700 p-3">Delivery No</th>
-                <th className="text-left text-xs font-semibold text-gray-700 p-3">Order</th>
-                <th className="text-left text-xs font-semibold text-gray-700 p-3">Customer</th>
-                <th className="text-left text-xs font-semibold text-gray-700 p-3">Driver</th>
-                <th className="text-left text-xs font-semibold text-gray-700 p-3">Vehicle</th>
-                <th className="text-center text-xs font-semibold text-gray-700 p-3">Status</th>
-                <th className="text-center text-xs font-semibold text-gray-700 p-3">Actions</th>
+                <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Delivery No</th>
+                <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Order</th>
+                <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Customer</th>
+                <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Driver</th>
+                <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Vehicle</th>
+                <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Status</th>
+                <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-50">
               {filtered.map(d => (
-                <tr key={d.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3 text-sm font-medium text-[#34b0a7]">{d.delivery_number}</td>
-                  <td className="p-3 text-sm">{d.orders?.order_number}</td>
-                  <td className="p-3 text-sm text-gray-600">{d.orders?.customers?.name ?? '-'}</td>
-                  <td className="p-3 text-sm">{d.driver_name ?? '-'}</td>
-                  <td className="p-3 text-sm">{d.vehicle_number ?? '-'}</td>
-                  <td className="p-3 text-center"><span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor[d.status] ?? 'bg-gray-100 text-gray-700'}`}>{d.status}</span></td>
-                  <td className="p-3 text-center">
+                <tr key={d.id} className="hover:bg-gray-50/70 transition-colors">
+                  <td className="px-4 py-3 font-semibold text-[#34b0a7]">{d.delivery_number}</td>
+                  <td className="px-4 py-3">{d.orders?.order_number}</td>
+                  <td className="px-4 py-3 text-gray-600">{d.orders?.customers?.name ?? '-'}</td>
+                  <td className="px-4 py-3">{d.driver_name ?? '-'}</td>
+                  <td className="px-4 py-3">{d.vehicle_number ?? '-'}</td>
+                  <td className="px-4 py-3 text-center"><span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor[d.status] ?? 'bg-gray-100 text-gray-700'}`}>{d.status}</span></td>
+                  <td className="px-4 py-3 text-center">
                     <Select value={d.status} onValueChange={v => updateStatus(d.id, v)}>
                       <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -124,7 +124,7 @@ export const DeliveryManagement = () => {
             </tbody>
           </table></div>
         )}
-      </Card>
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
@@ -141,7 +141,7 @@ export const DeliveryManagement = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} className="bg-[#34b0a7] hover:bg-[#34b0a7]/90" disabled={saving}>{saving ? 'Creating...' : 'Create Delivery'}</Button>
+            <Button onClick={handleCreate} className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl" disabled={saving}>{saving ? 'Creating...' : 'Create Delivery'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,18 +1,40 @@
 ﻿import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { supabase } from '@/app/supabase';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { LogIn, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      toast.error('Enter your email address first, then click Forgot password.');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/change-password`,
+      });
+      if (error) throw error;
+      toast.success('Password reset email sent. Check your inbox.');
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to send reset email. Try again.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,8 +92,13 @@ export const Login = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between ml-1">
                 <Label htmlFor="password" className="text-sm font-semibold text-slate-700">Password</Label>
-                <button type="button" className="text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline underline-offset-4 transition-all focus:outline-none">
-                  Forgot password?
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={resetLoading}
+                  className="text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline underline-offset-4 transition-all focus:outline-none disabled:opacity-50"
+                >
+                  {resetLoading ? 'Sending…' : 'Forgot password?'}
                 </button>
               </div>
               <Input
@@ -79,7 +106,7 @@ export const Login = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                placeholder="••••••••"
                 required
                 className="w-full h-12 px-4 text-sm bg-slate-50/50 border-slate-200 focus:bg-white focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 transition-all rounded-xl"
               />
@@ -118,13 +145,7 @@ export const Login = () => {
           <div className="mt-8 pt-6 border-t border-slate-100 text-center">
             <p className="text-sm text-slate-500 font-medium">
               Don't have an account?{' '}
-              <button
-                onClick={() => navigate('/register')}
-                className="font-bold text-slate-900 hover:text-teal-600 transition-colors focus:outline-none focus:underline underline-offset-4"
-                type="button"
-              >
-                Request access
-              </button>
+              <span className="font-semibold text-slate-700">Contact your administrator.</span>
             </p>
           </div>
         </div>

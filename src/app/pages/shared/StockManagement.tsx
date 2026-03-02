@@ -1,5 +1,4 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Card } from '@/app/components/ui/card';
 import { Input } from '@/app/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Search, AlertTriangle } from 'lucide-react';
@@ -39,27 +38,27 @@ export const StockManagement = () => {
 
   const stockStatus = (qty: number) => {
     if (qty === 0) return { label: 'Out of Stock', cls: 'bg-red-100 text-red-700' };
-    if (qty <= 5) return { label: 'Low Stock', cls: 'bg-teal-100 text-teal-700' };
-    return { label: 'In Stock', cls: 'bg-green-100 text-green-700' };
+    if (qty <= 5) return { label: 'Low Stock', cls: 'bg-amber-100 text-amber-700' };
+    return { label: 'In Stock', cls: 'bg-emerald-100 text-emerald-700' };
   };
 
   const lowCount = products.filter(p => p.stock_qty <= 5).length;
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Stock Management</h1>
-        <p className="text-gray-600 mt-1">View and monitor all product stock levels</p>
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Stock Management</h1>
+        <p className="text-gray-500 mt-1 text-sm">View and monitor all product stock levels</p>
       </div>
 
       {lowCount > 0 && (
-        <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-6 flex items-center gap-3">
-          <AlertTriangle className="text-teal-600" size={20} />
-          <span className="text-teal-800 text-sm font-medium">{lowCount} item(s) are low on stock or out of stock</span>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+          <AlertTriangle className="text-amber-600 flex-shrink-0" size={18} />
+          <span className="text-amber-800 text-sm font-medium">{lowCount} item(s) are low on stock or out of stock</span>
         </div>
       )}
 
-      <Card className="p-4 mb-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <div className="flex gap-4 flex-wrap">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -82,33 +81,37 @@ export const StockManagement = () => {
             </SelectContent>
           </Select>
         </div>
-      </Card>
+      </div>
 
-      <Card className="overflow-hidden">
-        {loading ? <div className="text-center py-12 text-gray-500">Loading...</div> : (
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center h-40">
+            <div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Product</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Brand</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">SKU</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3">DP (₹)</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3">Stock Qty</th>
-                  <th className="text-center text-xs font-semibold text-gray-700 p-3">Status</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Product</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Brand</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">SKU</th>
+                  <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">DP (₹)</th>
+                  <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Stock Qty</th>
+                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-50">
                 {filtered.map(p => {
                   const s = stockStatus(p.stock_qty);
                   return (
-                    <tr key={p.id} className="border-b hover:bg-gray-50">
-                      <td className="p-3 text-sm font-medium">{p.name}</td>
-                      <td className="p-3 text-sm text-gray-600">{p.brands?.name ?? '-'}</td>
-                      <td className="p-3 text-sm font-mono text-gray-600">{p.sku}</td>
-                      <td className="p-3 text-sm text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
-                      <td className="p-3 text-sm text-right font-bold">{p.stock_qty}</td>
-                      <td className="p-3 text-center"><span className={`px-3 py-1 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span></td>
+                    <tr key={p.id} className="hover:bg-gray-50/70 transition-colors">
+                      <td className="px-4 py-3 font-medium">{p.name}</td>
+                      <td className="px-4 py-3 text-gray-600">{p.brands?.name ?? '-'}</td>
+                      <td className="px-4 py-3 font-mono text-gray-600 text-xs">{p.sku}</td>
+                      <td className="px-4 py-3 text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
+                      <td className="px-4 py-3 text-right font-bold">{p.stock_qty}</td>
+                      <td className="px-4 py-3 text-center"><span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${s.cls}`}>{s.label}</span></td>
                     </tr>
                   );
                 })}
@@ -116,7 +119,7 @@ export const StockManagement = () => {
             </table>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 };

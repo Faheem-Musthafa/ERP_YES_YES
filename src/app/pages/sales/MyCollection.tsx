@@ -1,5 +1,4 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
@@ -41,23 +40,25 @@ export const MyCollection = () => {
   });
 
   const modeColor: Record<string, string> = {
-    Cash: 'bg-green-100 text-green-700',
-    Cheque: 'bg-teal-100 text-teal-700',
+    Cash: 'bg-emerald-100 text-emerald-700',
+    Cheque: 'bg-blue-100 text-blue-700',
     UPI: 'bg-purple-100 text-purple-700',
     'Bank Transfer': 'bg-teal-100 text-teal-700',
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-start mb-6">
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">My Collection</h1>
-          <p className="text-gray-600 mt-1">View all saved receipt entries</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">My Collection</h1>
+          <p className="text-gray-500 mt-1 text-sm">View all saved receipt entries</p>
         </div>
-        <Button onClick={() => navigate('/sales/receipt')} className="bg-[#34b0a7] hover:bg-[#115e59] text-white"><Plus size={18} className="mr-2" />New Receipt</Button>
+        <Button onClick={() => navigate('/sales/receipt')} className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl">
+          <Plus size={16} className="mr-2" />New Receipt
+        </Button>
       </div>
 
-      <Card className="p-4 mb-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <div className="flex gap-4 flex-wrap">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -74,48 +75,52 @@ export const MyCollection = () => {
             </SelectContent>
           </Select>
         </div>
-      </Card>
+      </div>
 
-      <Card className="overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Loading receipts...</div>
+          <div className="flex items-center justify-center h-40">
+            <div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" />
+          </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-16">
-            <Wallet size={48} className="text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg mb-4">No receipts recorded yet</p>
-            <Button onClick={() => navigate('/sales/receipt')} className="bg-[#34b0a7] hover:bg-[#115e59] text-white"><Plus size={18} className="mr-2" />Create First Receipt</Button>
+          <div className="text-center py-12">
+            <Wallet size={40} className="text-gray-200 mx-auto mb-3" />
+            <p className="text-gray-400 text-sm">No receipts recorded yet</p>
+            <Button onClick={() => navigate('/sales/receipt')} className="mt-4 bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl">
+              <Plus size={16} className="mr-2" />Create First Receipt
+            </Button>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Receipt No</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Order No</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Customer</th>
-                  <th className="text-center text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Mode</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Amount (₹)</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3 whitespace-nowrap">Date</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Receipt No</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Order No</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Customer</th>
+                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Mode</th>
+                  <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Amount (₹)</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Date</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-50">
                 {filtered.map(r => (
-                  <tr key={r.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 text-sm font-medium text-[#34b0a7]">{r.receipt_number}</td>
-                    <td className="p-3 text-sm text-gray-700">{r.orders?.order_number ?? '-'}</td>
-                    <td className="p-3 text-sm text-gray-700">{r.orders?.customers?.name ?? '-'}</td>
-                    <td className="p-3 text-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${modeColor[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>{r.payment_mode}</span>
+                  <tr key={r.id} className="hover:bg-gray-50/70 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-[#34b0a7]">{r.receipt_number}</td>
+                    <td className="px-4 py-3 text-gray-700">{r.orders?.order_number ?? '-'}</td>
+                    <td className="px-4 py-3 text-gray-700">{r.orders?.customers?.name ?? '-'}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${modeColor[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>{r.payment_mode}</span>
                     </td>
-                    <td className="p-3 text-sm text-right font-semibold">₹ {r.amount?.toLocaleString('en-IN')}</td>
-                    <td className="p-3 text-sm text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-right font-bold">₹ {r.amount?.toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 };

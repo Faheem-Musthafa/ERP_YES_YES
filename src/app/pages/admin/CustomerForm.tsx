@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { supabase } from '@/app/supabase';
-import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -93,20 +92,20 @@ export const CustomerForm = () => {
     }
 
     return (
-        <div>
+        <div className="space-y-5">
             {/* Breadcrumb */}
-            <div className="mb-4 text-sm text-gray-500">
+            <div className="text-sm text-gray-500">
                 <span>Admin</span><span className="mx-2">/</span>
                 <span className="cursor-pointer hover:text-[#34b0a7]" onClick={() => navigate('/admin/customers')}>Customers</span>
                 <span className="mx-2">/</span>
                 <span className="text-gray-900 font-medium">{isEdit ? 'Edit Customer' : 'New Customer'}</span>
             </div>
 
-            <div className="mb-6">
+            <div>
                 <Button variant="ghost" onClick={() => navigate('/admin/customers')} className="mb-3">
                     <ArrowLeft size={18} className="mr-2" /> Back
                 </Button>
-                <h1 className="text-2xl font-semibold text-gray-900">
+                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
                     {isEdit ? 'Edit Customer' : 'Add New Customer'}
                 </h1>
                 <p className="text-gray-500 mt-1 text-sm">
@@ -114,7 +113,7 @@ export const CustomerForm = () => {
                 </p>
             </div>
 
-            <Card className="p-6 max-w-2xl">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-2xl">
                 <form onSubmit={handleSubmit} className="space-y-6">
 
                     {/* Basic Info */}
@@ -191,7 +190,7 @@ export const CustomerForm = () => {
                         </Button>
                     </div>
                 </form>
-            </Card>
+            </div>
         </div>
     );
 };

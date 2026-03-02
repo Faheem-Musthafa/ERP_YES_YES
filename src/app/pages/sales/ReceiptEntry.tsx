@@ -1,5 +1,4 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -12,12 +11,13 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { PaymentModeEnum } from '@/app/types/database';
 
-const BRANDS = ['MITSUBISHI', 'PANASONIC', 'LG', 'TRANE', 'ESPA', 'KSB', 'HELLA', 'BONTON', 'BOSCH', 'STB', 'SWH', 'Vedion-WLC', 'INV-BT', 'INV-DU', 'LOWSIDE', 'MIT Switch-Gear', 'DAIKIN', 'Lucker', 'HAIER', 'Other'];
+const PAYMENT_MODES = ['Bank', 'Cash', 'Cheque'] as const;
 
 export const ReceiptEntry = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const [brands, setBrands] = useState<string[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [approvedOrders, setApprovedOrders] = useState<any[]>([]);
 
@@ -44,12 +44,14 @@ export const ReceiptEntry = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [{ data: custData }, { data: ordData }] = await Promise.all([
+      const [{ data: custData }, { data: ordData }, { data: brandData }] = await Promise.all([
         supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
         supabase.from('orders').select('id, order_number, grand_total, created_at, customer_id, customers(name)').eq('status', 'Approved').order('created_at', { ascending: false }),
+        supabase.from('brands').select('name').eq('is_active', true).order('name'),
       ]);
       if (custData) setCustomers(custData);
       if (ordData) setApprovedOrders(ordData);
+      if (brandData) setBrands([...brandData.map((b: any) => b.name), 'Other']);
     };
     fetchData();
   }, []);
@@ -117,20 +119,20 @@ export const ReceiptEntry = () => {
   };
 
   return (
-    <div>
-      <div className="mb-4 text-sm text-gray-600">
-        <span>Dashboard</span><span className="mx-2">/</span><span>Sales</span><span className="mx-2">/</span><span className="text-gray-900 font-medium">Receipt</span>
+    <div className="space-y-5">
+      <div className="text-sm text-gray-500">
+        <span>Dashboard</span><span className="mx-2">/</span><span>Sales</span><span className="mx-2">/</span><span className="text-gray-800 font-medium">Receipt</span>
       </div>
-      <div className="mb-6">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4"><ArrowLeft size={20} className="mr-2" />Back</Button>
-        <h1 className="text-2xl font-semibold text-gray-900">Receipt Entry</h1>
-        <p className="text-gray-600 mt-1">Record customer receipt against invoice</p>
+      <div>
+        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-2 -ml-2"><ArrowLeft size={18} className="mr-2" />Back</Button>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Receipt Entry</h1>
+        <p className="text-gray-500 mt-1 text-sm">Record customer receipt against invoice</p>
       </div>
 
-      <Card className="p-6 max-w-3xl">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-3xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Receipt Details</h3>
+            <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Receipt Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Company *</Label>
@@ -158,13 +160,13 @@ export const ReceiptEntry = () => {
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Brand</h3>
+            <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Brand</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Brand *</Label>
                 <Select value={brand} onValueChange={setBrand}>
                   <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
-                  <SelectContent>{BRANDS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+                  <SelectContent>{brands.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               {brand === 'Other' && (
@@ -177,7 +179,7 @@ export const ReceiptEntry = () => {
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Customer</h3>
+            <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Customer</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Customer Type *</Label>
@@ -227,7 +229,7 @@ export const ReceiptEntry = () => {
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Receipt Financials</h3>
+            <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Receipt Financials</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Received Amount *</Label>
@@ -276,7 +278,7 @@ export const ReceiptEntry = () => {
 
           {modeOfReceipt === 'Cheque' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Cheque Details</h3>
+              <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Cheque Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2"><Label>Cheque Number *</Label><Input value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} placeholder="Cheque number" required /></div>
                 <div className="space-y-2"><Label>Cheque Date *</Label><Input type="date" value={chequeDate} onChange={e => setChequeDate(e.target.value)} required /></div>
@@ -285,11 +287,11 @@ export const ReceiptEntry = () => {
           )}
 
           <div className="flex gap-4 pt-4">
-            <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white" disabled={loading}>{loading ? 'Saving...' : 'Save Receipt'}</Button>
+            <Button type="submit" className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl text-white" disabled={loading}>{loading ? 'Saving...' : 'Save Receipt'}</Button>
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
           </div>
         </form>
-      </Card>
+      </div>
     </div>
   );
 };

@@ -98,14 +98,14 @@ export const SalesDashboard = () => {
           <p className="text-gray-500 mt-1">Welcome back, {user?.full_name}. Here's your performance overview.</p>
         </div>
         <Link to="/sales/create-order">
-          <button className="bg-[#34b0a7] hover:bg-[#1e40af] text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors">
+          <button className="bg-[#34b0a7] hover:bg-[#2a9d94] text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors">
             <ShoppingCart size={16} /> New Order
           </button>
         </Link>
       </div>
 
       {/* Target Card */}
-      <div className="bg-gradient-to-r from-[#34b0a7] to-[#1e40af] rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-br from-[#34b0a7] via-[#2da89f] to-[#2a9d94] rounded-2xl p-6 text-white">
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-teal-200 text-sm font-medium">{monthName} Target</p>
@@ -137,15 +137,15 @@ export const SalesDashboard = () => {
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total My Sales', value: fmtK(stats.myOrdersTotal), sub: `${stats.totalOrders} orders total`, icon: <TrendingUp size={20} />, color: 'bg-green-50 text-green-600' },
-          { label: 'This Month Orders', value: stats.myMonthOrders, sub: `${stats.myPending} pending`, icon: <ShoppingCart size={20} />, color: 'bg-teal-50 text-teal-600' },
-          { label: 'Month Collection', value: fmtK(stats.myMonthCollected), sub: `Total: ${fmtK(stats.myCollected)}`, icon: <DollarSign size={20} />, color: 'bg-teal-50 text-teal-600' },
-          { label: 'Approved Orders', value: stats.myApproved, sub: `${stats.myPending} pending approval`, icon: <CheckCircle size={20} />, color: 'bg-purple-50 text-purple-600' },
+          { label: 'Total My Sales', value: fmtK(stats.myOrdersTotal), sub: `${stats.totalOrders} orders total`, icon: <TrendingUp size={20} />, color: 'bg-emerald-100 text-emerald-600', border: 'border-l-4 border-l-emerald-500' },
+          { label: 'This Month Orders', value: stats.myMonthOrders, sub: `${stats.myPending} pending`, icon: <ShoppingCart size={20} />, color: 'bg-teal-100 text-teal-600', border: 'border-l-4 border-l-teal-500' },
+          { label: 'Month Collection', value: fmtK(stats.myMonthCollected), sub: `Total: ${fmtK(stats.myCollected)}`, icon: <DollarSign size={20} />, color: 'bg-blue-100 text-blue-600', border: 'border-l-4 border-l-blue-500' },
+          { label: 'Approved Orders', value: stats.myApproved, sub: `${stats.myPending} pending approval`, icon: <CheckCircle size={20} />, color: 'bg-purple-100 text-purple-600', border: 'border-l-4 border-l-purple-500' },
         ].map((c, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div key={i} className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-5 ${c.border}`}>
             <div className={`p-2.5 rounded-xl inline-flex mb-3 ${c.color}`}>{c.icon}</div>
             <p className="text-2xl font-bold text-gray-900">{c.value}</p>
-            <p className="text-sm text-gray-500 mt-0.5">{c.label}</p>
+            <p className="text-xs font-medium text-gray-500 mt-0.5 uppercase tracking-wide">{c.label}</p>
             <p className="text-xs text-gray-400 mt-0.5">{c.sub}</p>
           </div>
         ))}
@@ -166,7 +166,7 @@ export const SalesDashboard = () => {
                   <span className="text-xs text-gray-500 font-medium">{fmtK(d.sales)}</span>
                   <div className="w-full flex items-end" style={{ height: '80px' }}>
                     <div
-                      className="w-full rounded-t-lg bg-[#34b0a7] transition-all duration-700 hover:bg-[#1e40af]"
+                      className="w-full rounded-t-lg bg-[#34b0a7] transition-all duration-700 hover:bg-[#2a9d94]"
                       style={{ height: `${Math.max(pct, 4)}%` }}
                     />
                   </div>

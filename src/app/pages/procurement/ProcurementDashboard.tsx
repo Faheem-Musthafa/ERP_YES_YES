@@ -1,183 +1,126 @@
-﻿import React from 'react';
-import { Card } from '@/app/components/ui/card';
-import { ShoppingCart, Truck, ClipboardList, TrendingUp, Clock, CheckCircle2 } from 'lucide-react';
+import React from 'react';
+import { ShoppingCart, Truck, ClipboardList, TrendingUp, Clock, CheckCircle2, Package, Activity } from 'lucide-react';
 
 export const ProcurementDashboard = () => {
+  const kpis = [
+    { label: 'Active POs', value: 18, sub: 'In progress', icon: <ShoppingCart size={20} />, iconBg: 'bg-teal-100 text-teal-600', border: 'border-l-4 border-l-teal-500' },
+    { label: 'Completed POs', value: 142, sub: 'This month: 28', icon: <CheckCircle2 size={20} />, iconBg: 'bg-emerald-100 text-emerald-600', border: 'border-l-4 border-l-emerald-500' },
+    { label: 'Pending GRNs', value: 7, sub: 'Awaiting receipt', icon: <ClipboardList size={20} />, iconBg: 'bg-amber-100 text-amber-600', border: 'border-l-4 border-l-amber-500' },
+    { label: 'Active Suppliers', value: 24, sub: 'Verified vendors', icon: <Truck size={20} />, iconBg: 'bg-purple-100 text-purple-600', border: 'border-l-4 border-l-purple-500' },
+  ];
+
+  const statusItems = [
+    { label: 'Pending Approval', count: '5 POs', icon: <Clock size={18} className="text-amber-600" />, bg: 'bg-amber-50', border: 'border-amber-100' },
+    { label: 'In Transit', count: '13 POs', icon: <Truck size={18} className="text-blue-600" />, bg: 'bg-blue-50', border: 'border-blue-100' },
+    { label: 'Delivered', count: '142 POs', icon: <CheckCircle2 size={18} className="text-emerald-600" />, bg: 'bg-emerald-50', border: 'border-emerald-100' },
+  ];
+
+  const recentActivity = [
+    { title: 'GRN Completed', desc: 'PO-2024-156 � 500 units received from Supplier A', time: '1 hour ago', dot: 'bg-emerald-500' },
+    { title: 'New Purchase Order', desc: 'PO-2024-178 created for Brand A products', time: '3 hours ago', dot: 'bg-teal-500' },
+    { title: 'Delivery Expected', desc: 'PO-2024-165 scheduled for delivery tomorrow', time: '5 hours ago', dot: 'bg-blue-500' },
+    { title: 'Supplier Confirmed', desc: 'Supplier B confirmed dispatch of PO-2024-177', time: '1 day ago', dot: 'bg-purple-500' },
+  ];
+
+  const pendingPOs = [
+    { po: 'PO-2024-175', supplier: 'Supplier A', items: '15 items', amount: '? 2,45,000', expected: 'Feb 25, 2026', status: 'In Transit', statusCls: 'bg-amber-100 text-amber-700' },
+    { po: 'PO-2024-176', supplier: 'Supplier B', items: '8 items', amount: '? 1,82,500', expected: 'Feb 26, 2026', status: 'Pending', statusCls: 'bg-teal-100 text-teal-700' },
+    { po: 'PO-2024-177', supplier: 'Supplier C', items: '22 items', amount: '? 3,95,000', expected: 'Feb 28, 2026', status: 'In Transit', statusCls: 'bg-amber-100 text-amber-700' },
+  ];
+
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Procurement Dashboard</h1>
-        <p className="text-gray-600 mt-1">Manage purchase orders and supplier relationships</p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Procurement Dashboard</h1>
+        <p className="text-gray-500 mt-1 text-sm">Manage purchase orders and supplier relationships</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <Card className="p-6 border-l-4 border-teal-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Active POs</p>
-              <p className="text-3xl font-semibold text-gray-900 mt-2">18</p>
-              <p className="text-xs text-teal-600 mt-1">In progress</p>
-            </div>
-            <div className="w-14 h-14 bg-teal-100 rounded-full flex items-center justify-center">
-              <ShoppingCart size={28} className="text-teal-600" />
-            </div>
+      {/* KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpis.map((k, i) => (
+          <div key={i} className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-5 ${k.border}`}>
+            <div className={`p-2.5 rounded-xl inline-flex mb-3 ${k.iconBg}`}>{k.icon}</div>
+            <p className="text-2xl font-bold text-gray-900">{k.value}</p>
+            <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wide">{k.label}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{k.sub}</p>
           </div>
-        </Card>
-
-        <Card className="p-6 border-l-4 border-green-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Completed POs</p>
-              <p className="text-3xl font-semibold text-gray-900 mt-2">142</p>
-              <p className="text-xs text-green-600 mt-1">This month: 28</p>
-            </div>
-            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle2 size={28} className="text-green-600" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 border-l-4 border-teal-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Pending GRNs</p>
-              <p className="text-3xl font-semibold text-gray-900 mt-2">7</p>
-              <p className="text-xs text-teal-600 mt-1">Awaiting receipt</p>
-            </div>
-            <div className="w-14 h-14 bg-teal-100 rounded-full flex items-center justify-center">
-              <ClipboardList size={28} className="text-teal-600" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6 border-l-4 border-purple-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Active Suppliers</p>
-              <p className="text-3xl font-semibold text-gray-900 mt-2">24</p>
-              <p className="text-xs text-gray-600 mt-1">Verified vendors</p>
-            </div>
-            <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center">
-              <Truck size={28} className="text-purple-600" />
-            </div>
-          </div>
-        </Card>
+        ))}
       </div>
 
-      {/* Purchase Orders Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <ShoppingCart size={20} className="text-teal-600" />
-            Purchase Order Status
+      {/* Middle row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* PO Status */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2 uppercase tracking-wide">
+            <ShoppingCart size={15} className="text-[#34b0a7]" /> Purchase Order Status
           </h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-teal-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <Clock size={20} className="text-teal-600" />
-                <span className="text-sm font-medium text-gray-700">Pending Approval</span>
+          <div className="space-y-3">
+            {statusItems.map((s, i) => (
+              <div key={i} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${s.bg} ${s.border}`}>
+                <div className="flex items-center gap-3">
+                  {s.icon}
+                  <span className="text-sm font-medium text-gray-700">{s.label}</span>
+                </div>
+                <span className="font-bold text-gray-900 text-sm">{s.count}</span>
               </div>
-              <span className="font-semibold text-gray-900">5 POs</span>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <Truck size={20} className="text-yellow-600" />
-                <span className="text-sm font-medium text-gray-700">In Transit</span>
-              </div>
-              <span className="font-semibold text-gray-900">13 POs</span>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 size={20} className="text-green-600" />
-                <span className="text-sm font-medium text-gray-700">Delivered</span>
-              </div>
-              <span className="font-semibold text-gray-900">142 POs</span>
-            </div>
+            ))}
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <TrendingUp size={20} className="text-teal-600" />
-            Recent Activity
+        {/* Recent Activity */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2 uppercase tracking-wide">
+            <Activity size={15} className="text-[#34b0a7]" /> Recent Activity
           </h2>
-          <div className="space-y-4">
-            <div className="flex items-start gap-3 p-3 border-l-2 border-green-500 bg-gray-50 rounded">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">GRN Completed</p>
-                <p className="text-xs text-gray-600 mt-1">PO-2024-156 - 500 units received from Supplier A</p>
-                <p className="text-xs text-gray-500 mt-1">1 hour ago</p>
+          <div className="space-y-3">
+            {recentActivity.map((a, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${a.dot}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800">{a.title}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{a.desc}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{a.time}</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 border-l-2 border-teal-500 bg-gray-50 rounded">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">New Purchase Order</p>
-                <p className="text-xs text-gray-600 mt-1">PO-2024-178 created for Brand A products</p>
-                <p className="text-xs text-gray-500 mt-1">3 hours ago</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-3 border-l-2 border-teal-500 bg-gray-50 rounded">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">Delivery Expected</p>
-                <p className="text-xs text-gray-600 mt-1">PO-2024-165 scheduled for delivery tomorrow</p>
-                <p className="text-xs text-gray-500 mt-1">5 hours ago</p>
-              </div>
-            </div>
+            ))}
           </div>
-        </Card>
+        </div>
       </div>
 
-      {/* Pending Purchase Orders Table */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Pending Purchase Orders</h2>
+      {/* Pending POs Table */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <h2 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wide">Pending Purchase Orders</h2>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="text-left text-xs font-semibold text-gray-700 p-3">PO Number</th>
-                <th className="text-left text-xs font-semibold text-gray-700 p-3">Supplier</th>
-                <th className="text-left text-xs font-semibold text-gray-700 p-3">Items</th>
-                <th className="text-right text-xs font-semibold text-gray-700 p-3">Total Amount</th>
-                <th className="text-left text-xs font-semibold text-gray-700 p-3">Expected Date</th>
-                <th className="text-center text-xs font-semibold text-gray-700 p-3">Status</th>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">PO Number</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Supplier</th>
+                <th className="text-center px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Items</th>
+                <th className="text-right px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Total Amount</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Expected Date</th>
+                <th className="text-center px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Status</th>
               </tr>
             </thead>
-            <tbody>
-              <tr className="border-b hover:bg-gray-50">
-                <td className="p-3 text-sm font-medium text-teal-600">PO-2024-175</td>
-                <td className="p-3 text-sm">Supplier A</td>
-                <td className="p-3 text-sm">15 items</td>
-                <td className="p-3 text-sm text-right font-semibold">₹ 2,45,000</td>
-                <td className="p-3 text-sm">Feb 25, 2026</td>
-                <td className="p-3 text-center">
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">In Transit</span>
-                </td>
-              </tr>
-              <tr className="border-b hover:bg-gray-50">
-                <td className="p-3 text-sm font-medium text-teal-600">PO-2024-176</td>
-                <td className="p-3 text-sm">Supplier B</td>
-                <td className="p-3 text-sm">8 items</td>
-                <td className="p-3 text-sm text-right font-semibold">₹ 1,82,500</td>
-                <td className="p-3 text-sm">Feb 26, 2026</td>
-                <td className="p-3 text-center">
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-700">Pending</span>
-                </td>
-              </tr>
-              <tr className="border-b hover:bg-gray-50">
-                <td className="p-3 text-sm font-medium text-teal-600">PO-2024-177</td>
-                <td className="p-3 text-sm">Supplier C</td>
-                <td className="p-3 text-sm">22 items</td>
-                <td className="p-3 text-sm text-right font-semibold">₹ 3,95,000</td>
-                <td className="p-3 text-sm">Feb 28, 2026</td>
-                <td className="p-3 text-center">
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">In Transit</span>
-                </td>
-              </tr>
+            <tbody className="divide-y divide-gray-50">
+              {pendingPOs.map((po, i) => (
+                <tr key={i} className="hover:bg-gray-50/70 transition-colors">
+                  <td className="px-4 py-3 font-semibold text-[#34b0a7]">{po.po}</td>
+                  <td className="px-4 py-3 text-gray-700">{po.supplier}</td>
+                  <td className="px-4 py-3 text-center text-gray-600">{po.items}</td>
+                  <td className="px-4 py-3 text-right font-bold text-gray-800">{po.amount}</td>
+                  <td className="px-4 py-3 text-gray-500">{po.expected}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${po.statusCls}`}>{po.status}</span>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };
+

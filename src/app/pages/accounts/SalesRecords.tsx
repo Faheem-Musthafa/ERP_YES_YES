@@ -1,5 +1,4 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Card } from '@/app/components/ui/card';
 import { Input } from '@/app/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Search, FileText } from 'lucide-react';
@@ -34,19 +33,19 @@ export const SalesRecords = () => {
   });
 
   const statusColor: Record<string, string> = {
-    Approved: 'bg-green-100 text-green-700',
-    Billed: 'bg-teal-100 text-teal-700',
+    Approved: 'bg-emerald-100 text-emerald-700',
+    Billed: 'bg-blue-100 text-blue-700',
     Delivered: 'bg-purple-100 text-purple-700',
   };
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Sales Records</h1>
-        <p className="text-gray-600 mt-1">All approved, billed, and delivered orders</p>
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Sales Records</h1>
+        <p className="text-gray-500 mt-1 text-sm">All approved, billed, and delivered orders</p>
       </div>
 
-      <Card className="p-4 mb-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
         <div className="flex gap-4 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -62,49 +61,51 @@ export const SalesRecords = () => {
             </SelectContent>
           </Select>
         </div>
-      </Card>
+      </div>
 
-      <Card className="overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Loading...</div>
+          <div className="flex items-center justify-center h-40">
+            <div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" />
+          </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-12">
-            <FileText size={48} className="text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">No sales records found</p>
+            <FileText size={40} className="text-gray-200 mx-auto mb-3" />
+            <p className="text-gray-400 text-sm">No sales records found</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Order No</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Customer</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Company</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Invoice Type</th>
-                  <th className="text-center text-xs font-semibold text-gray-700 p-3">Status</th>
-                  <th className="text-right text-xs font-semibold text-gray-700 p-3">Grand Total</th>
-                  <th className="text-left text-xs font-semibold text-gray-700 p-3">Approved Date</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Order No</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Customer</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Company</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Invoice Type</th>
+                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Status</th>
+                  <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Grand Total</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Approved Date</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-50">
                 {filtered.map(o => (
-                  <tr key={o.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 text-sm font-medium text-[#34b0a7]">{o.order_number}</td>
-                    <td className="p-3 text-sm text-gray-700">{o.customers?.name ?? '-'}</td>
-                    <td className="p-3 text-sm text-gray-700">{o.company}</td>
-                    <td className="p-3 text-sm text-gray-700">{o.invoice_type}</td>
-                    <td className="p-3 text-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor[o.status] ?? 'bg-gray-100 text-gray-600'}`}>{o.status}</span>
+                  <tr key={o.id} className="hover:bg-gray-50/70 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-[#34b0a7]">{o.order_number}</td>
+                    <td className="px-4 py-3 text-gray-700">{o.customers?.name ?? '-'}</td>
+                    <td className="px-4 py-3 text-gray-700">{o.company}</td>
+                    <td className="px-4 py-3 text-gray-700">{o.invoice_type}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor[o.status] ?? 'bg-gray-100 text-gray-600'}`}>{o.status}</span>
                     </td>
-                    <td className="p-3 text-sm text-right font-semibold">₹ {o.grand_total?.toLocaleString('en-IN')}</td>
-                    <td className="p-3 text-sm text-gray-500">{o.approved_at ? new Date(o.approved_at).toLocaleDateString() : '-'}</td>
+                    <td className="px-4 py-3 text-right font-bold">₹ {o.grand_total?.toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{o.approved_at ? new Date(o.approved_at).toLocaleDateString() : '-'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 };

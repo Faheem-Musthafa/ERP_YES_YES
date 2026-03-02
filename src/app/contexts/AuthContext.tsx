@@ -104,9 +104,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      const profile = await fetchUserProfile(session.user.id, session.user.email ?? '');
+    const { data: { user: authUser }, error } = await supabase.auth.getUser();
+    if (!error && authUser) {
+      const profile = await fetchUserProfile(authUser.id, authUser.email ?? '');
       setUser(profile);
     }
   }, []);

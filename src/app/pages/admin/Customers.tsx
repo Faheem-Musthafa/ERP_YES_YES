@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router';
 import { supabase } from '@/app/supabase';
-import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Plus, Search, Phone, MapPin, Edit2, ToggleLeft, ToggleRight, Users, Trash2 } from 'lucide-react';
@@ -45,37 +44,33 @@ export const Customers = () => {
     );
 
     return (
-        <div>
+        <div className="space-y-5">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
-                        <Users className="text-[#34b0a7]" size={28} /> Customers
-                    </h1>
+                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Customers</h1>
                     <p className="text-gray-500 mt-1 text-sm">{customers.length} total customers</p>
                 </div>
                 <Link to="/admin/customers/new">
-                    <Button className="bg-[#34b0a7] hover:bg-[#2a9d94] text-white flex items-center gap-2">
+                    <Button className="bg-[#34b0a7] hover:bg-[#2a9d94] text-white flex items-center gap-2 rounded-xl">
                         <Plus size={18} /> Add Customer
                     </Button>
                 </Link>
             </div>
 
             {/* Search */}
-            <Card className="p-4 mb-4">
-                <div className="relative">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <Input
-                        placeholder="Search by name, phone, or place..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="pl-9"
-                    />
-                </div>
-            </Card>
+            <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Input
+                    placeholder="Search by name, phone, or place..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-9 rounded-xl"
+                />
+            </div>
 
             {/* Table */}
-            <Card className="overflow-hidden">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 {loading ? (
                     <div className="flex items-center justify-center h-40">
                         <div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" />
@@ -88,20 +83,20 @@ export const Customers = () => {
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead className="bg-gray-50 border-b">
+                            <thead className="bg-gray-50 border-b border-gray-100">
                                 <tr>
-                                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Name</th>
-                                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Place</th>
-                                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Phone</th>
-                                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Pincode</th>
-                                    <th className="text-left px-4 py-3 font-semibold text-gray-600">GSTIN</th>
-                                    <th className="text-left px-4 py-3 font-semibold text-gray-600">Status</th>
-                                    <th className="text-right px-4 py-3 font-semibold text-gray-600">Actions</th>
+                                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Name</th>
+                                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Place</th>
+                                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Phone</th>
+                                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Pincode</th>
+                                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">GSTIN</th>
+                                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Status</th>
+                                    <th className="text-right px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className="divide-y divide-gray-50">
                                 {filtered.map(c => (
-                                    <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                                    <tr key={c.id} className="hover:bg-gray-50/70 transition-colors">
                                         <td className="px-4 py-3 font-medium text-gray-900">{c.name}</td>
                                         <td className="px-4 py-3 text-gray-600">
                                             <span className="flex items-center gap-1"><MapPin size={13} className="text-[#34b0a7]" /> {c.place || '—'}</span>
@@ -112,7 +107,7 @@ export const Customers = () => {
                                         <td className="px-4 py-3 text-gray-500">{c.pincode || '—'}</td>
                                         <td className="px-4 py-3 text-gray-500 text-xs">{c.gst_pan || '—'}</td>
                                         <td className="px-4 py-3">
-                                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${c.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                                            <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${c.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
                                                 {c.is_active ? 'Active' : 'Inactive'}
                                             </span>
                                         </td>
@@ -149,7 +144,7 @@ export const Customers = () => {
                         </table>
                     </div>
                 )}
-            </Card>
+            </div>
         </div>
     );
 };

@@ -1,5 +1,4 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -160,9 +159,16 @@ export const CreateOrder = () => {
     if (!company || !invoiceType) { toast.error('Please select company and invoice type'); return; }
     const validItems = orderItems.filter(i => i.productId && i.quantity);
     if (validItems.length === 0) { toast.error('Please add at least one product'); return; }
+
+    // Validate stock quantities before submitting
+    const stockErrors = validItems.filter(i => Number(i.quantity) > i.stock);
+    if (stockErrors.length > 0) {
+      toast.error(`Insufficient stock for: ${stockErrors.map(i => `${i.product} (available: ${i.stock})`).join('; ')}`);
+      return;
+    }
     setLoading(true);
     try {
-      const orderNumber = `ORD-${Date.now()}`;
+      const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
       let customerId: string | null = null;
 
       // If new customer, create first
@@ -213,17 +219,17 @@ export const CreateOrder = () => {
   };
 
   return (
-    <div>
-      <div className="mb-6">
-        <Button variant="ghost" onClick={() => navigate('/sales')} className="mb-4"><ArrowLeft size={20} className="mr-2" />Back to Dashboard</Button>
-        <h1 className="text-2xl font-semibold text-gray-900">Create Sales Order</h1>
-        <p className="text-gray-600 mt-1">Fill in the details to create a new order</p>
+    <div className="space-y-5">
+      <div>
+        <Button variant="ghost" onClick={() => navigate('/sales')} className="mb-2 -ml-2"><ArrowLeft size={18} className="mr-2" />Back to Dashboard</Button>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Create Sales Order</h1>
+        <p className="text-gray-500 mt-1 text-sm">Fill in the details to create a new order</p>
       </div>
 
-      <Card className="p-6 max-w-3xl">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-3xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Invoice Configuration</h3>
+            <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Invoice Configuration</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Company *</Label>
@@ -312,19 +318,19 @@ export const CreateOrder = () => {
           )}
 
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Order Items</h3>
+            <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Order Items</h3>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 border-b">
-                    <th className="text-left text-sm font-semibold text-gray-700 p-3">Product</th>
-                    <th className="text-left text-sm font-semibold text-gray-700 p-3">Brand</th>
-                    <th className="text-left text-sm font-semibold text-gray-700 p-3">SKU</th>
-                    <th className="text-right text-sm font-semibold text-gray-700 p-3">Stock</th>
-                    <th className="text-right text-sm font-semibold text-gray-700 p-3">Qty</th>
-                    <th className="text-right text-sm font-semibold text-gray-700 p-3">DP</th>
-                    <th className="text-right text-sm font-semibold text-gray-700 p-3">Disc%</th>
-                    <th className="text-right text-sm font-semibold text-gray-700 p-3">Amount</th>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">Product</th>
+                    <th className="text-left text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">Brand</th>
+                    <th className="text-left text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">SKU</th>
+                    <th className="text-right text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">Stock</th>
+                    <th className="text-right text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">Qty</th>
+                    <th className="text-right text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">DP</th>
+                    <th className="text-right text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">Disc%</th>
+                    <th className="text-right text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">Amount</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -376,14 +382,14 @@ export const CreateOrder = () => {
             <Button type="button" variant="outline" onClick={handleAddItem}><Plus size={16} className="mr-2" />Add Product Row</Button>
           </div>
 
-          <Card className="bg-teal-50 border-teal-200 p-4">
+          <div className="bg-teal-50 border border-teal-100 rounded-2xl p-4">
             <h4 className="font-semibold text-gray-900 mb-3">Order Summary</h4>
             <div className="space-y-2">
               <div className="flex justify-between text-sm"><span className="text-gray-700">Subtotal:</span><span className="font-semibold">₹ {subtotal.toFixed(2)}</span></div>
               <div className="flex justify-between text-sm"><span className="text-gray-700">Total Discount:</span><span className="font-semibold text-teal-600">- ₹ {totalDiscount.toFixed(2)}</span></div>
               <div className="flex justify-between text-base font-bold border-t pt-2 mt-2"><span className="text-gray-900">Grand Total:</span><span className="text-[#34b0a7]">₹ {grandTotal.toFixed(2)}</span></div>
             </div>
-          </Card>
+          </div>
 
           <div className="space-y-2">
             <Label>Site Address </Label>
@@ -406,13 +412,13 @@ export const CreateOrder = () => {
           </div>
 
           <div className="flex gap-4 pt-4">
-            <Button type="submit" className="bg-[#34b0a7] hover:bg-[#34b0a7]/90" disabled={loading}>
+            <Button type="submit" className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl" disabled={loading}>
               {loading ? 'Submitting...' : 'Submit Order'}
             </Button>
             <Button type="button" variant="outline" onClick={() => navigate('/sales')}>Cancel</Button>
           </div>
         </form>
-      </Card>
+      </div>
     </div>
   );
 };
