@@ -17,6 +17,7 @@ const AdminDashboard = lazy(() => import('@/app/pages/admin/Dashboard').then(m =
 const StaffManagement = lazy(() => import('@/app/pages/admin/StaffManagement').then(m => ({ default: m.StaffManagement })));
 const Customers = lazy(() => import('@/app/pages/admin/Customers').then(m => ({ default: m.Customers })));
 const CustomerForm = lazy(() => import('@/app/pages/admin/CustomerForm').then(m => ({ default: m.CustomerForm })));
+const AdminReports = lazy(() => import('@/app/pages/admin/AdminReports').then(m => ({ default: m.AdminReports })));
 
 // Sales
 const SalesDashboard = lazy(() => import('@/app/pages/sales/Dashboard').then(m => ({ default: m.SalesDashboard })));
@@ -126,7 +127,7 @@ const AppRoutes = () => {
         <Route path="/admin/products" element={<ProtectedRoute allowedRoles={['admin']}><Products /></ProtectedRoute>} />
         <Route path="/admin/orders" element={<ProtectedRoute allowedRoles={['admin']}><SalesRecords /></ProtectedRoute>} />
         <Route path="/admin/sales" element={<ProtectedRoute allowedRoles={['admin']}><SalesRecords /></ProtectedRoute>} />
-        <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={['admin']}><div className="p-8"><h1 className="text-2xl font-semibold">Reports</h1><p className="text-gray-600 mt-2">Reporting features coming soon...</p></div></ProtectedRoute>} />
+        <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={['admin']}><AdminReports /></ProtectedRoute>} />
 
         {/* Sales Routes */}
         <Route path="/sales" element={<ProtectedRoute allowedRoles={['sales']}><SalesDashboard /></ProtectedRoute>} />
