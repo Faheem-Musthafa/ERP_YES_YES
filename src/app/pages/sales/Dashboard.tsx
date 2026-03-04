@@ -1,24 +1,17 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { fmtK } from '@/app/utils';
 import {
-  ShoppingCart, TrendingUp, Clock, CheckCircle, Package,
-  DollarSign, Target, Award, Activity, ArrowRight
+  ShoppingCart, TrendingUp, CheckCircle,
+  DollarSign, Activity, FileText
 } from 'lucide-react';
 import { Link } from 'react-router';
+import { Button } from '@/app/components/ui/button';
+import {
+  PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd, StatusBadge, EmptyState, Spinner
+} from '@/app/components/ui/primitives';
 
-const fmt = (n: number) => `₹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-const fmtK = (n: number) => n >= 100000 ? `₹ ${(n / 100000).toFixed(1)}L` : n >= 1000 ? `₹ ${(n / 1000).toFixed(1)}K` : fmt(n);
-
-const STATUS_COLOR: Record<string, string> = {
-  Pending: 'bg-yellow-100 text-yellow-700',
-  Approved: 'bg-green-100 text-green-700',
-  Rejected: 'bg-red-100 text-red-700',
-  Billed: 'bg-teal-100 text-teal-700',
-  Delivered: 'bg-purple-100 text-purple-700',
-};
-
-// Monthly target (can be made configurable later)
 const MONTHLY_TARGET = 500000;
 
 export const SalesDashboard = () => {
@@ -32,11 +25,7 @@ export const SalesDashboard = () => {
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [monthlyData, setMonthlyData] = useState<{ week: string; sales: number }[]>([]);
 
-  useEffect(() => {
-    if (user?.id) fetchAll();
-  }, [user?.id]);
-
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -47,7 +36,7 @@ export const SalesDashboard = () => {
       { data: myReceipts },
       { data: myMonthReceipts },
     ] = await Promise.all([
-      supabase.from('orders').select('id, order_number, status, grand_total, created_at, customers(name)').eq('created_by', user!.id).order('created_at', { ascending: false }),
+      supabase.from('orders').select('id, order_number, status, grand_total, created_at, customers(name)').eq('created_by', user!.id).order('created_at', { ascending: false }).limit(50),
       supabase.from('orders').select('id, status, grand_total, created_at').eq('created_by', user!.id).gte('created_at', monthStart),
       supabase.from('receipts').select('id, amount').eq('recorded_by', user!.id),
       supabase.from('receipts').select('id, amount').eq('recorded_by', user!.id).gte('created_at', monthStart),
@@ -56,15 +45,15 @@ export const SalesDashboard = () => {
     const validated = (allMyOrders ?? []).filter(o => ['Approved', 'Billed', 'Delivered'].includes(o.status));
     const myMonthSalesOrders = (myMonthOrders ?? []).filter(o => ['Approved', 'Billed', 'Delivered'].includes(o.status));
 
-    // Weekly breakdown for this month
-    const weeks: Record<string, number> = { 'Week 1': 0, 'Week 2': 0, 'Week 3': 0, 'Week 4': 0 };
+    const weeks: Record<string, number> = { 'W1': 0, 'W2': 0, 'W3': 0, 'W4': 0 };
     myMonthSalesOrders.forEach(o => {
       const day = new Date(o.created_at).getDate();
-      const wk = day <= 7 ? 'Week 1' : day <= 14 ? 'Week 2' : day <= 21 ? 'Week 3' : 'Week 4';
+      const wk = day <= 7 ? 'W1' : day <= 14 ? 'W2' : day <= 21 ? 'W3' : 'W4';
       weeks[wk] += o.grand_total ?? 0;
     });
+
     setMonthlyData(Object.entries(weeks).map(([week, sales]) => ({ week, sales })));
-    setRecentOrders((allMyOrders ?? []).slice(0, 6));
+    setRecentOrders((allMyOrders ?? []).slice(0, 5));
 
     setStats({
       myOrdersTotal: validated.reduce((s, o) => s + (o.grand_total ?? 0), 0),
@@ -77,151 +66,155 @@ export const SalesDashboard = () => {
       totalOrders: (allMyOrders ?? []).length,
     });
     setLoading(false);
-  };
+  }, [user]);
+
+  useEffect(() => { if (user?.id) fetchAll(); }, [user?.id, fetchAll]);
 
   const targetPct = Math.min((stats.myMonthSales / MONTHLY_TARGET) * 100, 100);
   const monthName = new Date().toLocaleString('en-IN', { month: 'long' });
   const maxWeekSales = Math.max(...monthlyData.map(d => d.sales), 1);
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" />
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <Spinner size={32} />
     </div>
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Dashboard</h1>
-          <p className="text-gray-500 mt-1">Welcome back, {user?.full_name}. Here's your performance overview.</p>
-        </div>
-        <Link to="/sales/create-order">
-          <button className="bg-[#34b0a7] hover:bg-[#2a9d94] text-white px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors">
-            <ShoppingCart size={16} /> New Order
-          </button>
-        </Link>
-      </div>
+    <div className="space-y-6 pb-12">
+      <PageHeader
+        title="My Dashboard"
+        subtitle={`Welcome back, ${user?.full_name?.split(' ')[0]}. Here's your performance overview.`}
+        actions={
+          <Link to="/sales/create-order">
+            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+              <ShoppingCart size={15} /> New Order
+            </Button>
+          </Link>
+        }
+      />
 
-      {/* Target Card */}
-      <div className="bg-gradient-to-br from-[#34b0a7] via-[#2da89f] to-[#2a9d94] rounded-2xl p-6 text-white">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-teal-200 text-sm font-medium">{monthName} Target</p>
-            <p className="text-3xl font-bold mt-1">{fmtK(stats.myMonthSales)}</p>
-            <p className="text-teal-200 text-sm mt-1">of {fmtK(MONTHLY_TARGET)} target</p>
-          </div>
-          <div className="relative w-20 h-20">
-            <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-              <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="8" />
-              <circle cx="40" cy="40" r="32" fill="none" stroke="white" strokeWidth="8"
-                strokeDasharray={`${2 * Math.PI * 32}`}
-                strokeDashoffset={`${2 * Math.PI * 32 * (1 - targetPct / 100)}`}
-                strokeLinecap="round" />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-lg font-bold">{Math.round(targetPct)}%</span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column (Target + Stats) */}
+        <div className="lg:col-span-2 flex flex-col gap-6">
+          {/* Target Card */}
+          <div className="bg-primary rounded-2xl p-6 text-primary-foreground relative overflow-hidden shadow-lg border-none">
+            {/* Ambient glows */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -z-0 -mr-20 -mt-20" />
+            <div className="absolute bottom-0 left-0 w-40 h-40 bg-black/10 rounded-full blur-2xl -z-0 -ml-10 -mb-10" />
+
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <p className="text-primary-foreground/80 text-xs uppercase tracking-widest font-semibold mb-1">{monthName} Target</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-4xl font-bold font-mono tracking-tight">{fmtK(stats.myMonthSales)}</p>
+                  <p className="text-primary-foreground/70 text-sm font-medium">/ {fmtK(MONTHLY_TARGET)}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 shrink-0">
+                <div className="flex flex-col text-right">
+                  <span className="text-2xl font-bold font-mono">{Math.round(targetPct)}%</span>
+                  <span className="text-[10px] text-primary-foreground/70 uppercase tracking-widest font-semibold">Achieved</span>
+                </div>
+                <div className="relative w-16 h-16">
+                  <svg className="w-16 h-16 -rotate-90" viewBox="0 0 80 80">
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="8" />
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="white" strokeWidth="8"
+                      strokeDasharray={`${2 * Math.PI * 32}`}
+                      strokeDashoffset={`${2 * Math.PI * 32 * (1 - targetPct / 100)}`}
+                      strokeLinecap="round" className="transition-all duration-1000 ease-out" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative z-10 mt-6 pt-5 border-t border-white/10 grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-[10px] uppercase text-primary-foreground/70 font-semibold mb-1 tracking-widest">Total Sales</p>
+                <p className="font-bold font-mono">{fmtK(stats.myOrdersTotal)}</p>
+              </div>
+              <div className="border-l border-r border-white/10">
+                <p className="text-[10px] uppercase text-primary-foreground/70 font-semibold mb-1 tracking-widest">Total Coll.</p>
+                <p className="font-bold font-mono">{fmtK(stats.myCollected)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase text-primary-foreground/70 font-semibold mb-1 tracking-widest">Orders</p>
+                <p className="font-bold font-mono">{stats.totalOrders}</p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-          <div className="h-full bg-white rounded-full transition-all duration-700" style={{ width: `${targetPct}%` }} />
-        </div>
-        <div className="flex justify-between mt-2 text-xs text-teal-200">
-          <span>₹0</span>
-          <span>{fmtK(MONTHLY_TARGET)}</span>
-        </div>
-      </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total My Sales', value: fmtK(stats.myOrdersTotal), sub: `${stats.totalOrders} orders total`, icon: <TrendingUp size={20} />, color: 'bg-emerald-100 text-emerald-600', border: 'border-l-4 border-l-emerald-500' },
-          { label: 'This Month Orders', value: stats.myMonthOrders, sub: `${stats.myPending} pending`, icon: <ShoppingCart size={20} />, color: 'bg-teal-100 text-teal-600', border: 'border-l-4 border-l-teal-500' },
-          { label: 'Month Collection', value: fmtK(stats.myMonthCollected), sub: `Total: ${fmtK(stats.myCollected)}`, icon: <DollarSign size={20} />, color: 'bg-blue-100 text-blue-600', border: 'border-l-4 border-l-blue-500' },
-          { label: 'Approved Orders', value: stats.myApproved, sub: `${stats.myPending} pending approval`, icon: <CheckCircle size={20} />, color: 'bg-purple-100 text-purple-600', border: 'border-l-4 border-l-purple-500' },
-        ].map((c, i) => (
-          <div key={i} className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-5 ${c.border}`}>
-            <div className={`p-2.5 rounded-xl inline-flex mb-3 ${c.color}`}>{c.icon}</div>
-            <p className="text-2xl font-bold text-gray-900">{c.value}</p>
-            <p className="text-xs font-medium text-gray-500 mt-0.5 uppercase tracking-wide">{c.label}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{c.sub}</p>
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              { label: 'Pending Orders', value: stats.myPending, icon: <Activity size={18} />, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200 hover:border-amber-300' },
+              { label: 'Approved', value: stats.myApproved, icon: <CheckCircle size={18} />, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200 hover:border-emerald-300' },
+              { label: 'Month Orders', value: stats.myMonthOrders, icon: <ShoppingCart size={18} />, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200 hover:border-blue-300' },
+              { label: 'Mtd. Collection', value: fmtK(stats.myMonthCollected), icon: <DollarSign size={18} />, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200 hover:border-purple-300', mono: true },
+            ].map((s, i) => (
+              <DataCard key={i} className={`p-5 transition-colors group cursor-default ${s.border}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className={`p-2 rounded-xl ${s.bg} ${s.color} transition-transform group-hover:scale-110`}>{s.icon}</div>
+                </div>
+                <div>
+                  <p className={`text-2xl font-bold text-foreground ${s.mono ? 'font-mono' : ''}`}>{s.value}</p>
+                  <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground mt-1">{s.label}</p>
+                </div>
+              </DataCard>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
 
-      {/* Weekly Bar Chart + Recent Orders */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Weekly Performance */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h2 className="text-base font-semibold text-gray-800 mb-5 flex items-center gap-2">
-            <Activity size={18} className="text-[#34b0a7]" /> {monthName} Weekly Performance
-          </h2>
-          <div className="flex items-end gap-3 h-32">
-            {monthlyData.map((d, i) => {
-              const pct = (d.sales / maxWeekSales) * 100;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                  <span className="text-xs text-gray-500 font-medium">{fmtK(d.sales)}</span>
-                  <div className="w-full flex items-end" style={{ height: '80px' }}>
+        {/* Right Column (Weekly Bars + Recent) */}
+        <div className="space-y-6">
+          <DataCard className="p-5">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-6">Weekly Performance</h3>
+            <div className="flex items-end justify-between h-32 gap-3 mb-2">
+              {monthlyData.map((d, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
+                  <div className="w-full bg-muted rounded-md relative flex items-end overflow-hidden">
                     <div
-                      className="w-full rounded-t-lg bg-[#34b0a7] transition-all duration-700 hover:bg-[#2a9d94]"
-                      style={{ height: `${Math.max(pct, 4)}%` }}
+                      className="w-full bg-primary rounded-md transition-all duration-700 ease-out group-hover:opacity-80"
+                      style={{ height: `${Math.max((d.sales / maxWeekSales) * 100, 4)}%` }}
                     />
                   </div>
-                  <span className="text-xs text-gray-400">{d.week}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Recent Orders */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-gray-800 flex items-center gap-2">
-              <Clock size={18} className="text-[#34b0a7]" /> My Recent Orders
-            </h2>
-            <Link to="/sales/my-orders" className="text-xs text-[#34b0a7] font-medium hover:underline flex items-center gap-1">
-              View all <ArrowRight size={12} />
-            </Link>
-          </div>
-          {recentOrders.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-8">No orders yet. Create your first order!</p>
-          ) : (
-            <div className="space-y-3">
-              {recentOrders.map(order => (
-                <div key={order.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{(order.customers as any)?.name ?? '—'}</p>
-                    <p className="text-xs text-gray-400">{order.order_number} · {new Date(order.created_at).toLocaleDateString('en-IN')}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-700">{fmt(order.grand_total ?? 0)}</span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLOR[order.status] ?? 'bg-gray-100 text-gray-600'}`}>{order.status}</span>
-                  </div>
+                  <span className="text-[10px] font-semibold text-muted-foreground">{d.week}</span>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      </div>
+          </DataCard>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'Create Order', icon: <ShoppingCart size={20} />, to: '/sales/create-order', color: 'bg-[#34b0a7] text-white' },
-          { label: 'Add Receipt', icon: <DollarSign size={20} />, to: '/sales/receipt', color: 'bg-green-600 text-white' },
-          { label: 'My Collection', icon: <Package size={20} />, to: '/sales/my-collection', color: 'bg-teal-600 text-white' },
-        ].map((a, i) => (
-          <Link key={i} to={a.to}>
-            <div className={`${a.color} rounded-xl p-4 flex flex-col items-center gap-2 hover:opacity-90 transition-opacity cursor-pointer`}>
-              {a.icon}
-              <span className="text-sm font-medium">{a.label}</span>
+          <DataCard className="flex flex-col h-full min-h-[300px]">
+            <div className="p-5 border-b border-border flex items-center justify-between">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Recent Orders</h3>
+              <Link to="/sales/my-orders" className="text-[10px] text-primary font-bold uppercase tracking-widest hover:underline">View All</Link>
             </div>
-          </Link>
-        ))}
+            <div className="p-0">
+              {recentOrders.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <FileText className="mx-auto mb-2 opacity-20" size={32} />
+                  <p className="text-sm">No recent orders</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {recentOrders.map(o => (
+                    <div key={o.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-semibold text-foreground leading-none">{o.order_number}</span>
+                        <span className="text-xs text-muted-foreground truncate max-w-[150px]">{o.customers?.name ?? '—'}</span>
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className="text-sm font-bold font-mono text-foreground leading-none">₹{o.grand_total?.toLocaleString('en-IN') ?? '0'}</span>
+                        <StatusBadge status={o.status} className="h-5 text-[9px] px-1.5" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </DataCard>
+        </div>
       </div>
     </div>
   );

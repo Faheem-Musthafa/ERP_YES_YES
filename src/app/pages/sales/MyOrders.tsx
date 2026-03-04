@@ -1,11 +1,15 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { useNavigate } from 'react-router';
-import { Search, FileText, Plus } from 'lucide-react';
+import { FileText, Plus } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { Button } from '@/app/components/ui/button';
+import {
+  PageHeader, SearchBar, DataCard,
+  StyledThead, StyledTh, StyledTr, StyledTd,
+  StatusBadge, EmptyState, Spinner
+} from '@/app/components/ui/primitives';
 
 export const MyOrders = () => {
   const navigate = useNavigate();
@@ -17,7 +21,7 @@ export const MyOrders = () => {
 
   useEffect(() => {
     if (!user) return;
-    const fetchOrders = async () => {
+    (async () => {
       setLoading(true);
       const { data } = await supabase
         .from('orders')
@@ -26,8 +30,7 @@ export const MyOrders = () => {
         .order('created_at', { ascending: false });
       setOrders(data ?? []);
       setLoading(false);
-    };
-    fetchOrders();
+    })();
   }, [user]);
 
   const filtered = orders.filter(o => {
@@ -36,92 +39,75 @@ export const MyOrders = () => {
     return matchSearch && matchStatus;
   });
 
-  const statusColor: Record<string, string> = {
-    Pending: 'bg-amber-100 text-amber-700',
-    Approved: 'bg-emerald-100 text-emerald-700',
-    Rejected: 'bg-red-100 text-red-700',
-    Billed: 'bg-blue-100 text-blue-700',
-    Delivered: 'bg-purple-100 text-purple-700',
-  };
-
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">My Orders</h1>
-          <p className="text-gray-500 mt-1 text-sm">Track all your submitted orders</p>
-        </div>
-        <Button className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl" onClick={() => navigate('/sales/create-order')}>
-          <Plus size={16} className="mr-2" />Create Order
-        </Button>
+      <PageHeader
+        title="My Orders"
+        subtitle="Track all your submitted orders"
+        actions={
+          <Button size="sm" onClick={() => navigate('/sales/create-order')} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+            <Plus size={15} /> Create Order
+          </Button>
+        }
+      />
+
+      <div className="flex gap-3 flex-wrap">
+        <SearchBar
+          placeholder="Search by order no / customer..."
+          value={search} onChange={setSearch}
+          className="min-w-[280px]"
+        />
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-44 h-9 text-sm">
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="Approved">Approved</SelectItem>
+            <SelectItem value="Rejected">Rejected</SelectItem>
+            <SelectItem value="Billed">Billed</SelectItem>
+            <SelectItem value="Delivered">Delivered</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="flex gap-4 flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <Input placeholder="Search by order no / customer..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filter by status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Approved">Approved</SelectItem>
-              <SelectItem value="Rejected">Rejected</SelectItem>
-              <SelectItem value="Billed">Billed</SelectItem>
-              <SelectItem value="Delivered">Delivered</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center h-40">
-            <div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText size={40} className="text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400 text-sm">No orders found.</p>
-            <Button className="mt-4 bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl" onClick={() => navigate('/sales/create-order')}>Create Order</Button>
-          </div>
+      <DataCard>
+        {loading ? <Spinner /> : filtered.length === 0 ? (
+          <EmptyState icon={FileText} message="No orders found" sub="Submit your first order to see it here" action={<Button onClick={() => navigate('/sales/create-order')} variant="outline" size="sm" className="mt-4">Create Order</Button>} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
+              <StyledThead>
                 <tr>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Order No</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Customer</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Company</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Invoice Type</th>
-                  <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Grand Total</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Delivery Date</th>
-                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Status</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Created</th>
+                  <StyledTh>Order No</StyledTh>
+                  <StyledTh>Customer</StyledTh>
+                  <StyledTh>Company</StyledTh>
+                  <StyledTh>Invoice Type</StyledTh>
+                  <StyledTh right>Grand Total</StyledTh>
+                  <StyledTh>Delivery Date</StyledTh>
+                  <StyledTh>Status</StyledTh>
+                  <StyledTh>Created</StyledTh>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
+              </StyledThead>
+              <tbody>
                 {filtered.map(order => (
-                  <tr key={order.id} className="hover:bg-gray-50/70 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-[#34b0a7]">{order.order_number}</td>
-                    <td className="px-4 py-3 text-gray-700">{order.customers?.name ?? '-'}</td>
-                    <td className="px-4 py-3 text-gray-700">{order.company}</td>
-                    <td className="px-4 py-3 text-gray-700">{order.invoice_type}</td>
-                    <td className="px-4 py-3 text-right font-bold">₹ {order.grand_total?.toLocaleString('en-IN')}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : '-'}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor[order.status] ?? 'bg-gray-100 text-gray-700'}`}>{order.status}</span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{new Date(order.created_at).toLocaleDateString()}</td>
-                  </tr>
+                  <StyledTr key={order.id} onClick={() => { /* View details later */ }} className="cursor-pointer group">
+                    <StyledTd className="font-semibold text-primary group-hover:underline">{order.order_number}</StyledTd>
+                    <StyledTd className="font-medium text-foreground">{order.customers?.name ?? '—'}</StyledTd>
+                    <StyledTd className="text-muted-foreground">{order.company}</StyledTd>
+                    <StyledTd className="text-muted-foreground">{order.invoice_type}</StyledTd>
+                    <StyledTd right mono className="font-bold">₹{order.grand_total?.toLocaleString('en-IN')}</StyledTd>
+                    <StyledTd mono className="text-xs text-muted-foreground">{order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : '—'}</StyledTd>
+                    <StyledTd><StatusBadge status={order.status} /></StyledTd>
+                    <StyledTd mono className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</StyledTd>
+                  </StyledTr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-      </div>
+      </DataCard>
     </div>
   );
 };

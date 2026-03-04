@@ -3,9 +3,14 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
-import { Plus, Pencil, Search, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Tag, Trash2 } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
+import {
+  PageHeader, SearchBar, DataCard,
+  StyledThead, StyledTh, StyledTr, StyledTd,
+  EmptyState, Spinner, StatusBadge, IconBtn,
+} from '@/app/components/ui/primitives';
 
 export const Brands = () => {
   const [brands, setBrands] = useState<any[]>([]);
@@ -18,10 +23,23 @@ export const Brands = () => {
 
   const fetchBrands = async () => {
     setLoading(true);
-    const { data } = await supabase.from('brands').select('id, name, is_active, created_at').order('name');
-    setBrands(data ?? []);
+    const [{ data: brandData }, { data: productData }] = await Promise.all([
+      supabase.from('brands').select('id, name, is_active, created_at').order('name'),
+      supabase.from('products').select('brand_id, dealer_price, stock_qty').eq('is_active', true),
+    ]);
+    const products = productData ?? [];
+    const enriched = (brandData ?? []).map((b: any) => {
+      const brandProducts = products.filter((p: any) => p.brand_id === b.id);
+      return {
+        ...b,
+        productCount: brandProducts.length,
+        stockValue: brandProducts.reduce((sum: number, p: any) => sum + ((p.dealer_price ?? 0) * (p.stock_qty ?? 0)), 0),
+      };
+    });
+    setBrands(enriched);
     setLoading(false);
   };
+
   useEffect(() => { fetchBrands(); }, []);
 
   const openAdd = () => { setEditing(null); setName(''); setOpen(true); };
@@ -40,13 +58,9 @@ export const Brands = () => {
         if (error) throw error;
         toast.success('Brand added!');
       }
-      setOpen(false);
-      fetchBrands();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to save brand');
-    } finally {
-      setSaving(false);
-    }
+      setOpen(false); fetchBrands();
+    } catch (err: any) { toast.error(err.message || 'Failed to save brand'); }
+    finally { setSaving(false); }
   };
 
   const toggleActive = async (b: any) => {
@@ -62,73 +76,114 @@ export const Brands = () => {
   };
 
   const filtered = brands.filter(b => !search || b.name.toLowerCase().includes(search.toLowerCase()));
+  const totalValue = filtered.reduce((s, b) => s + b.stockValue, 0);
+  const totalProducts = filtered.reduce((s, b) => s + b.productCount, 0);
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Brands</h1>
-          <p className="text-gray-500 mt-1 text-sm">Manage product brands</p>
-        </div>
-        <Button onClick={openAdd} className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl"><Plus size={18} className="mr-2" />Add Brand</Button>
+      <PageHeader
+        title="Brands"
+        subtitle="Manage product brands"
+        actions={
+          <Button size="sm" onClick={openAdd} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+            <Plus size={15} /> Add Brand
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <DataCard className="p-4 flex flex-col justify-center">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Total Brands</p>
+          <p className="text-2xl font-bold font-mono text-foreground">{filtered.length}</p>
+        </DataCard>
+        <DataCard className="p-4 flex flex-col justify-center">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Active Products</p>
+          <p className="text-2xl font-bold font-mono text-foreground">{totalProducts}</p>
+        </DataCard>
+        <DataCard className="p-4 flex flex-col justify-center col-span-2 sm:col-span-1 bg-primary/5 border-primary/20">
+          <p className="text-[10px] text-primary uppercase tracking-widest font-semibold mb-1">Stock Value</p>
+          <p className="text-2xl font-bold font-mono text-primary">
+            ₹{totalValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+          </p>
+        </DataCard>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-        <Input placeholder="Search brands..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 rounded-xl" />
-      </div>
+      <SearchBar
+        placeholder="Search brands..."
+        value={search}
+        onChange={setSearch}
+        className="max-w-xs"
+      />
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {loading ? <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" /></div> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Brand Name</th>
-                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Status</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Added On</th>
-                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map(b => (
-                  <tr key={b.id} className="hover:bg-gray-50/70 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-gray-900">{b.name}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${b.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>{b.is_active ? 'Active' : 'Inactive'}</span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{new Date(b.created_at).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex justify-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => openEdit(b)} className="h-8"><Pencil size={14} /></Button>
-                        <Button size="sm" variant="outline" onClick={() => toggleActive(b)} className={`h-8 text-xs ${b.is_active ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-green-600 border-green-200 hover:bg-green-50'}`}>
-                          {b.is_active ? 'Deactivate' : 'Activate'}
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => deleteBrand(b)} className="h-8 text-red-600 border-red-200 hover:bg-red-50" title="Delete permanently">
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    </td>
+      <DataCard>
+        {loading ? <Spinner /> :
+          filtered.length === 0 ? (
+            <EmptyState icon={Tag} message="No brands found" sub="Add a brand to categorize products" />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <StyledThead>
+                  <tr>
+                    <StyledTh>Brand Name</StyledTh>
+                    <StyledTh right>Products</StyledTh>
+                    <StyledTh right>Stock Value</StyledTh>
+                    <StyledTh>Status</StyledTh>
+                    <StyledTh>Added</StyledTh>
+                    <StyledTh right>Actions</StyledTh>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </StyledThead>
+                <tbody>
+                  {filtered.map(b => (
+                    <StyledTr key={b.id}>
+                      <StyledTd className="font-semibold text-foreground">{b.name}</StyledTd>
+                      <StyledTd right mono className="text-muted-foreground">{b.productCount}</StyledTd>
+                      <StyledTd right mono>
+                        {b.stockValue > 0 ? (
+                          <span className="font-semibold text-primary">₹{b.stockValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                        ) : <span className="text-muted-foreground opacity-50">—</span>}
+                      </StyledTd>
+                      <StyledTd><StatusBadge status={b.is_active ? 'Active' : 'Inactive'} /></StyledTd>
+                      <StyledTd mono className="text-xs text-muted-foreground">
+                        {new Date(b.created_at).toLocaleDateString()}
+                      </StyledTd>
+                      <StyledTd right>
+                        <div className="flex items-center justify-end gap-1">
+                          <IconBtn onClick={() => openEdit(b)} title="Edit"><Pencil size={14} /></IconBtn>
+                          <Button
+                            size="sm" variant="outline" onClick={() => toggleActive(b)}
+                            className={`h-6 text-[10px] px-2 rounded-full mx-1 ${b.is_active ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
+                          >
+                            {b.is_active ? 'Deactivate' : 'Activate'}
+                          </Button>
+                          <IconBtn onClick={() => deleteBrand(b)} title="Delete" danger><Trash2 size={13} /></IconBtn>
+                        </div>
+                      </StyledTd>
+                    </StyledTr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
+      </DataCard>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? 'Edit Brand' : 'Add New Brand'}</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Brand Name *</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Enter brand name" />
-            </div>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tag size={16} className="text-primary" />
+              {editing ? 'Edit Brand' : 'Add New Brand'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label className="text-xs">Brand Name <span className="text-destructive">*</span></Label>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Sony, Samsung" className="mt-1.5" />
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl" disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+            <Button onClick={handleSave} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={saving}>
+              {saving ? 'Saving...' : 'Save Brand'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

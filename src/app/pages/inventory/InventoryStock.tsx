@@ -1,8 +1,12 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Input } from '@/app/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { Search, Package } from 'lucide-react';
+import { PackageOpen } from 'lucide-react';
 import { supabase } from '@/app/supabase';
+import {
+  PageHeader, SearchBar, DataCard,
+  StyledThead, StyledTh, StyledTr, StyledTd,
+  EmptyState, Spinner,
+} from '@/app/components/ui/primitives';
 
 export const InventoryStock = () => {
   const [products, setProducts] = useState<any[]>([]);
@@ -12,17 +16,14 @@ export const InventoryStock = () => {
   const [brands, setBrands] = useState<any[]>([]);
 
   useEffect(() => {
-    const fetchData = async () => {
+    (async () => {
       setLoading(true);
       const [{ data: prod }, { data: br }] = await Promise.all([
         supabase.from('products').select('id, name, sku, stock_qty, dealer_price, brands(id, name)').eq('is_active', true).order('name'),
         supabase.from('brands').select('id, name').eq('is_active', true).order('name'),
       ]);
-      setProducts(prod ?? []);
-      setBrands(br ?? []);
-      setLoading(false);
-    };
-    fetchData();
+      setProducts(prod ?? []); setBrands(br ?? []); setLoading(false);
+    })();
   }, []);
 
   const filtered = products.filter(p => {
@@ -31,68 +32,79 @@ export const InventoryStock = () => {
     return matchSearch && matchBrand;
   });
 
-  const stockStatus = (qty: number) => {
-    if (qty === 0) return { label: 'Out of Stock', cls: 'bg-red-100 text-red-700' };
-    if (qty <= 5) return { label: 'Low Stock', cls: 'bg-teal-100 text-teal-700' };
-    return { label: 'In Stock', cls: 'bg-green-100 text-green-700' };
+  const getStockStatus = (qty: number) => {
+    if (qty === 0) return { label: 'Out of Stock', cls: 'bg-red-50 text-red-700 border-red-200' };
+    if (qty <= 5) return { label: 'Low Stock', cls: 'bg-amber-50 text-amber-700 border-amber-200' };
+    return { label: 'In Stock', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
   };
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Inventory Stock</h1>
-        <p className="text-gray-500 mt-1 text-sm">Current stock levels for all products</p>
+      <PageHeader
+        title="Inventory Stock"
+        subtitle="Current stock levels for all products"
+      />
+
+      <div className="flex gap-3 flex-wrap">
+        <SearchBar
+          placeholder="Search by name / SKU..."
+          value={search} onChange={setSearch}
+          className="min-w-[240px]"
+        />
+        <Select value={brandFilter} onValueChange={setBrandFilter}>
+          <SelectTrigger className="w-48 h-9 text-sm">
+            <SelectValue placeholder="All Brands" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Brands</SelectItem>
+            {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="flex gap-4 flex-wrap">
-          <div className="relative flex-1 min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <Input placeholder="Search by name / SKU..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
-          </div>
-          <Select value={brandFilter} onValueChange={setBrandFilter}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filter by brand" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Brands</SelectItem>
-              {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {loading ? <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" /></div> : filtered.length === 0 ? (
-          <div className="text-center py-12"><Package size={40} className="text-gray-200 mx-auto mb-3" /><p className="text-gray-400 text-sm">No products found</p></div>
+
+      <DataCard>
+        {loading ? <Spinner /> : filtered.length === 0 ? (
+          <EmptyState icon={PackageOpen} message="No products found" sub="Adjust filters or add new products" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
+              <StyledThead>
                 <tr>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Product</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Brand</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">SKU</th>
-                  <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Dealer Price</th>
-                  <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Stock Qty</th>
-                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Status</th>
+                  <StyledTh>Product</StyledTh>
+                  <StyledTh>Brand</StyledTh>
+                  <StyledTh>SKU</StyledTh>
+                  <StyledTh right>Dealer Price</StyledTh>
+                  <StyledTh right>Stock Qty</StyledTh>
+                  <StyledTh>Status</StyledTh>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
+              </StyledThead>
+              <tbody>
                 {filtered.map(p => {
-                  const s = stockStatus(p.stock_qty);
+                  const s = getStockStatus(p.stock_qty);
                   return (
-                    <tr key={p.id} className="hover:bg-gray-50/70 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-gray-900">{p.name}</td>
-                      <td className="px-4 py-3 text-gray-600">{p.brands?.name ?? '-'}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-gray-600">{p.sku}</td>
-                      <td className="px-4 py-3 text-right">₹ {p.dealer_price?.toLocaleString('en-IN')}</td>
-                      <td className="px-4 py-3 text-right font-bold">{p.stock_qty}</td>
-                      <td className="px-4 py-3 text-center"><span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${s.cls}`}>{s.label}</span></td>
-                    </tr>
+                    <StyledTr key={p.id}>
+                      <StyledTd className="font-semibold text-foreground">{p.name}</StyledTd>
+                      <StyledTd className="text-muted-foreground">{p.brands?.name ?? '—'}</StyledTd>
+                      <StyledTd mono className="text-xs text-muted-foreground">{p.sku}</StyledTd>
+                      <StyledTd right mono>₹{p.dealer_price?.toLocaleString('en-IN')}</StyledTd>
+                      <StyledTd right mono>
+                        <span className={`font-bold ${p.stock_qty <= 5 ? 'text-amber-600' : p.stock_qty === 0 ? 'text-red-600' : 'text-foreground'}`}>
+                          {p.stock_qty}
+                        </span>
+                      </StyledTd>
+                      <StyledTd>
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${s.cls}`}>
+                          {s.label}
+                        </span>
+                      </StyledTd>
+                    </StyledTr>
                   );
                 })}
               </tbody>
             </table>
           </div>
         )}
-      </div>
+      </DataCard>
     </div>
   );
 };

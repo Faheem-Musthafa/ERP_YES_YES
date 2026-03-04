@@ -10,7 +10,7 @@ export const ProcurementDashboard = () => {
   ];
 
   const statusItems = [
-    { label: 'Pending Approval', count: '5 POs', icon: <Clock size={18} className="text-amber-600" />, bg: 'bg-amber-50', border: 'border-amber-100' },
+    { label: 'Back Order', count: '5 POs', icon: <Clock size={18} className="text-amber-600" />, bg: 'bg-amber-50', border: 'border-amber-100' },
     { label: 'In Transit', count: '13 POs', icon: <Truck size={18} className="text-blue-600" />, bg: 'bg-blue-50', border: 'border-blue-100' },
     { label: 'Delivered', count: '142 POs', icon: <CheckCircle2 size={18} className="text-emerald-600" />, bg: 'bg-emerald-50', border: 'border-emerald-100' },
   ];

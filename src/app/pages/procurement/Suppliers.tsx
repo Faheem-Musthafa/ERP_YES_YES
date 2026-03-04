@@ -1,7 +1,7 @@
 ﻿import React from 'react';
 import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Search, Plus, Eye, Phone, Mail } from 'lucide-react';
+import { Plus, Eye, Phone, Mail, Users } from 'lucide-react';
+import { PageHeader, SearchBar, DataCard, EmptyState } from '@/app/components/ui/primitives';
 
 export const Suppliers = () => {
   const suppliers = [
@@ -13,66 +13,67 @@ export const Suppliers = () => {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Suppliers Management</h1>
-          <p className="text-gray-500 mt-1 text-sm">Manage supplier information and relationships</p>
-        </div>
-        <Button className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl">
-          <Plus size={16} className="mr-2" />
-          Add Supplier
-        </Button>
-      </div>
+      <PageHeader
+        title="Suppliers Management"
+        subtitle="Manage supplier information and relationships"
+        actions={
+          <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+            <Plus size={15} /> Add Supplier
+          </Button>
+        }
+      />
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-        <Input
-          placeholder="Search suppliers..."
-          className="pl-10 rounded-xl"
-        />
-      </div>
+      <SearchBar
+        placeholder="Search suppliers..."
+        value="" onChange={() => { }}
+        className="max-w-sm"
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {suppliers.map((supplier) => (
-          <div key={supplier.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-base font-bold text-gray-900">{supplier.name}</h3>
-                <span className="inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
-                  {supplier.status}
-                </span>
-              </div>
-              <Button variant="outline" size="sm">
-                <Eye size={14} />
-              </Button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Contact Person</p>
-                <p className="text-sm font-semibold text-gray-900 mt-0.5">{supplier.contact}</p>
+      {suppliers.length === 0 ? (
+        <DataCard>
+          <EmptyState icon={Users} message="No suppliers found" sub="Add your first supplier to begin" />
+        </DataCard>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {suppliers.map((s) => (
+            <DataCard key={s.id} className="p-5 flex flex-col hover:border-primary/30 transition-colors group">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">{s.name}</h3>
+                  <span className="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    {s.status}
+                  </span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                  <Eye size={15} />
+                </Button>
               </div>
 
-              <div className="flex items-center gap-2 text-sm text-gray-700">
-                <Phone size={14} className="text-gray-400" />
-                <span>{supplier.phone}</span>
-              </div>
+              <div className="space-y-3 flex-1">
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Contact Person</p>
+                  <p className="text-sm font-semibold text-foreground">{s.contact}</p>
+                </div>
 
-              <div className="flex items-center gap-2 text-sm text-gray-700">
-                <Mail size={14} className="text-gray-400" />
-                <span>{supplier.email}</span>
-              </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Phone size={13} className="text-primary/70 shrink-0" />
+                  <span className="truncate">{s.phone}</span>
+                </div>
 
-              <div className="pt-3 border-t border-gray-50 mt-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide">Total Purchase Orders</span>
-                  <span className="text-sm font-bold text-gray-900">{supplier.totalPOs}</span>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail size={13} className="text-primary/70 shrink-0" />
+                  <span className="truncate">{s.email}</span>
                 </div>
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
+
+              <div className="pt-3 border-t border-border mt-4 flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Orders</span>
+                <span className="text-sm font-bold font-mono text-foreground">{s.totalPOs}</span>
+              </div>
+            </DataCard>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

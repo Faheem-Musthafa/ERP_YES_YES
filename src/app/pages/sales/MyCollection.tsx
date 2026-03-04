@@ -7,6 +7,21 @@ import { Search, Plus, Wallet } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 
+const MODE_COLORS: Record<string, string> = {
+  Cash: 'bg-emerald-100 text-emerald-700',
+  Cheque: 'bg-blue-100 text-blue-700',
+  UPI: 'bg-purple-100 text-purple-700',
+  'Bank Transfer': 'bg-teal-100 text-teal-700',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  Received: 'bg-emerald-100 text-emerald-700',
+  Credited: 'bg-emerald-100 text-emerald-700',
+  Cleared: 'bg-emerald-100 text-emerald-700',
+  'Not Received': 'bg-red-100 text-red-600',
+  Bounced: 'bg-orange-100 text-orange-700',
+};
+
 export const MyCollection = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -21,7 +36,7 @@ export const MyCollection = () => {
       setLoading(true);
       const { data } = await supabase
         .from('receipts')
-        .select('id, receipt_number, amount, payment_mode, created_at, orders(order_number, grand_total, customers(name))')
+        .select('id, receipt_number, amount, payment_mode, payment_status, created_at, orders(order_number, invoice_number, grand_total, customers(name))')
         .eq('recorded_by', user.id)
         .order('created_at', { ascending: false });
       setReceipts(data ?? []);
@@ -31,27 +46,21 @@ export const MyCollection = () => {
   }, [user]);
 
   const filtered = receipts.filter(r => {
+    const invoiceNo = r.orders?.invoice_number ?? r.orders?.order_number ?? '';
     const matchSearch = !search ||
       r.receipt_number.toLowerCase().includes(search.toLowerCase()) ||
-      (r.orders?.order_number ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      invoiceNo.toLowerCase().includes(search.toLowerCase()) ||
       (r.orders?.customers?.name ?? '').toLowerCase().includes(search.toLowerCase());
     const matchMode = !modeFilter || modeFilter === 'all' || r.payment_mode === modeFilter;
     return matchSearch && matchMode;
   });
-
-  const modeColor: Record<string, string> = {
-    Cash: 'bg-emerald-100 text-emerald-700',
-    Cheque: 'bg-blue-100 text-blue-700',
-    UPI: 'bg-purple-100 text-purple-700',
-    'Bank Transfer': 'bg-teal-100 text-teal-700',
-  };
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">My Collection</h1>
-          <p className="text-gray-500 mt-1 text-sm">View all saved receipt entries</p>
+          <p className="text-gray-500 mt-1 text-sm">View all your recorded receipt entries</p>
         </div>
         <Button onClick={() => navigate('/sales/receipt')} className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl">
           <Plus size={16} className="mr-2" />New Receipt
@@ -59,10 +68,10 @@ export const MyCollection = () => {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="flex gap-4 flex-wrap">
+        <div className="flex gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <Input placeholder="Search by receipt / order / customer..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
+            <Input placeholder="Search by receipt / invoice / customer..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
           </div>
           <Select value={modeFilter} onValueChange={setModeFilter}>
             <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filter by mode" /></SelectTrigger>
@@ -96,26 +105,41 @@ export const MyCollection = () => {
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Receipt No</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Order No</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Invoice No</th>
                   <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Customer</th>
                   <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Mode</th>
+                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Status</th>
                   <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Amount (₹)</th>
                   <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map(r => (
-                  <tr key={r.id} className="hover:bg-gray-50/70 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-[#34b0a7]">{r.receipt_number}</td>
-                    <td className="px-4 py-3 text-gray-700">{r.orders?.order_number ?? '-'}</td>
-                    <td className="px-4 py-3 text-gray-700">{r.orders?.customers?.name ?? '-'}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${modeColor[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>{r.payment_mode}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold">₹ {r.amount?.toLocaleString('en-IN')}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
-                  </tr>
-                ))}
+                {filtered.map(r => {
+                  const invoiceNo = r.orders?.invoice_number ?? r.orders?.order_number ?? '—';
+                  return (
+                    <tr key={r.id} className="hover:bg-gray-50/70 transition-colors">
+                      <td className="px-4 py-3 font-semibold text-[#34b0a7]">{r.receipt_number}</td>
+                      <td className="px-4 py-3 text-gray-700 font-medium">{invoiceNo}</td>
+                      <td className="px-4 py-3 text-gray-700">{r.orders?.customers?.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${MODE_COLORS[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>
+                          {r.payment_mode}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {r.payment_status ? (
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[r.payment_status] ?? 'bg-gray-100 text-gray-600'}`}>
+                            {r.payment_status}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">Pending</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold">₹ {r.amount?.toLocaleString('en-IN')}</td>
+                      <td className="px-4 py-3 text-xs text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

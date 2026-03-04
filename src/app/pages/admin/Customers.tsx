@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router';
 import { supabase } from '@/app/supabase';
 import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Plus, Search, Phone, MapPin, Edit2, ToggleLeft, ToggleRight, Users, Trash2 } from 'lucide-react';
+import { Plus, Phone, MapPin, Edit2, ToggleLeft, ToggleRight, UserCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+    PageHeader, SearchBar, DataCard,
+    StyledThead, StyledTh, StyledTr, StyledTd,
+    EmptyState, Spinner, StatusBadge, IconBtn,
+} from '@/app/components/ui/primitives';
 
 export const Customers = () => {
     const [customers, setCustomers] = useState<any[]>([]);
@@ -45,106 +49,97 @@ export const Customers = () => {
 
     return (
         <div className="space-y-5">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Customers</h1>
-                    <p className="text-gray-500 mt-1 text-sm">{customers.length} total customers</p>
-                </div>
-                <Link to="/admin/customers/new">
-                    <Button className="bg-[#34b0a7] hover:bg-[#2a9d94] text-white flex items-center gap-2 rounded-xl">
-                        <Plus size={18} /> Add Customer
-                    </Button>
-                </Link>
-            </div>
+            <PageHeader
+                title="Customers"
+                subtitle={`${customers.length} total customers`}
+                actions={
+                    <Link to="/admin/customers/new">
+                        <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+                            <Plus size={15} /> Add Customer
+                        </Button>
+                    </Link>
+                }
+            />
 
-            {/* Search */}
-            <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <Input
-                    placeholder="Search by name, phone, or place..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="pl-9 rounded-xl"
-                />
-            </div>
+            <SearchBar
+                placeholder="Search by name, phone, or place..."
+                value={search}
+                onChange={setSearch}
+                className="max-w-sm"
+            />
 
-            {/* Table */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {loading ? (
-                    <div className="flex items-center justify-center h-40">
-                        <div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" />
-                    </div>
-                ) : filtered.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-40 text-gray-400">
-                        <Users size={36} className="mb-2 opacity-30" />
-                        <p>No customers found</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="bg-gray-50 border-b border-gray-100">
-                                <tr>
-                                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Name</th>
-                                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Place</th>
-                                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Phone</th>
-                                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Pincode</th>
-                                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">GSTIN</th>
-                                    <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Status</th>
-                                    <th className="text-right px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {filtered.map(c => (
-                                    <tr key={c.id} className="hover:bg-gray-50/70 transition-colors">
-                                        <td className="px-4 py-3 font-medium text-gray-900">{c.name}</td>
-                                        <td className="px-4 py-3 text-gray-600">
-                                            <span className="flex items-center gap-1"><MapPin size={13} className="text-[#34b0a7]" /> {c.place || '—'}</span>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-600">
-                                            <span className="flex items-center gap-1"><Phone size={13} className="text-[#34b0a7]" /> {c.phone}</span>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-500">{c.pincode || '—'}</td>
-                                        <td className="px-4 py-3 text-gray-500 text-xs">{c.gst_pan || '—'}</td>
-                                        <td className="px-4 py-3">
-                                            <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${c.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>
-                                                {c.is_active ? 'Active' : 'Inactive'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <Link to={`/admin/customers/${c.id}/edit`}>
-                                                    <Button variant="ghost" size="sm" className="text-[#34b0a7] hover:bg-teal-50 h-8 w-8 p-0">
-                                                        <Edit2 size={15} />
-                                                    </Button>
-                                                </Link>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => toggleActive(c.id, c.is_active)}
-                                                    className={`h-8 w-8 p-0 ${c.is_active ? 'text-gray-400 hover:text-red-500' : 'text-gray-400 hover:text-green-500'}`}
-                                                    title={c.is_active ? 'Deactivate' : 'Activate'}
-                                                >
-                                                    {c.is_active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => deleteCustomer(c.id, c.name)}
-                                                    className="h-8 w-8 p-0 text-gray-400 hover:text-red-600"
-                                                    title="Delete permanently"
-                                                >
-                                                    <Trash2 size={15} />
-                                                </Button>
-                                            </div>
-                                        </td>
+            <DataCard>
+                {loading ? <Spinner /> :
+                    filtered.length === 0 ? (
+                        <EmptyState icon={UserCircle} message="No customers found" sub={search ? 'Try a different search' : 'Add your first customer to get started'} />
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <StyledThead>
+                                    <tr>
+                                        <StyledTh>Name</StyledTh>
+                                        <StyledTh>Place</StyledTh>
+                                        <StyledTh>Phone</StyledTh>
+                                        <StyledTh>Pincode</StyledTh>
+                                        <StyledTh>GSTIN/PAN</StyledTh>
+                                        <StyledTh>Status</StyledTh>
+                                        <StyledTh right>Actions</StyledTh>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
+                                </StyledThead>
+                                <tbody>
+                                    {filtered.map(c => (
+                                        <StyledTr key={c.id}>
+                                            <StyledTd>
+                                                <div>
+                                                    <p className="font-semibold text-foreground">{c.name}</p>
+                                                    {c.address && <p className="text-xs text-muted-foreground truncate max-w-[180px]" title={c.address}>{c.address}</p>}
+                                                </div>
+                                            </StyledTd>
+                                            <StyledTd>
+                                                {c.place ? (
+                                                    <span className="flex items-center gap-1 text-muted-foreground">
+                                                        <MapPin size={11} className="text-primary" />{c.place}
+                                                    </span>
+                                                ) : '—'}
+                                            </StyledTd>
+                                            <StyledTd>
+                                                <span className="flex items-center gap-1 text-muted-foreground">
+                                                    <Phone size={11} className="text-primary" />{c.phone}
+                                                </span>
+                                            </StyledTd>
+                                            <StyledTd mono className="text-muted-foreground">{c.pincode || '—'}</StyledTd>
+                                            <StyledTd mono className="text-xs text-muted-foreground">{c.gst_pan || '—'}</StyledTd>
+                                            <StyledTd>
+                                                <StatusBadge status={c.is_active ? 'Active' : 'Inactive'} />
+                                            </StyledTd>
+                                            <StyledTd right>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Link to={`/admin/customers/${c.id}/edit`}>
+                                                        <IconBtn title="Edit"><Edit2 size={14} /></IconBtn>
+                                                    </Link>
+                                                    <IconBtn
+                                                        onClick={() => toggleActive(c.id, c.is_active)}
+                                                        title={c.is_active ? 'Deactivate' : 'Activate'}
+                                                    >
+                                                        {c.is_active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                                    </IconBtn>
+                                                    <IconBtn
+                                                        onClick={() => deleteCustomer(c.id, c.name)}
+                                                        title="Delete permanently"
+                                                        danger
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </IconBtn>
+                                                </div>
+                                            </StyledTd>
+                                        </StyledTr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )
+                }
+            </DataCard>
         </div>
     );
 };

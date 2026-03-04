@@ -5,13 +5,21 @@ import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Info } from 'lucide-react';
+import { ArrowLeft, Info, Check } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
+import { FormSection, FormCard } from '@/app/components/ui/primitives';
 import type { PaymentModeEnum } from '@/app/types/database';
 
-const PAYMENT_MODES = ['Bank', 'Cash', 'Cheque'] as const;
+const mapMode = (m: string): PaymentModeEnum => (m === 'Bank' ? 'Bank Transfer' : m as PaymentModeEnum);
+
+const MODE_STATUSES: Record<string, string[]> = {
+  Cash: ['Received', 'Not Received'],
+  Cheque: ['Cleared', 'Bounced'],
+  Bank: ['Credited'],
+  UPI: ['Received'],
+};
 
 export const ReceiptEntry = () => {
   const navigate = useNavigate();
@@ -22,10 +30,12 @@ export const ReceiptEntry = () => {
   const [approvedOrders, setApprovedOrders] = useState<any[]>([]);
 
   const [company, setCompany] = useState('');
-  const [modeOfReceipt, setModeOfReceipt] = useState<PaymentModeEnum | ''>('');
+  const [modeOfReceipt, setModeOfReceipt] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState('');
+  const [bounceReason, setBounceReason] = useState('');
   const [brand, setBrand] = useState('');
   const [otherBrand, setOtherBrand] = useState('');
-  const [customerType, setCustomerType] = useState('');
+  const [customerType, setCustomerType] = useState('existing');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -43,17 +53,16 @@ export const ReceiptEntry = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
+    (async () => {
       const [{ data: custData }, { data: ordData }, { data: brandData }] = await Promise.all([
         supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
-        supabase.from('orders').select('id, order_number, grand_total, created_at, customer_id, customers(name)').eq('status', 'Approved').order('created_at', { ascending: false }),
+        supabase.from('orders').select('id, order_number, invoice_number, grand_total, created_at, customer_id, customers(name)').eq('status', 'Approved').order('created_at', { ascending: false }),
         supabase.from('brands').select('name').eq('is_active', true).order('name'),
       ]);
       if (custData) setCustomers(custData);
       if (ordData) setApprovedOrders(ordData);
       if (brandData) setBrands([...brandData.map((b: any) => b.name), 'Other']);
-    };
-    fetchData();
+    })();
   }, []);
 
   const handleCustomerSelect = (custId: string) => {
@@ -70,32 +79,23 @@ export const ReceiptEntry = () => {
     setPhoneAutoFilled(false); setAddressAutoFilled(false); setGstAutoFilled(false);
   };
 
-  // Map display mode to DB enum
-  const mapMode = (m: string): PaymentModeEnum => {
-    if (m === 'Bank') return 'Bank Transfer';
-    return m as PaymentModeEnum;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerType) { toast.error('Please select customer type'); return; }
     if (customerType === 'existing' && !selectedCustomerId) { toast.error('Please select a customer'); return; }
     if (customerType === 'new' && (!customerName || !customerPhone)) { toast.error('Please fill new customer details'); return; }
-    if (!onAccountOf) { toast.error('Please select On Account Of (Invoice or Advance)'); return; }
+    if (!onAccountOf) { toast.error('Please select On Account Of'); return; }
     if (onAccountOf === 'Invoice' && !selectedOrderId) { toast.error('Please select an invoice'); return; }
     if (!receivedAmount || !receivedDate) { toast.error('Please enter amount and date'); return; }
+    if (paymentStatus === 'Bounced' && !bounceReason.trim()) { toast.error('Please enter bounce reason'); return; }
 
     setLoading(true);
     try {
       let finalCustomerId = selectedCustomerId;
       if (customerType === 'new') {
         const { data: newCust, error: errC } = await supabase.from('customers').insert({
-          name: customerName,
-          phone: customerPhone,
-          address: customerAddress,
-          gst_pan: customerGst || null,
+          name: customerName, phone: customerPhone, address: customerAddress, gst_pan: customerGst || null, is_active: true
         }).select('id').single();
-        if (errC) throw new Error('Failed to create customer: ' + errC.message);
+        if (errC) throw errC;
         finalCustomerId = newCust.id;
       }
 
@@ -105,193 +105,196 @@ export const ReceiptEntry = () => {
         customer_id: finalCustomerId,
         order_id: onAccountOf === 'Invoice' ? selectedOrderId : null,
         amount: Number(receivedAmount),
-        payment_mode: mapMode(modeOfReceipt as string),
+        payment_mode: mapMode(modeOfReceipt),
+        payment_status: paymentStatus || null,
+        bounce_reason: paymentStatus === 'Bounced' ? bounceReason.trim() : null,
         recorded_by: user?.id ?? null,
       });
       if (error) throw error;
       toast.success(`Receipt ${receiptNumber} saved!`);
-      navigate('/sales/my-collection');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to save receipt');
-    } finally {
-      setLoading(false);
-    }
+      navigate('/sales/-'); // Need correct path or back
+    } catch (err: any) { toast.error(err.message || 'Failed to save receipt'); } finally { setLoading(false); }
   };
 
+  const statusOptions = modeOfReceipt ? (MODE_STATUSES[modeOfReceipt] ?? []) : [];
+
+  const Pill = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+    <button type="button" onClick={onClick}
+      className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all flex items-center gap-1 ${active ? 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20' : 'border-border text-muted-foreground hover:bg-muted/50'}`}>
+      {active && <Check size={12} />}
+      {children}
+    </button>
+  );
+
   return (
-    <div className="space-y-5">
-      <div className="text-sm text-gray-500">
-        <span>Dashboard</span><span className="mx-2">/</span><span>Sales</span><span className="mx-2">/</span><span className="text-gray-800 font-medium">Receipt</span>
-      </div>
-      <div>
-        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-2 -ml-2"><ArrowLeft size={18} className="mr-2" />Back</Button>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Receipt Entry</h1>
-        <p className="text-gray-500 mt-1 text-sm">Record customer receipt against invoice</p>
+    <div className="space-y-6 pb-12">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full shrink-0">
+          <ArrowLeft size={18} />
+        </Button>
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Receipt Entry</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Record customer payment against invoice or advance</p>
+        </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-3xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-4">
-            <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Receipt Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>Company *</Label>
+      <FormCard>
+        <form onSubmit={handleSubmit} className="space-y-8">
+
+          <FormSection title="Receipt Details">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1.5"><Label>Company <span className="text-destructive">*</span></Label>
                 <Select value={company} onValueChange={setCompany}>
                   <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="LLP">LLP</SelectItem>
-                    <SelectItem value="YES YES">YES YES</SelectItem>
-                    <SelectItem value="Zekon">Zekon</SelectItem>
-                  </SelectContent>
+                  <SelectContent><SelectItem value="LLP">LLP</SelectItem><SelectItem value="YES YES">YES YES</SelectItem><SelectItem value="Zekon">Zekon</SelectItem></SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Mode of Receipt *</Label>
-                <Select value={modeOfReceipt} onValueChange={v => setModeOfReceipt(v as any)}>
+              <div className="space-y-1.5"><Label>Mode of Receipt <span className="text-destructive">*</span></Label>
+                <Select value={modeOfReceipt} onValueChange={v => { setModeOfReceipt(v); setPaymentStatus(''); setBounceReason(''); }}>
                   <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Bank">Bank</SelectItem>
-                    <SelectItem value="Cash">Cash</SelectItem>
-                    <SelectItem value="Cheque">Cheque</SelectItem>
-                  </SelectContent>
+                  <SelectContent><SelectItem value="Cash">Cash</SelectItem><SelectItem value="Cheque">Cheque</SelectItem><SelectItem value="Bank">Bank Transfer</SelectItem><SelectItem value="UPI">UPI</SelectItem></SelectContent>
                 </Select>
               </div>
+              {statusOptions.length > 0 && (
+                <div className="space-y-1.5"><Label>Payment Status <span className="text-destructive">*</span></Label>
+                  <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+                    <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                    <SelectContent>{statusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              )}
+              {paymentStatus === 'Bounced' && (
+                <div className="space-y-1.5 md:col-span-2"><Label>Bounce Reason <span className="text-destructive">*</span></Label>
+                  <Textarea value={bounceReason} onChange={e => setBounceReason(e.target.value)} placeholder="e.g. Insufficient funds..." rows={2} required className="resize-none bg-red-50/50 border-red-200 focus:border-red-400" />
+                </div>
+              )}
             </div>
-          </div>
+          </FormSection>
 
-          <div className="space-y-4">
-            <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Brand</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>Brand *</Label>
+          <FormSection title="Brand Assignment">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1.5"><Label>Ref Brand <span className="text-destructive">*</span></Label>
                 <Select value={brand} onValueChange={setBrand}>
                   <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
                   <SelectContent>{brands.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               {brand === 'Other' && (
-                <div className="space-y-2">
-                  <Label>Enter Brand Name *</Label>
-                  <Input value={otherBrand} onChange={e => setOtherBrand(e.target.value)} placeholder="Enter brand name" required />
+                <div className="space-y-1.5"><Label>Custom Brand <span className="text-destructive">*</span></Label>
+                  <Input value={otherBrand} onChange={e => setOtherBrand(e.target.value)} placeholder="Enter details..." required />
                 </div>
               )}
             </div>
-          </div>
+          </FormSection>
 
-          <div className="space-y-4">
-            <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Customer</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>Customer Type *</Label>
-                <Select value={customerType} onValueChange={handleCustomerTypeChange}>
-                  <SelectTrigger><SelectValue placeholder="Select customer type" /></SelectTrigger>
-                  <SelectContent><SelectItem value="existing">Existing</SelectItem><SelectItem value="new">New</SelectItem></SelectContent>
-                </Select>
-              </div>
-              {customerType === 'existing' && (
-                <div className="space-y-2">
-                  <Label>Customer *</Label>
+          <FormSection title="Customer info" action={
+            <div className="flex gap-2">
+              <Pill active={customerType === 'existing'} onClick={() => handleCustomerTypeChange('existing')}>Existing</Pill>
+              <Pill active={customerType === 'new'} onClick={() => handleCustomerTypeChange('new')}>New</Pill>
+            </div>
+          }>
+            <div className="space-y-5">
+              {customerType === 'existing' ? (
+                <div className="space-y-1.5">
+                  <Label>Select Customer <span className="text-destructive">*</span></Label>
                   <Select value={selectedCustomerId} onValueChange={handleCustomerSelect}>
-                    <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Search customers..." /></SelectTrigger>
                     <SelectContent>{customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-              )}
-              {customerType === 'new' && (
-                <div className="space-y-2">
-                  <Label>Customer Name *</Label>
-                  <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Enter customer name" required />
+              ) : (
+                <div className="space-y-1.5">
+                  <Label>Customer Name <span className="text-destructive">*</span></Label>
+                  <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Enter legal name" required />
                 </div>
               )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-1.5"><Label>Phone <span className="text-destructive">*</span></Label>
+                  <div className="relative">
+                    <Input type="tel" value={customerPhone} onChange={e => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }} placeholder="Mobile" required className={phoneAutoFilled ? 'bg-primary/5' : ''} />
+                    {phoneAutoFilled && <Info size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-primary" />}
+                  </div>
+                </div>
+                <div className="space-y-1.5"><Label>GST / PAN</Label>
+                  <div className="relative">
+                    <Input value={customerGst} onChange={e => { setCustomerGst(e.target.value); setGstAutoFilled(false); }} placeholder="Optional" className={gstAutoFilled ? 'bg-primary/5' : ''} />
+                    {gstAutoFilled && <Info size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-primary" />}
+                  </div>
+                </div>
+                <div className="space-y-1.5 md:col-span-2"><Label>Address <span className="text-destructive">*</span></Label>
+                  <Textarea value={customerAddress} onChange={e => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }} placeholder="Full address" required rows={2} className={`resize-none ${addressAutoFilled ? 'bg-primary/5' : ''}`} />
+                </div>
+              </div>
             </div>
-            {customerType && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label>Phone *</Label>
-                  <div className="relative">
-                    <Input type="tel" value={customerPhone} onChange={e => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }} placeholder="Phone number" required className={phoneAutoFilled ? 'bg-teal-50 pr-10' : ''} />
-                    {phoneAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-teal-600" />}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>GST / PAN</Label>
-                  <div className="relative">
-                    <Input value={customerGst} onChange={e => { setCustomerGst(e.target.value); setGstAutoFilled(false); }} placeholder="Optional" className={gstAutoFilled ? 'bg-teal-50 pr-10' : ''} />
-                    {gstAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-teal-600" />}
-                  </div>
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Address *</Label>
-                  <Textarea value={customerAddress} onChange={e => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }} placeholder="Customer address" required rows={3} className={addressAutoFilled ? 'bg-teal-50' : ''} />
-                </div>
-              </div>
-            )}
-          </div>
+          </FormSection>
 
-          <div className="space-y-4">
-            <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Receipt Financials</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>Received Amount *</Label>
+          <FormSection title="Financial Allocation">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="space-y-1.5"><Label>Received Amount (₹) <span className="text-destructive">*</span></Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">₹</span>
-                  <Input type="number" value={receivedAmount} onChange={e => setReceivedAmount(e.target.value)} placeholder="0.00" required className="pl-8" />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">₹</span>
+                  <Input type="number" value={receivedAmount} onChange={e => setReceivedAmount(e.target.value)} placeholder="0.00" required className="pl-8 font-mono bg-primary/5 border-primary/20 focus-visible:bg-transparent" />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Received Date *</Label>
+              <div className="space-y-1.5"><Label>Date Received <span className="text-destructive">*</span></Label>
                 <Input type="date" value={receivedDate} onChange={e => setReceivedDate(e.target.value)} required />
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label>On Account Of *</Label>
+
+              <div className="space-y-1.5 md:col-span-2"><Label>On Account Of <span className="text-destructive">*</span></Label>
                 <Select value={onAccountOf} onValueChange={v => { setOnAccountOf(v as any); setSelectedOrderId(''); }}>
-                  <SelectTrigger><SelectValue placeholder="Select Invoice or Advance" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Invoice">Invoice</SelectItem>
-                    <SelectItem value="Advance">Advance</SelectItem>
-                  </SelectContent>
+                  <SelectTrigger><SelectValue placeholder="Invoice or Advance?" /></SelectTrigger>
+                  <SelectContent><SelectItem value="Invoice">Against Invoice/Order</SelectItem><SelectItem value="Advance">Advance Payment</SelectItem></SelectContent>
                 </Select>
               </div>
+
               {onAccountOf === 'Invoice' && (
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Select Invoice *</Label>
+                <div className="space-y-1.5 md:col-span-2"><Label>Select Invoice <span className="text-destructive">*</span></Label>
                   <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
-                    <SelectTrigger><SelectValue placeholder="Select invoice" /></SelectTrigger>
+                    <SelectTrigger className="h-auto py-2"><SelectValue placeholder="Select an approved invoice..." /></SelectTrigger>
                     <SelectContent>
                       {approvedOrders.filter(o => !selectedCustomerId || o.customer_id === selectedCustomerId).map(o => (
                         <SelectItem key={o.id} value={o.id}>
-                          <div className="flex flex-col py-1">
-                            <span className="font-medium">{o.order_number}</span>
-                            <span className="text-xs text-gray-500">{o.customers?.name} • ₹{o.grand_total?.toLocaleString('en-IN')} • {new Date(o.created_at).toLocaleDateString()}</span>
+                          <div className="flex flex-col py-0.5 space-y-0.5">
+                            <span className="font-semibold text-foreground">{o.invoice_number ?? o.order_number}</span>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground w-full">
+                              <span className="truncate max-w-[120px]">{o.customers?.name}</span>
+                              <span className="shrink-0">•</span>
+                              <span className="font-mono text-primary font-medium">₹{o.grand_total?.toLocaleString('en-IN')}</span>
+                              <span className="shrink-0">•</span>
+                              <span className="font-mono">{new Date(o.created_at).toLocaleDateString()}</span>
+                            </div>
                           </div>
                         </SelectItem>
                       ))}
                       {approvedOrders.filter(o => !selectedCustomerId || o.customer_id === selectedCustomerId).length === 0 && (
-                        <SelectItem value="none" disabled>No approved invoices found</SelectItem>
+                        <SelectItem value="none" disabled>No pending invoices for this customer</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
                 </div>
               )}
             </div>
-          </div>
+          </FormSection>
 
           {modeOfReceipt === 'Cheque' && (
-            <div className="space-y-4">
-              <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Cheque Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2"><Label>Cheque Number *</Label><Input value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} placeholder="Cheque number" required /></div>
-                <div className="space-y-2"><Label>Cheque Date *</Label><Input type="date" value={chequeDate} onChange={e => setChequeDate(e.target.value)} required /></div>
+            <FormSection title="Cheque Details">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-1.5"><Label>Instrument Number <span className="text-destructive">*</span></Label><Input value={chequeNumber} onChange={e => setChequeNumber(e.target.value)} required /></div>
+                <div className="space-y-1.5"><Label>Instrument Date <span className="text-destructive">*</span></Label><Input type="date" value={chequeDate} onChange={e => setChequeDate(e.target.value)} required /></div>
               </div>
-            </div>
+            </FormSection>
           )}
 
-          <div className="flex gap-4 pt-4">
-            <Button type="submit" className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl text-white" disabled={loading}>{loading ? 'Saving...' : 'Save Receipt'}</Button>
-            <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
+          <div className="flex gap-3 pt-6 border-t border-border">
+            <Button type="submit" disabled={loading} className="w-full sm:w-auto min-w-[160px]">
+              {loading ? 'Saving...' : 'Save Receipt'}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => navigate(-1)} className="w-full sm:w-auto">
+              Cancel
+            </Button>
           </div>
         </form>
-      </div>
+      </FormCard>
     </div>
   );
 };

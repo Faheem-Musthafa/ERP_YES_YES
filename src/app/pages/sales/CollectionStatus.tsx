@@ -2,10 +2,36 @@
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
+import { Textarea } from '@/app/components/ui/textarea';
+import { Label } from '@/app/components/ui/label';
 import { useNavigate } from 'react-router';
-import { Search, Plus, ClipboardCheck } from 'lucide-react';
+import { Search, Plus, ClipboardCheck, AlertCircle } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
+
+/* ── Payment status options per mode ── */
+const MODE_STATUSES: Record<string, string[]> = {
+  Cash: ['Received', 'Not Received'],
+  Cheque: ['Cleared', 'Bounced'],
+  'Bank Transfer': ['Credited'],
+  UPI: ['Received'],
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  Received: 'bg-emerald-100 text-emerald-700',
+  Credited: 'bg-emerald-100 text-emerald-700',
+  Cleared: 'bg-emerald-100 text-emerald-700',
+  'Not Received': 'bg-red-100 text-red-600',
+  Bounced: 'bg-orange-100 text-orange-700',
+};
+
+const MODE_COLORS: Record<string, string> = {
+  Cash: 'bg-emerald-100 text-emerald-700',
+  Cheque: 'bg-blue-100 text-blue-700',
+  UPI: 'bg-purple-100 text-purple-700',
+  'Bank Transfer': 'bg-teal-100 text-teal-700',
+};
 
 export const CollectionStatus = () => {
   const navigate = useNavigate();
@@ -15,34 +41,57 @@ export const CollectionStatus = () => {
   const [modeFilter, setModeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  useEffect(() => {
-    const fetchReceipts = async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from('receipts')
-        .select('id, receipt_number, amount, payment_mode, created_at, orders(id, order_number, status, customers(name))')
-        .order('created_at', { ascending: false });
-      setReceipts(data ?? []);
-      setLoading(false);
-    };
-    fetchReceipts();
-  }, []);
+  // Bounce reason dialog state
+  const [bounceDialog, setBounceDialog] = useState(false);
+  const [bounceTargetId, setBounceTargetId] = useState('');
+  const [bounceReason, setBounceReason] = useState('');
+  const [savingStatus, setSavingStatus] = useState('');
+
+  const fetchReceipts = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('receipts')
+      .select('id, receipt_number, amount, payment_mode, payment_status, bounce_reason, created_at, orders(id, order_number, invoice_number, status, customers(name))')
+      .order('created_at', { ascending: false });
+    setReceipts(data ?? []);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchReceipts(); }, []);
 
   const filtered = receipts.filter(r => {
+    const invoiceNo = r.orders?.invoice_number ?? r.orders?.order_number ?? '';
     const match = !search ||
       r.receipt_number.toLowerCase().includes(search.toLowerCase()) ||
-      (r.orders?.order_number ?? '').toLowerCase().includes(search.toLowerCase()) ||
+      invoiceNo.toLowerCase().includes(search.toLowerCase()) ||
       (r.orders?.customers?.name ?? '').toLowerCase().includes(search.toLowerCase());
     const matchMode = !modeFilter || modeFilter === 'all' || r.payment_mode === modeFilter;
-    const matchStatus = !statusFilter || statusFilter === 'all' || r.orders?.status === statusFilter;
+    const matchStatus = !statusFilter || statusFilter === 'all' || r.payment_status === statusFilter;
     return match && matchMode && matchStatus;
   });
 
-  const modeColor: Record<string, string> = {
-    Cash: 'bg-emerald-100 text-emerald-700',
-    Cheque: 'bg-blue-100 text-blue-700',
-    UPI: 'bg-purple-100 text-purple-700',
-    'Bank Transfer': 'bg-teal-100 text-teal-700',
+  const updateStatus = async (receiptId: string, status: string, mode: string) => {
+    if (status === 'Bounced') {
+      setBounceTargetId(receiptId);
+      setBounceReason('');
+      setBounceDialog(true);
+      return;
+    }
+    setSavingStatus(receiptId);
+    const { error } = await supabase.from('receipts').update({ payment_status: status, bounce_reason: null }).eq('id', receiptId);
+    if (error) toast.error('Failed to update status');
+    else { toast.success('Status updated'); fetchReceipts(); }
+    setSavingStatus('');
+  };
+
+  const confirmBounce = async () => {
+    if (!bounceReason.trim()) { toast.error('Please enter a reason'); return; }
+    setSavingStatus(bounceTargetId);
+    const { error } = await supabase.from('receipts').update({ payment_status: 'Bounced', bounce_reason: bounceReason.trim() }).eq('id', bounceTargetId);
+    if (error) toast.error('Failed to update');
+    else { toast.success('Marked as Bounced'); fetchReceipts(); }
+    setBounceDialog(false);
+    setSavingStatus('');
   };
 
   return (
@@ -58,13 +107,13 @@ export const CollectionStatus = () => {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="flex gap-4 flex-wrap">
+        <div className="flex gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <Input placeholder="Search by receipt / order / customer..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
+            <Input placeholder="Search by receipt / invoice / customer..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
           </div>
           <Select value={modeFilter} onValueChange={setModeFilter}>
-            <SelectTrigger className="w-[170px]"><SelectValue placeholder="Filter mode" /></SelectTrigger>
+            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Mode" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Modes</SelectItem>
               <SelectItem value="Cash">Cash</SelectItem>
@@ -74,12 +123,14 @@ export const CollectionStatus = () => {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[170px]"><SelectValue placeholder="Order status" /></SelectTrigger>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Payment Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="Approved">Approved</SelectItem>
-              <SelectItem value="Billed">Billed</SelectItem>
-              <SelectItem value="Delivered">Delivered</SelectItem>
+              <SelectItem value="Received">Received</SelectItem>
+              <SelectItem value="Not Received">Not Received</SelectItem>
+              <SelectItem value="Cleared">Cleared</SelectItem>
+              <SelectItem value="Bounced">Bounced</SelectItem>
+              <SelectItem value="Credited">Credited</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -104,31 +155,103 @@ export const CollectionStatus = () => {
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Receipt No</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Order No</th>
+                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Invoice No</th>
                   <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Customer</th>
                   <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Mode</th>
+                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Payment Status</th>
                   <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Amount (₹)</th>
                   <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map(r => (
-                  <tr key={r.id} className="hover:bg-gray-50/70 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-[#34b0a7]">{r.receipt_number}</td>
-                    <td className="px-4 py-3 text-gray-700">{r.orders?.order_number ?? '-'}</td>
-                    <td className="px-4 py-3 text-gray-700">{r.orders?.customers?.name ?? '-'}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${modeColor[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>{r.payment_mode}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold">₹ {r.amount?.toLocaleString('en-IN')}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
-                  </tr>
-                ))}
+                {filtered.map(r => {
+                  const invoiceNo = r.orders?.invoice_number ?? r.orders?.order_number ?? '—';
+                  const statusOptions = MODE_STATUSES[r.payment_mode] ?? [];
+                  const currentStatus = r.payment_status;
+
+                  return (
+                    <tr key={r.id} className="hover:bg-gray-50/70 transition-colors">
+                      <td className="px-4 py-3 font-semibold text-[#34b0a7]">{r.receipt_number}</td>
+                      <td className="px-4 py-3 text-gray-700 font-medium">{invoiceNo}</td>
+                      <td className="px-4 py-3 text-gray-700">{r.orders?.customers?.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${MODE_COLORS[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>
+                          {r.payment_mode}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          {/* Status badge + dropdown update */}
+                          {currentStatus ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[currentStatus] ?? 'bg-gray-100 text-gray-600'}`}>
+                                {currentStatus}
+                              </span>
+                              {currentStatus === 'Bounced' && r.bounce_reason && (
+                                <span title={r.bounce_reason} className="cursor-help">
+                                  <AlertCircle size={14} className="text-orange-500" />
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">Not set</span>
+                          )}
+                          {/* Inline status updater */}
+                          {statusOptions.length > 0 && (
+                            <Select
+                              value={currentStatus ?? ''}
+                              onValueChange={(v: string) => updateStatus(r.id, v, r.payment_mode)}
+                              disabled={savingStatus === r.id}
+                            >
+                              <SelectTrigger className="h-6 text-[10px] w-28 rounded-md border-gray-200">
+                                <SelectValue placeholder="Update…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {statusOptions.map(s => (
+                                  <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold">₹ {r.amount?.toLocaleString('en-IN')}</td>
+                      <td className="px-4 py-3 text-xs text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
+
+      {/* Bounce reason dialog */}
+      <Dialog open={bounceDialog} onOpenChange={setBounceDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-600">
+              <AlertCircle size={18} /> Cheque Bounced — Enter Reason
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label>Reason for Bounce *</Label>
+            <Textarea
+              value={bounceReason}
+              onChange={e => setBounceReason(e.target.value)}
+              placeholder="e.g. Insufficient funds, Signature mismatch..."
+              rows={3}
+              className="rounded-xl resize-none"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBounceDialog(false)}>Cancel</Button>
+            <Button onClick={confirmBounce} className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
+              Confirm Bounce
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

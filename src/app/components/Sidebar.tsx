@@ -5,52 +5,44 @@ import {
   LayoutDashboard, Users, Package, ShoppingCart, TrendingUp,
   BarChart3, FileText, LogOut, DollarSign, FileCheck, Boxes,
   Plus, Receipt, Wallet, ClipboardCheck, Truck,
-  UserCircle, ChevronLeft, ChevronRight, X, PanelLeftClose, PanelLeftOpen,
+  UserCircle, ChevronRight, ChevronDown, X, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 
-interface NavItem {
-  label: string;
-  path: string;
-  icon: React.ReactNode;
-}
-
-interface NavGroup {
-  title: string;
-  items: NavItem[];
-}
+interface NavItem { label: string; path: string; icon: React.ReactNode; }
+interface NavGroup { title: string; items: NavItem[]; }
 
 const useNavGroups = (role: string | undefined): NavGroup[] => {
   if (role === 'admin') return [
     {
       title: 'Overview',
       items: [
-        { label: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={18} /> },
-        { label: 'Staff Management', path: '/admin/staff', icon: <Users size={18} /> },
-        { label: 'Customers', path: '/admin/customers', icon: <UserCircle size={18} /> },
+        { label: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={16} /> },
+        { label: 'Team Management', path: '/admin/staff', icon: <Users size={16} /> },
+        { label: 'Customers', path: '/admin/customers', icon: <UserCircle size={16} /> },
       ],
     },
     {
-      title: 'Inventory & Catalogue',
+      title: 'Inventory',
       items: [
-        { label: 'Brands', path: '/admin/brands', icon: <Package size={18} /> },
-        { label: 'Products', path: '/admin/products', icon: <Boxes size={18} /> },
-        { label: 'Stock View', path: '/stock', icon: <BarChart3 size={18} /> },
-        { label: 'Inventory Management', path: '/inventory/stock', icon: <Boxes size={18} /> },
-        { label: 'Stock Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={18} /> },
-        { label: 'Delivery Management', path: '/inventory/delivery', icon: <Truck size={18} /> },
+        { label: 'Brands', path: '/admin/brands', icon: <Package size={16} /> },
+        { label: 'Products', path: '/admin/products', icon: <Boxes size={16} /> },
+        { label: 'Stock View', path: '/stock', icon: <BarChart3 size={16} /> },
+        { label: 'Inv. Management', path: '/inventory/stock', icon: <Boxes size={16} /> },
+        { label: 'Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={16} /> },
+        { label: 'Delivery', path: '/inventory/delivery', icon: <Truck size={16} /> },
       ],
     },
     {
       title: 'Sales & Finance',
       items: [
-        { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={18} /> },
-        { label: 'All Orders', path: '/admin/orders', icon: <ShoppingCart size={18} /> },
-        { label: 'Pending Approval', path: '/accounts/pending-orders', icon: <FileCheck size={18} /> },
-        { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={18} /> },
-        { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={18} /> },
-        { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={18} /> },
-        { label: 'Sales Records', path: '/admin/sales', icon: <TrendingUp size={18} /> },
-        { label: 'Reports', path: '/admin/reports', icon: <FileText size={18} /> },
+        { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={16} /> },
+        { label: 'All Orders', path: '/admin/orders', icon: <ShoppingCart size={16} /> },
+        { label: 'Back Order', path: '/accounts/pending-orders', icon: <FileCheck size={16} /> },
+        { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={16} /> },
+        { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={16} /> },
+        { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={16} /> },
+        { label: 'Sales Records', path: '/admin/sales', icon: <TrendingUp size={16} /> },
+        { label: 'Reports', path: '/admin/reports', icon: <FileText size={16} /> },
       ],
     },
   ];
@@ -58,22 +50,20 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
   if (role === 'sales') return [
     {
       title: 'My Performance',
-      items: [
-        { label: 'Dashboard', path: '/sales', icon: <LayoutDashboard size={18} /> },
-      ],
+      items: [{ label: 'Dashboard', path: '/sales', icon: <LayoutDashboard size={16} /> }],
     },
     {
       title: 'Orders',
       items: [
-        { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={18} /> },
-        { label: 'My Orders', path: '/sales/my-orders', icon: <ShoppingCart size={18} /> },
+        { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={16} /> },
+        { label: 'My Orders', path: '/sales/my-orders', icon: <ShoppingCart size={16} /> },
       ],
     },
     {
       title: 'Collections',
       items: [
-        { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={18} /> },
-        { label: 'My Collection', path: '/sales/my-collection', icon: <Wallet size={18} /> },
+        { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={16} /> },
+        { label: 'My Collection', path: '/sales/my-collection', icon: <Wallet size={16} /> },
       ],
     },
   ];
@@ -81,23 +71,21 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
   if (role === 'accounts') return [
     {
       title: 'Overview',
-      items: [
-        { label: 'Dashboard', path: '/accounts', icon: <LayoutDashboard size={18} /> },
-      ],
+      items: [{ label: 'Dashboard', path: '/accounts', icon: <LayoutDashboard size={16} /> }],
     },
     {
       title: 'Approvals',
       items: [
-        { label: 'Pending Orders', path: '/accounts/pending-orders', icon: <FileCheck size={18} /> },
-        { label: 'Sales Records', path: '/accounts/sales', icon: <TrendingUp size={18} /> },
+        { label: 'Pending Orders', path: '/accounts/pending-orders', icon: <FileCheck size={16} /> },
+        { label: 'Sales Records', path: '/accounts/sales', icon: <TrendingUp size={16} /> },
       ],
     },
     {
       title: 'Finance',
       items: [
-        { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={18} /> },
-        { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={18} /> },
-        { label: 'Stock View', path: '/stock', icon: <Package size={18} /> },
+        { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={16} /> },
+        { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={16} /> },
+        { label: 'Stock View', path: '/stock', icon: <Package size={16} /> },
       ],
     },
   ];
@@ -105,24 +93,22 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
   if (role === 'inventory') return [
     {
       title: 'Overview',
-      items: [
-        { label: 'Dashboard', path: '/inventory', icon: <LayoutDashboard size={18} /> },
-      ],
+      items: [{ label: 'Dashboard', path: '/inventory', icon: <LayoutDashboard size={16} /> }],
     },
     {
       title: 'Stock',
       items: [
-        { label: 'Inventory Stock', path: '/inventory/stock', icon: <Boxes size={18} /> },
-        { label: 'Stock Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={18} /> },
-        { label: 'Delivery Management', path: '/inventory/delivery', icon: <Truck size={18} /> },
+        { label: 'Inventory Stock', path: '/inventory/stock', icon: <Boxes size={16} /> },
+        { label: 'Stock Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={16} /> },
+        { label: 'Delivery', path: '/inventory/delivery', icon: <Truck size={16} /> },
       ],
     },
     {
       title: 'Catalogue',
       items: [
-        { label: 'Brands', path: '/inventory/brands', icon: <Package size={18} /> },
-        { label: 'Products', path: '/inventory/products', icon: <ShoppingCart size={18} /> },
-        { label: 'Reports', path: '/inventory/reports', icon: <BarChart3 size={18} /> },
+        { label: 'Brands', path: '/inventory/brands', icon: <Package size={16} /> },
+        { label: 'Products', path: '/inventory/products', icon: <ShoppingCart size={16} /> },
+        { label: 'Reports', path: '/inventory/reports', icon: <BarChart3 size={16} /> },
       ],
     },
   ];
@@ -130,23 +116,21 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
   if (role === 'procurement') return [
     {
       title: 'Overview',
-      items: [
-        { label: 'Dashboard', path: '/procurement', icon: <LayoutDashboard size={18} /> },
-      ],
+      items: [{ label: 'Dashboard', path: '/procurement', icon: <LayoutDashboard size={16} /> }],
     },
     {
       title: 'Purchase',
       items: [
-        { label: 'Purchase Orders', path: '/procurement/orders', icon: <ShoppingCart size={18} /> },
-        { label: 'GRN', path: '/procurement/grn', icon: <ClipboardCheck size={18} /> },
-        { label: 'Purchase History', path: '/procurement/history', icon: <TrendingUp size={18} /> },
+        { label: 'Purchase Orders', path: '/procurement/orders', icon: <ShoppingCart size={16} /> },
+        { label: 'GRN', path: '/procurement/grn', icon: <ClipboardCheck size={16} /> },
+        { label: 'Purchase History', path: '/procurement/history', icon: <TrendingUp size={16} /> },
       ],
     },
     {
       title: 'Suppliers',
       items: [
-        { label: 'Suppliers', path: '/procurement/suppliers', icon: <Truck size={18} /> },
-        { label: 'Reports', path: '/procurement/reports', icon: <BarChart3 size={18} /> },
+        { label: 'Suppliers', path: '/procurement/suppliers', icon: <Truck size={16} /> },
+        { label: 'Reports', path: '/procurement/reports', icon: <BarChart3 size={16} /> },
       ],
     },
   ];
@@ -154,12 +138,12 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
   return [];
 };
 
-const ROLE_BADGE: Record<string, { label: string; color: string }> = {
-  admin: { label: 'Administrator', color: 'bg-purple-500/20 text-purple-200' },
-  sales: { label: 'Sales Executive', color: 'bg-teal-500/20 text-teal-200' },
-  accounts: { label: 'Accounts', color: 'bg-green-500/20 text-green-200' },
-  inventory: { label: 'Inventory', color: 'bg-teal-500/20 text-teal-200' },
-  procurement: { label: 'Procurement', color: 'bg-pink-500/20 text-pink-200' },
+const ROLE_META: Record<string, { label: string; color: string; dot: string }> = {
+  admin: { label: 'Administrator', color: 'text-violet-200', dot: 'bg-violet-300' },
+  sales: { label: 'Sales Executive', color: 'text-white/70', dot: 'bg-white' },
+  accounts: { label: 'Accounts', color: 'text-emerald-200', dot: 'bg-emerald-300' },
+  inventory: { label: 'Inventory', color: 'text-sky-200', dot: 'bg-sky-300' },
+  procurement: { label: 'Procurement', color: 'text-rose-200', dot: 'bg-rose-300' },
 };
 
 const getInitials = (name: string) =>
@@ -172,16 +156,21 @@ interface SidebarProps {
   onToggleCollapse: () => void;
 }
 
-/* Tooltip wrapper — shows label on hover when sidebar is collapsed */
-const NavTooltip = ({ label, collapsed, children }: { label: string; collapsed: boolean; children: React.ReactNode }) => (
+/* Tooltip for collapsed icons */
+const NavTooltip = ({
+  label, collapsed, children,
+}: { label: string; collapsed: boolean; children: React.ReactNode }) => (
   <div className="relative group/tip">
     {children}
     {collapsed && (
-      <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 z-50
-        bg-gray-900 text-white text-xs font-medium px-2.5 py-1.5 rounded-lg whitespace-nowrap
-        opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 shadow-xl">
+      <div className="
+        pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 z-50
+        bg-white text-gray-800 text-xs font-medium px-2.5 py-1.5 rounded-lg
+        whitespace-nowrap border border-gray-200 shadow-lg shadow-black/20
+        opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150
+      ">
         {label}
-        <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+        <div className="absolute right-full top-1/2 -translate-y-1/2 border-[5px] border-transparent border-r-white" />
       </div>
     )}
   </div>
@@ -191,69 +180,94 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
   const { user, logout } = useAuth();
   const location = useLocation();
   const groups = useNavGroups(user?.role);
-  const roleBadge = ROLE_BADGE[user?.role ?? ''];
+  const roleMeta = ROLE_META[user?.role ?? ''];
+
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(groups.map(g => [g.title, true]))
+  );
+  const toggleSection = (title: string) =>
+    setOpenSections(prev => ({ ...prev, [title]: !prev[title] }));
 
   const isActive = (path: string) => {
-    if (path === '/admin' || path === '/sales' || path === '/accounts' || path === '/inventory') {
-      return location.pathname === path;
-    }
+    const rootPaths = ['/admin', '/sales', '/accounts', '/inventory', '/procurement'];
+    if (rootPaths.includes(path)) return location.pathname === path;
     return location.pathname.startsWith(path);
   };
 
-  const sidebarWidth = isCollapsed ? 'lg:w-[72px]' : 'lg:w-64';
+  const w = isCollapsed ? 'lg:w-[68px]' : 'lg:w-[240px]';
 
   return (
     <div
       className={`
-        h-screen bg-gradient-to-b from-[#2da89f] via-[#34b0a7] to-[#2a9d94]
-        text-white flex flex-col fixed left-0 top-0 z-40 shadow-xl
+        h-screen text-white flex flex-col fixed left-0 top-0 z-40
+        border-r border-white/10
         transition-[width,transform] duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'}
-        ${sidebarWidth}
+        ${isOpen ? 'translate-x-0 w-[240px]' : '-translate-x-full lg:translate-x-0'}
+        ${w}
       `}
+      style={{
+        background: 'linear-gradient(160deg, #3bbfb6 0%, #34b0a7 40%, #2a9d94 100%)',
+        boxShadow: '4px 0 24px rgba(0,0,0,0.15)',
+      }}
     >
-      {/* ── Brand / Logo ── */}
-      <div className={`flex items-center border-b border-white/10 shrink-0 ${isCollapsed ? 'px-3 py-4 justify-center' : 'px-4 py-4 gap-3'}`}>
-        <img
-          src="/logo.jpg"
-          alt="YES YES MARKETING"
-          className={`object-contain rounded-lg shrink-0 transition-all duration-300 ${isCollapsed ? 'h-9 w-9' : 'h-9 w-auto max-w-[120px]'}`}
-        />
+      {/* ── Brand ── */}
+      <div className={`flex items-center gap-3 border-b border-white/15 shrink-0 ${isCollapsed ? 'px-3 py-4 justify-center' : 'px-5 py-4'
+        }`}>
+        <div className="relative shrink-0">
+          <img
+            src="/logo.jpg"
+            alt="YES YES MARKETING"
+            className={`object-contain rounded-lg transition-all duration-300 ${isCollapsed ? 'h-8 w-8' : 'h-8 w-8'
+              }`}
+          />
+          {/* Live indicator dot */}
+          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-white rounded-full border-2 border-[#34b0a7]" />
+        </div>
         {!isCollapsed && (
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-white leading-tight tracking-wide">YES YES</p>
-            <p className="text-[10px] text-white/70 leading-tight">MARKETING</p>
+            <p className="text-xs font-bold text-white leading-tight tracking-widest uppercase">
+              YES YES
+            </p>
+            <p className="text-[9px] text-white/60 leading-tight tracking-[0.2em] uppercase">
+              Marketing ERP
+            </p>
           </div>
         )}
-        {/* Mobile close */}
         <button
           onClick={onClose}
-          className="lg:hidden ml-auto p-1.5 rounded-lg text-white/70 hover:bg-white/10 transition-colors shrink-0"
+          className="lg:hidden ml-auto p-1 rounded-md text-white/60 hover:bg-white/20 hover:text-white transition-all"
           aria-label="Close sidebar"
         >
-          <X size={17} />
+          <X size={16} />
         </button>
       </div>
 
       {/* ── User Profile ── */}
-      <div className={`border-b border-white/10 shrink-0 ${isCollapsed ? 'px-3 py-3' : 'px-4 py-3'}`}>
+      <div className={`border-b border-white/15 shrink-0 ${isCollapsed ? 'px-3 py-3' : 'px-4 py-3.5'
+        }`}>
         {isCollapsed ? (
-          <NavTooltip label={`${user?.full_name} — ${roleBadge?.label ?? ''}`} collapsed>
-            <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center text-sm font-bold mx-auto cursor-default">
+          <NavTooltip
+            label={`${user?.full_name} · ${roleMeta?.label ?? ''}`}
+            collapsed
+          >
+            <div className="w-9 h-9 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-xs font-bold text-white mx-auto cursor-default select-none">
               {getInitials(user?.full_name ?? 'U')}
             </div>
           </NavTooltip>
         ) : (
-          <div className="flex items-center gap-3 bg-white/10 rounded-xl px-3 py-2.5">
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center text-sm font-bold shrink-0">
+          <div className="flex items-center gap-3 bg-white/10 rounded-xl px-3 py-2.5 border border-white/20">
+            <div className="relative w-8 h-8 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-xs font-bold text-white shrink-0 select-none">
               {getInitials(user?.full_name ?? 'U')}
+              {roleMeta && (
+                <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#34b0a7] ${roleMeta.dot}`} />
+              )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate">{user?.full_name}</p>
-              {roleBadge && (
-                <span className={`inline-block mt-0.5 text-[10px] px-2 py-0.5 rounded-full font-medium ${roleBadge.color}`}>
-                  {roleBadge.label}
-                </span>
+              <p className="text-sm font-semibold text-white truncate leading-tight">{user?.full_name}</p>
+              {roleMeta && (
+                <p className={`text-[10px] mt-0.5 leading-none font-medium ${roleMeta.color}`}>
+                  {roleMeta.label}
+                </p>
               )}
             </div>
           </div>
@@ -261,76 +275,110 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
       </div>
 
       {/* ── Navigation ── */}
-      <nav className={`flex-1 overflow-y-auto py-3 custom-scrollbar ${isCollapsed ? 'px-2' : 'px-3'} space-y-4`}>
-        {groups.map((group) => (
-          <div key={group.title}>
-            {!isCollapsed && (
-              <p className="text-[9px] font-bold text-white/40 uppercase tracking-[0.15em] px-3 mb-1.5">
-                {group.title}
-              </p>
-            )}
-            {isCollapsed && <div className="w-7 h-px bg-white/10 mx-auto mb-2 mt-1" />}
-            <ul className="space-y-0.5">
-              {group.items.map((item) => {
-                const active = isActive(item.path);
-                return (
-                  <li key={item.path}>
-                    <NavTooltip label={item.label} collapsed={isCollapsed}>
-                      <Link
-                        to={item.path}
-                        onClick={onClose}
-                        className={`
-                          flex items-center rounded-xl text-sm font-medium transition-all duration-150 relative group
-                          ${isCollapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-3 px-3 py-2.5'}
-                          ${active
-                            ? 'bg-white/20 text-white shadow-sm'
-                            : 'text-white/80 hover:bg-white/10 hover:text-white'
-                          }
-                        `}
-                      >
-                        {active && !isCollapsed && (
-                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-white rounded-r-full" />
-                        )}
-                        {active && isCollapsed && (
-                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-white rounded-r-full" />
-                        )}
-                        <span className={`shrink-0 transition-colors ${active ? 'text-white' : 'text-white/70 group-hover:text-white'}`}>
-                          {item.icon}
-                        </span>
-                        {!isCollapsed && <span className="flex-1 truncate">{item.label}</span>}
-                        {!isCollapsed && active && <ChevronRight size={13} className="text-white/60 shrink-0" />}
-                      </Link>
-                    </NavTooltip>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+      <nav className={`flex-1 overflow-y-auto py-4 custom-scrollbar ${isCollapsed ? 'px-2.5' : 'px-3'
+        } space-y-5`}>
+        {groups.map((group) => {
+          const sectionOpen = openSections[group.title] ?? true;
+          return (
+            <div key={group.title}>
+              {!isCollapsed ? (
+                <button
+                  onClick={() => toggleSection(group.title)}
+                  className="w-full flex items-center justify-between px-2 mb-2 group/sec"
+                >
+                  <span className="text-[9px] font-bold text-white/50 uppercase tracking-[0.18em] group-hover/sec:text-white/80 transition-colors">
+                    {group.title}
+                  </span>
+                  <ChevronDown
+                    size={10}
+                    className={`text-white/40 group-hover/sec:text-white/80 transition-all duration-200 ${sectionOpen ? 'rotate-0' : '-rotate-90'
+                      }`}
+                  />
+                </button>
+              ) : (
+                <div className="w-5 h-px bg-white/10 mx-auto mb-2 mt-1" />
+              )}
+
+              <ul className={`space-y-0.5 overflow-hidden transition-all duration-250 ease-in-out ${!isCollapsed && !sectionOpen ? 'max-h-0 opacity-0' : 'max-h-[1000px] opacity-100'
+                }`}>
+                {group.items.map((item) => {
+                  const active = isActive(item.path);
+                  return (
+                    <li key={item.path}>
+                      <NavTooltip label={item.label} collapsed={isCollapsed}>
+                        <Link
+                          to={item.path}
+                          onClick={onClose}
+                          className={`
+                            relative flex items-center rounded-lg text-[13px] font-medium
+                            transition-all duration-150 group/link
+                            ${isCollapsed
+                              ? 'justify-center w-10 h-9 mx-auto'
+                              : 'gap-2.5 px-3 py-2'
+                            }
+                            ${active
+                              ? 'bg-white/20 text-white'
+                              : 'text-white/75 hover:bg-white/10 hover:text-white'
+                            }
+                          `}
+                        >
+                          {/* Active accent bar */}
+                          {active && (
+                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-white rounded-r-full shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
+                          )}
+                          <span className={`shrink-0 transition-colors ${active
+                            ? 'text-white'
+                            : 'text-white/60 group-hover/link:text-white/90'
+                            }`}>
+                            {item.icon}
+                          </span>
+                          {!isCollapsed && (
+                            <span className="flex-1 truncate">{item.label}</span>
+                          )}
+                          {!isCollapsed && active && (
+                            <ChevronRight size={11} className="text-white/60 shrink-0" />
+                          )}
+                        </Link>
+                      </NavTooltip>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
       </nav>
 
-      {/* ── Collapse toggle (desktop only) ── */}
-      <div className="hidden lg:block px-3 py-2 border-t border-white/10 shrink-0">
-        <NavTooltip label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} collapsed={isCollapsed}>
+      {/* ── Collapse toggle ── */}
+      <div className="hidden lg:block px-3 py-2 border-t border-white/15 shrink-0">
+        <NavTooltip
+          label={isCollapsed ? 'Expand' : 'Collapse'}
+          collapsed={isCollapsed}
+        >
           <button
             onClick={onToggleCollapse}
-            className={`w-full flex items-center rounded-xl text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white transition-all duration-150 ${isCollapsed ? 'justify-center h-10' : 'gap-3 px-3 py-2.5'}`}
+            className={`w-full flex items-center rounded-lg text-xs font-medium text-white/70 hover:bg-white/15 hover:text-white transition-all duration-150 ${isCollapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-2'
+              }`}
             aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {isCollapsed ? <PanelLeftOpen size={18} /> : <><PanelLeftClose size={18} /><span>Collapse</span></>}
+            {isCollapsed
+              ? <PanelLeftOpen size={15} />
+              : <><PanelLeftClose size={15} /><span>Collapse</span></>
+            }
           </button>
         </NavTooltip>
       </div>
 
       {/* ── Sign Out ── */}
-      <div className={`border-t border-white/10 shrink-0 ${isCollapsed ? 'px-3 py-3' : 'px-3 py-3'}`}>
+      <div className={`border-t border-white/15 shrink-0 ${isCollapsed ? 'px-3 py-3' : 'px-3 py-3'}`}>
         <NavTooltip label="Sign Out" collapsed={isCollapsed}>
           <button
             onClick={logout}
-            className={`w-full flex items-center rounded-xl text-sm font-medium text-white/70 hover:bg-red-500/15 hover:text-red-200 transition-all duration-150 group ${isCollapsed ? 'justify-center h-10' : 'gap-3 px-3 py-2.5'}`}
+            className={`w-full flex items-center rounded-lg text-xs font-medium text-white/70 hover:bg-red-500/20 hover:text-red-200 transition-all duration-150 group/out ${isCollapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-2'
+              }`}
           >
-            <LogOut size={18} className="shrink-0 group-hover:text-red-300 transition-colors" />
-            {!isCollapsed && <span>Sign Out</span>}
+            <LogOut size={15} className="shrink-0 transition-colors group-hover/out:text-red-400" />
+            {!isCollapsed && <span className="text-[13px]">Sign Out</span>}
           </button>
         </NavTooltip>
       </div>

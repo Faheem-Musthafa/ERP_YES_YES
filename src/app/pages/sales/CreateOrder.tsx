@@ -1,47 +1,22 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
-import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/app/components/ui/radio-group';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Plus, Trash2, Info } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Info, ChevronRight } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { CompanyEnum, InvoiceTypeEnum } from '@/app/types/database';
 
 interface OrderItem {
-  id: string;
-  productId: string;
-  product: string;
-  brand: string;
-  sku: string;
-  stock: number;
-  quantity: string;
-  dp: number;
-  discount: string;
-  amount: string;
+  id: string; productId: string; product: string; brand: string; sku: string;
+  stock: number; quantity: string; dp: number; mrp: number; discount: string; amount: string;
   lastEdited?: 'discount' | 'amount' | 'quantity' | 'dp';
 }
-
-interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-  address: string;
-  gst_pan: string | null;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  sku: string;
-  dealer_price: number;
-  stock_qty: number;
-  brand_name: string;
-}
+interface Customer { id: string; name: string; phone: string; address: string; gst_pan: string | null; }
+interface Product { id: string; name: string; sku: string; dealer_price: number; mrp: number; stock_qty: number; brand_name: string; }
 
 export const CreateOrder = () => {
   const navigate = useNavigate();
@@ -53,7 +28,7 @@ export const CreateOrder = () => {
 
   const [company, setCompany] = useState<CompanyEnum | ''>('');
   const [invoiceType, setInvoiceType] = useState<InvoiceTypeEnum | ''>('');
-  const [customerType, setCustomerType] = useState('');
+  const [customerType, setCustomerType] = useState('existing');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -63,9 +38,10 @@ export const CreateOrder = () => {
   const [addressAutoFilled, setAddressAutoFilled] = useState(false);
   const [gstAutoFilled, setGstAutoFilled] = useState(false);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([
-    { id: '1', productId: '', product: '', brand: '', sku: '', stock: 0, quantity: '', dp: 0, discount: '', amount: '' }
+    { id: '1', productId: '', product: '', brand: '', sku: '', stock: 0, quantity: '', dp: 0, mrp: 0, discount: '', amount: '' }
   ]);
   const [siteAddress, setSiteAddress] = useState('');
+  const [isSiteOrder, setIsSiteOrder] = useState<'yes' | 'no'>('no');
   const [remarks, setRemarks] = useState('');
   const [deliveryOption, setDeliveryOption] = useState('today');
   const [customDate, setCustomDate] = useState('');
@@ -74,15 +50,10 @@ export const CreateOrder = () => {
     const fetchData = async () => {
       const [{ data: custData }, { data: prodData }] = await Promise.all([
         supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
-        supabase.from('products').select('id, name, sku, dealer_price, stock_qty, brands(name)').eq('is_active', true).order('name'),
+        supabase.from('products').select('id, name, sku, dealer_price, mrp, stock_qty, brands(name)').eq('is_active', true).order('name'),
       ]);
       if (custData) setCustomers(custData);
-      if (prodData) {
-        setProducts(prodData.map((p: any) => ({
-          id: p.id, name: p.name, sku: p.sku, dealer_price: p.dealer_price,
-          stock_qty: p.stock_qty, brand_name: p.brands?.name ?? '',
-        })));
-      }
+      if (prodData) setProducts(prodData.map((p: any) => ({ id: p.id, name: p.name, sku: p.sku, dealer_price: p.dealer_price, mrp: p.mrp ?? 0, stock_qty: p.stock_qty, brand_name: p.brands?.name ?? '' })));
     };
     fetchData();
   }, []);
@@ -91,54 +62,37 @@ export const CreateOrder = () => {
     setSelectedCustomerId(custId);
     const cust = customers.find(c => c.id === custId);
     if (cust) {
-      setCustomerPhone(cust.phone);
-      setCustomerAddress(cust.address);
-      setPhoneAutoFilled(true);
-      setAddressAutoFilled(true);
+      setCustomerPhone(cust.phone); setCustomerAddress(cust.address); setPhoneAutoFilled(true); setAddressAutoFilled(true);
       if (cust.gst_pan) { setCustomerGst(cust.gst_pan); setGstAutoFilled(true); }
       else { setCustomerGst(''); setGstAutoFilled(false); }
     }
   };
 
   const handleCustomerTypeChange = (type: string) => {
-    setCustomerType(type);
-    setSelectedCustomerId(''); setCustomerName(''); setCustomerPhone('');
-    setCustomerAddress(''); setCustomerGst('');
-    setPhoneAutoFilled(false); setAddressAutoFilled(false); setGstAutoFilled(false);
+    setCustomerType(type); setSelectedCustomerId(''); setCustomerName(''); setCustomerPhone('');
+    setCustomerAddress(''); setCustomerGst(''); setPhoneAutoFilled(false); setAddressAutoFilled(false); setGstAutoFilled(false);
   };
 
   const handleProductChange = (id: string, productId: string) => {
     const p = products.find(pr => pr.id === productId);
     setOrderItems(items => items.map(item =>
-      item.id === id ? { ...item, productId, product: p?.name ?? '', brand: p?.brand_name ?? '', sku: p?.sku ?? '', stock: p?.stock_qty ?? 0, dp: p?.dealer_price ?? 0, amount: '', discount: '' } : item
+      item.id === id ? { ...item, productId, product: p?.name ?? '', brand: p?.brand_name ?? '', sku: p?.sku ?? '', stock: p?.stock_qty ?? 0, dp: p?.dealer_price ?? 0, mrp: p?.mrp ?? 0, amount: '', discount: '' } : item
     ));
   };
 
-  const handleAddItem = () => {
-    const newId = String(Date.now());
-    setOrderItems(prev => [...prev, { id: newId, productId: '', product: '', brand: '', sku: '', stock: 0, quantity: '', dp: 0, discount: '', amount: '' }]);
-  };
-
+  const handleAddItem = () => setOrderItems(prev => [...prev, { id: String(Date.now()), productId: '', product: '', brand: '', sku: '', stock: 0, quantity: '', dp: 0, mrp: 0, discount: '', amount: '' }]);
   const handleRemoveItem = (id: string) => setOrderItems(prev => prev.filter(i => i.id !== id));
 
-  // Auto-calculate amount/discount
   useEffect(() => {
     setOrderItems(prev => prev.map(item => {
-      const qty = Number(item.quantity) || 0;
-      const dp = item.dp || 0;
+      const qty = Number(item.quantity) || 0; const dp = item.dp || 0;
       if (!qty || !dp) return item;
       if (item.lastEdited === 'amount' && item.amount !== '') {
-        const amount = Number(item.amount) || 0;
         const maxAmount = dp * qty;
-        if (maxAmount > 0) {
-          const disc = Math.max(0, Math.min(100, ((maxAmount - amount) / maxAmount) * 100)).toFixed(2);
-          return { ...item, discount: disc, lastEdited: undefined };
-        }
+        if (maxAmount > 0) return { ...item, discount: Math.max(0, Math.min(100, ((maxAmount - (Number(item.amount) || 0)) / maxAmount) * 100)).toFixed(2), lastEdited: undefined };
       }
-      if (item.lastEdited === 'discount' || item.lastEdited === 'quantity' || item.lastEdited === 'dp') {
-        const disc = Number(item.discount) || 0;
-        return { ...item, amount: (dp * qty * (1 - disc / 100)).toFixed(2), lastEdited: undefined };
-      }
+      if (item.lastEdited === 'discount' || item.lastEdited === 'quantity' || item.lastEdited === 'dp')
+        return { ...item, amount: (dp * qty * (1 - (Number(item.discount) || 0) / 100)).toFixed(2), lastEdited: undefined };
       return item;
     }));
   }, [orderItems.map(i => `${i.id}-${i.quantity}-${i.discount}-${i.amount}-${i.dp}-${i.lastEdited}`).join(',')]);
@@ -156,269 +110,322 @@ export const CreateOrder = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!company || !invoiceType) { toast.error('Please select company and invoice type'); return; }
+    if (!company || !invoiceType) { toast.error('Select company and invoice type'); return; }
     const validItems = orderItems.filter(i => i.productId && i.quantity);
-    if (validItems.length === 0) { toast.error('Please add at least one product'); return; }
-
-    // Validate stock quantities before submitting
+    if (validItems.length === 0) { toast.error('Add at least one product'); return; }
     const stockErrors = validItems.filter(i => Number(i.quantity) > i.stock);
-    if (stockErrors.length > 0) {
-      toast.error(`Insufficient stock for: ${stockErrors.map(i => `${i.product} (available: ${i.stock})`).join('; ')}`);
-      return;
-    }
+    if (stockErrors.length > 0) { toast.error(`Insufficient stock: ${stockErrors.map(i => i.product).join(', ')}`); return; }
     setLoading(true);
     try {
       const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
       let customerId: string | null = null;
-
-      // If new customer, create first
       if (customerType === 'new' && customerName) {
-        const { data: newCust, error: custErr } = await supabase.from('customers').insert({
-          name: customerName, phone: customerPhone, address: customerAddress, gst_pan: customerGst || null, is_active: true,
-        }).select('id').single();
+        const { data: newCust, error: custErr } = await supabase.from('customers').insert({ name: customerName, phone: customerPhone, address: customerAddress, gst_pan: customerGst || null, is_active: true }).select('id').single();
         if (custErr) throw custErr;
         customerId = newCust.id;
-      } else if (customerType === 'existing') {
-        customerId = selectedCustomerId;
-      }
+      } else if (customerType === 'existing') customerId = selectedCustomerId;
 
       const { data: order, error: orderErr } = await supabase.from('orders').insert({
-        order_number: orderNumber,
-        company: company as CompanyEnum,
-        invoice_type: invoiceType as InvoiceTypeEnum,
-        customer_id: customerId,
-        site_address: siteAddress,
-        remarks: remarks || null,
-        delivery_date: getDeliveryDate(),
-        subtotal,
-        total_discount: totalDiscount,
-        grand_total: grandTotal,
-        status: 'Pending',
-        created_by: user?.id ?? null,
+        order_number: orderNumber, company: company as CompanyEnum, invoice_type: invoiceType as InvoiceTypeEnum,
+        customer_id: customerId, site_address: siteAddress, remarks: remarks || null,
+        delivery_date: getDeliveryDate(), subtotal, total_discount: totalDiscount, grand_total: grandTotal,
+        status: 'Pending', created_by: user?.id ?? null,
       }).select('id').single();
       if (orderErr) throw orderErr;
-
-      const items = validItems.map(i => ({
-        order_id: order.id,
-        product_id: i.productId,
-        quantity: Number(i.quantity),
-        dealer_price: i.dp,
-        discount_pct: Number(i.discount) || 0,
-        amount: Number(i.amount) || 0,
-      }));
-      const { error: itemsErr } = await supabase.from('order_items').insert(items);
+      const { error: itemsErr } = await supabase.from('order_items').insert(validItems.map(i => ({ order_id: order.id, product_id: i.productId, quantity: Number(i.quantity), dealer_price: i.dp, discount_pct: Number(i.discount) || 0, amount: Number(i.amount) || 0 })));
       if (itemsErr) throw itemsErr;
-
-      toast.success(`Order ${orderNumber} created successfully!`);
+      toast.success(`Order ${orderNumber} created!`);
       navigate('/sales/my-orders');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to create order');
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { toast.error(err.message || 'Failed'); } finally { setLoading(false); }
   };
 
+  /* ─── tiny helpers ─── */
+  const Pill = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+    <button type="button" onClick={onClick}
+      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${active ? 'bg-[#34b0a7] border-[#34b0a7] text-white' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+      {children}
+    </button>
+  );
+
+  const FL = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
+    <div className="space-y-1">
+      <label className="text-xs font-semibold text-gray-500">{label}{required && <span className="text-red-400 ml-0.5">*</span>}</label>
+      {children}
+    </div>
+  );
+
   return (
-    <div className="space-y-5">
-      <div>
-        <Button variant="ghost" onClick={() => navigate('/sales')} className="mb-2 -ml-2"><ArrowLeft size={18} className="mr-2" />Back to Dashboard</Button>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Create Sales Order</h1>
-        <p className="text-gray-500 mt-1 text-sm">Fill in the details to create a new order</p>
+    <div className="space-y-4 pb-6">
+      {/* ── header ── */}
+      <div className="flex items-center gap-3">
+        <button onClick={() => navigate('/sales')} className="text-gray-400 hover:text-gray-700 transition-colors">
+          <ArrowLeft size={18} />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">New Sales Order</h1>
+          <p className="text-xs text-gray-400">Fill in the fields and submit</p>
+        </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-3xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-4">
-            <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Invoice Configuration</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>Company *</Label>
-                <Select value={company} onValueChange={v => setCompany(v as CompanyEnum)}>
-                  <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="LLP">LLP</SelectItem>
-                    <SelectItem value="YES YES">YES YES</SelectItem>
-                    <SelectItem value="Zekon">Zekon</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Invoice Type *</Label>
-                <Select value={invoiceType} onValueChange={v => setInvoiceType(v as InvoiceTypeEnum)}>
-                  <SelectTrigger><SelectValue placeholder="Select invoice type" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="GST">GST</SelectItem>
-                    <SelectItem value="NGST">NGST</SelectItem>
-                    <SelectItem value="IGST">IGST</SelectItem>
-                    <SelectItem value="Delivery Challan Out">Delivery Challan Out</SelectItem>
-                    <SelectItem value="Delivery Challan In">Delivery Challan In</SelectItem>
-                    <SelectItem value="Stock Transfer">Stock Transfer</SelectItem>
-                    <SelectItem value="Credit Note">Credit Note</SelectItem>
-                  </SelectContent>
-                </Select>
+      <form onSubmit={handleSubmit}>
+        <div className="flex flex-col xl:flex-row gap-4">
+
+          {/* ══ LEFT: Main form ══ */}
+          <div className="flex-1 space-y-4 min-w-0">
+
+            {/* ── Invoice Config ── */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Invoice Config</p>
+              <div className="grid grid-cols-2 gap-3">
+                <FL label="Company" required>
+                  <Select value={company} onValueChange={(v: string) => setCompany(v as CompanyEnum)}>
+                    <SelectTrigger className="h-9 rounded-lg text-sm"><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="LLP">LLP</SelectItem>
+                      <SelectItem value="YES YES">YES YES</SelectItem>
+                      <SelectItem value="Zekon">Zekon</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FL>
+                <FL label="Invoice Type" required>
+                  <Select value={invoiceType} onValueChange={(v: string) => setInvoiceType(v as InvoiceTypeEnum)}>
+                    <SelectTrigger className="h-9 rounded-lg text-sm"><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="GST">GST</SelectItem>
+                      <SelectItem value="NGST">NGST</SelectItem>
+                      <SelectItem value="IGST">IGST</SelectItem>
+                      <SelectItem value="Delivery Challan Out">DC Out</SelectItem>
+                      <SelectItem value="Delivery Challan In">DC In</SelectItem>
+                      <SelectItem value="Stock Transfer">Stock Transfer</SelectItem>
+                      <SelectItem value="Credit Note">Credit Note</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FL>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label>Customer Type *</Label>
-              <Select value={customerType} onValueChange={handleCustomerTypeChange}>
-                <SelectTrigger><SelectValue placeholder="Select customer type" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="existing">Existing</SelectItem>
-                  <SelectItem value="new">New</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* ── Customer ── */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Customer</p>
+                <div className="flex gap-1.5">
+                  <Pill active={customerType === 'existing'} onClick={() => handleCustomerTypeChange('existing')}>Existing</Pill>
+                  <Pill active={customerType === 'new'} onClick={() => handleCustomerTypeChange('new')}>+ New</Pill>
+                </div>
+              </div>
+
+              {customerType === 'existing' ? (
+                <FL label="Select Customer" required>
+                  <Select value={selectedCustomerId} onValueChange={handleCustomerSelect}>
+                    <SelectTrigger className="h-9 rounded-lg text-sm"><SelectValue placeholder="Pick a customer…" /></SelectTrigger>
+                    <SelectContent>{customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                </FL>
+              ) : (
+                <FL label="Customer Name" required>
+                  <Input value={customerName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerName(e.target.value)} placeholder="Enter name" className="h-9 rounded-lg text-sm" required />
+                </FL>
+              )}
+
+              {/* Auto-filled contact info */}
+              <div className="grid grid-cols-2 gap-3">
+                <FL label="Phone" required>
+                  <div className="relative">
+                    <Input type="tel" value={customerPhone} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }}
+                      placeholder="Mobile" required className={`h-9 rounded-lg text-sm ${phoneAutoFilled ? 'bg-teal-50 border-teal-200' : ''}`} />
+                    {phoneAutoFilled && <Info size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-teal-500" />}
+                  </div>
+                </FL>
+                <FL label="GST / PAN">
+                  <div className="relative">
+                    <Input value={customerGst} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setCustomerGst(e.target.value); setGstAutoFilled(false); }}
+                      placeholder="Optional" className={`h-9 rounded-lg text-sm ${gstAutoFilled ? 'bg-teal-50 border-teal-200' : ''}`} />
+                    {gstAutoFilled && <Info size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-teal-500" />}
+                  </div>
+                </FL>
+              </div>
+              <FL label="Billing Address" required>
+                <div className="relative">
+                  <Textarea value={customerAddress} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }}
+                    placeholder="Customer address" rows={2} required className={`rounded-lg text-sm resize-none ${addressAutoFilled ? 'bg-teal-50 border-teal-200' : ''}`} />
+                  {addressAutoFilled && <Info size={13} className="absolute right-2.5 top-2.5 text-teal-500" />}
+                </div>
+                {(phoneAutoFilled || addressAutoFilled) && <p className="text-[10px] text-teal-600 mt-0.5">Auto-filled from profile · editable</p>}
+              </FL>
             </div>
-            {customerType === 'existing' && (
-              <div className="space-y-2">
-                <Label>Customer *</Label>
-                <Select value={selectedCustomerId} onValueChange={handleCustomerSelect}>
-                  <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
-                  <SelectContent>
-                    {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {customerType === 'new' && (
-              <div className="space-y-2">
-                <Label>Customer Name *</Label>
-                <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Enter customer name" required />
-              </div>
-            )}
-          </div>
 
-          {customerType && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>Phone *</Label>
-                <div className="relative">
-                  <Input type="tel" value={customerPhone} onChange={e => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }} placeholder="Enter phone" required className={phoneAutoFilled ? 'bg-teal-50 pr-10' : ''} />
-                  {phoneAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-teal-600" />}
-                </div>
-                {phoneAutoFilled && <p className="text-xs text-gray-500">Auto-filled — editable</p>}
-              </div>
-              <div className="space-y-2">
-                <Label>GST / PAN No.</Label>
-                <div className="relative">
-                  <Input value={customerGst} onChange={e => { setCustomerGst(e.target.value); setGstAutoFilled(false); }} placeholder="Optional" className={gstAutoFilled ? 'bg-teal-50 pr-10' : ''} />
-                  {gstAutoFilled && <Info className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-teal-600" />}
-                </div>
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label>Address *</Label>
-                <div className="relative">
-                  <Textarea value={customerAddress} onChange={e => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }} placeholder="Customer address" required rows={3} className={addressAutoFilled ? 'bg-teal-50' : ''} />
-                  {addressAutoFilled && <Info className="absolute right-3 top-3 h-4 w-4 text-teal-600" />}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <h3 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-2">Order Items</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">Product</th>
-                    <th className="text-left text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">Brand</th>
-                    <th className="text-left text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">SKU</th>
-                    <th className="text-right text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">Stock</th>
-                    <th className="text-right text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">Qty</th>
-                    <th className="text-right text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">DP</th>
-                    <th className="text-right text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">Disc%</th>
-                    <th className="text-right text-xs font-semibold text-gray-600 px-3 py-2.5 uppercase tracking-wide">Amount</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orderItems.map(item => (
-                    <tr key={item.id} className="border-b hover:bg-gray-50">
-                      <td className="p-2">
-                        <Select value={item.productId} onValueChange={v => handleProductChange(item.id, v)}>
-                          <SelectTrigger className="h-9 min-w-[150px]"><SelectValue placeholder="Select" /></SelectTrigger>
-                          <SelectContent>
-                            {products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="p-2"><Input value={item.brand} disabled className="h-9 bg-gray-50 text-gray-600 min-w-[100px]" /></td>
-                      <td className="p-2"><Input value={item.sku} disabled className="h-9 bg-gray-50 text-gray-600 min-w-[100px]" /></td>
-                      <td className="p-2"><Input value={item.stock > 0 ? `${item.stock} units` : ''} disabled className="h-9 bg-gray-50 text-gray-600 text-right min-w-[90px]" /></td>
-                      <td className="p-2"><Input type="number" value={item.quantity} onChange={e => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, quantity: e.target.value, lastEdited: 'quantity' } : i))} placeholder="0" className="h-9 text-right min-w-[70px]" /></td>
-                      <td className="p-2">
-                        <div className="relative min-w-[110px]">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600 text-sm">₹</span>
-                          <Input type="number" value={item.dp} onChange={e => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, dp: Number(e.target.value) || 0, lastEdited: 'dp' } : i))} className="h-9 text-right pl-6" />
-                        </div>
-                      </td>
-                      <td className="p-2">
-                        <div className="relative min-w-[80px]">
-                          <Input type="number" min="0" max="100" value={item.discount} onChange={e => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, discount: e.target.value, lastEdited: 'discount' } : i))} placeholder="0" className="h-9 text-right pr-6" />
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
-                        </div>
-                      </td>
-                      <td className="p-2">
-                        <div className="relative min-w-[120px]">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-600 text-sm">₹</span>
-                          <Input type="number" value={item.amount} onChange={e => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, amount: e.target.value, lastEdited: 'amount' } : i))} placeholder="0.00" className="h-9 text-right pl-6 bg-teal-50" />
-                        </div>
-                      </td>
-                      <td className="p-2 text-center">
-                        {orderItems.length > 1 && (
-                          <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveItem(item.id)} className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50">
-                            <Trash2 size={16} />
-                          </Button>
-                        )}
-                      </td>
+            {/* ── Products ── */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Products</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-left pb-2 font-semibold text-gray-500 min-w-[160px]">Product</th>
+                      <th className="text-left pb-2 font-semibold text-gray-500 min-w-[80px]">Brand</th>
+                      <th className="text-right pb-2 font-semibold text-gray-500 w-16">Stock</th>
+                      <th className="text-right pb-2 font-semibold text-gray-500 w-14">Qty</th>
+                      <th className="text-right pb-2 font-semibold text-gray-500 w-20">DP (₹)</th>
+                      <th className="text-right pb-2 font-semibold text-gray-500 w-16">Disc%</th>
+                      <th className="text-right pb-2 font-semibold text-gray-500 w-24">Amount (₹)</th>
+                      <th className="w-6" />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {orderItems.map((item) => (
+                      <tr key={item.id} className="border-b border-gray-50 group">
+                        <td className="py-1.5 pr-2">
+                          <Select value={item.productId} onValueChange={(v: string) => handleProductChange(item.id, v)}>
+                            <SelectTrigger className="h-8 rounded-lg text-xs"><SelectValue placeholder="Select product" /></SelectTrigger>
+                            <SelectContent>{products.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <div className="h-8 px-2 bg-gray-50 rounded-lg flex items-center text-gray-500 min-w-[80px]">{item.brand || '—'}</div>
+                        </td>
+                        <td className="py-1.5 pr-2 text-right">
+                          <div className="h-8 px-2 bg-blue-50 rounded-lg flex items-center justify-end text-blue-700 font-medium w-20">
+                            {item.mrp > 0 ? `₹${item.mrp}` : '—'}
+                          </div>
+                        </td>
+                        <td className="py-1.5 pr-2 text-right">
+                          <div className={`h-8 px-2 rounded-lg flex items-center justify-end font-medium ${item.stock > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-gray-400 bg-gray-50'}`}>
+                            {item.stock > 0 ? item.stock : '—'}
+                          </div>
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <Input type="number" value={item.quantity}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, quantity: e.target.value, lastEdited: 'quantity' } : i))}
+                            placeholder="0" className="h-8 text-right rounded-lg text-xs w-14" />
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">₹</span>
+                            <Input type="number" value={item.dp}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, dp: Number(e.target.value) || 0, lastEdited: 'dp' } : i))}
+                              className="h-8 text-right pl-5 rounded-lg text-xs w-20" />
+                          </div>
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <div className="relative">
+                            <Input type="number" min="0" max="100" value={item.discount}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, discount: e.target.value, lastEdited: 'discount' } : i))}
+                              placeholder="0" className="h-8 text-right pr-5 rounded-lg text-xs w-16" />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">%</span>
+                          </div>
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          <div className="relative">
+                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">₹</span>
+                            <Input type="number" value={item.amount}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, amount: e.target.value, lastEdited: 'amount' } : i))}
+                              placeholder="0.00" className="h-8 text-right pl-5 rounded-lg text-xs w-24 bg-teal-50/70 border-teal-200" />
+                          </div>
+                        </td>
+                        <td className="py-1.5">
+                          {orderItems.length > 1 && (
+                            <button type="button" onClick={() => handleRemoveItem(item.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100">
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <button type="button" onClick={handleAddItem}
+                className="flex items-center gap-1.5 text-xs text-teal-600 font-semibold hover:text-teal-700 transition-colors px-1">
+                <Plus size={13} /> Add Product
+              </button>
             </div>
-            <Button type="button" variant="outline" onClick={handleAddItem}><Plus size={16} className="mr-2" />Add Product Row</Button>
-          </div>
 
-          <div className="bg-teal-50 border border-teal-100 rounded-2xl p-4">
-            <h4 className="font-semibold text-gray-900 mb-3">Order Summary</h4>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm"><span className="text-gray-700">Subtotal:</span><span className="font-semibold">₹ {subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-gray-700">Total Discount:</span><span className="font-semibold text-teal-600">- ₹ {totalDiscount.toFixed(2)}</span></div>
-              <div className="flex justify-between text-base font-bold border-t pt-2 mt-2"><span className="text-gray-900">Grand Total:</span><span className="text-[#34b0a7]">₹ {grandTotal.toFixed(2)}</span></div>
+            {/* ── Delivery ── */}
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Delivery</p>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-gray-500 font-medium">Date:</span>
+                {[{ v: 'today', l: 'Today' }, { v: 'tomorrow', l: 'Tomorrow' }, { v: 'select', l: 'Pick…' }].map(o => (
+                  <Pill key={o.v} active={deliveryOption === o.v} onClick={() => setDeliveryOption(o.v)}>{o.l}</Pill>
+                ))}
+                {deliveryOption === 'select' && (
+                  <Input type="date" value={customDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomDate(e.target.value)} className="h-8 rounded-lg text-xs w-36 ml-1" />
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 font-medium shrink-0">Site order?</span>
+                <Pill active={isSiteOrder === 'no'} onClick={() => { setIsSiteOrder('no'); setSiteAddress(''); }}>No — Customer address</Pill>
+                <Pill active={isSiteOrder === 'yes'} onClick={() => setIsSiteOrder('yes')}>Yes — Different site</Pill>
+              </div>
+
+              {isSiteOrder === 'yes' && (
+                <Textarea value={siteAddress} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSiteAddress(e.target.value)}
+                  placeholder="Site / delivery address" rows={2} required className="rounded-lg text-sm resize-none border-amber-200 focus:border-amber-400 bg-amber-50/30" />
+              )}
+              {isSiteOrder === 'no' && customerAddress && (
+                <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 text-xs text-gray-600">
+                  <span className="text-gray-400 mr-1">→</span>{customerAddress}
+                </div>
+              )}
+
+              <Textarea value={remarks} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setRemarks(e.target.value)}
+                placeholder="Remarks / notes (optional)" rows={2} className="rounded-lg text-sm resize-none" />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Site Address </Label>
-            <Textarea value={siteAddress} onChange={e => setSiteAddress(e.target.value)} placeholder="Enter delivery site address" rows={3} />
+          {/* ══ RIGHT: Sticky Summary ══ */}
+          <div className="xl:w-64 shrink-0">
+            <div className="sticky top-4 space-y-3">
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Order Summary</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between text-gray-600">
+                    <span>Subtotal</span>
+                    <span className="font-medium">₹{subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-teal-600">
+                    <span>Discount</span>
+                    <span className="font-medium">−₹{totalDiscount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-900 font-bold text-base border-t border-gray-100 pt-2 mt-1">
+                    <span>Total</span>
+                    <span className="text-[#34b0a7]">₹{grandTotal.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 pt-1 border-t border-gray-50 text-xs text-gray-500">
+                  <div className="flex justify-between">
+                    <span>Items</span><span className="font-medium text-gray-700">{orderItems.filter(i => i.productId).length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Company</span><span className="font-medium text-gray-700">{company || '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Type</span><span className="font-medium text-gray-700">{invoiceType || '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Delivery</span>
+                    <span className="font-medium text-gray-700">{deliveryOption === 'today' ? 'Today' : deliveryOption === 'tomorrow' ? 'Tomorrow' : customDate || '—'}</span>
+                  </div>
+                </div>
+
+                <Button type="submit" disabled={loading}
+                  className="w-full bg-[#34b0a7] hover:bg-[#2a9d94] text-white rounded-xl h-10 font-semibold flex items-center justify-center gap-2">
+                  {loading
+                    ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Submitting…</>
+                    : <>Submit Order <ChevronRight size={15} /></>}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => navigate('/sales')} className="w-full rounded-xl h-9 text-sm">
+                  Cancel
+                </Button>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Remarks</Label>
-            <Textarea value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="Additional remarks" rows={3} />
-          </div>
-
-          <div className="space-y-3">
-            <Label>Delivery Options *</Label>
-            <RadioGroup value={deliveryOption} onValueChange={setDeliveryOption}>
-              <div className="flex items-center space-x-2"><RadioGroupItem value="today" id="today" /><Label htmlFor="today" className="font-normal cursor-pointer">Today</Label></div>
-              <div className="flex items-center space-x-2"><RadioGroupItem value="tomorrow" id="tomorrow" /><Label htmlFor="tomorrow" className="font-normal cursor-pointer">Tomorrow</Label></div>
-              <div className="flex items-center space-x-2"><RadioGroupItem value="select" id="select" /><Label htmlFor="select" className="font-normal cursor-pointer">Select Date</Label></div>
-            </RadioGroup>
-            {deliveryOption === 'select' && <Input type="date" value={customDate} onChange={e => setCustomDate(e.target.value)} className="mt-2" />}
-          </div>
-
-          <div className="flex gap-4 pt-4">
-            <Button type="submit" className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl" disabled={loading}>
-              {loading ? 'Submitting...' : 'Submit Order'}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => navigate('/sales')}>Cancel</Button>
-          </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   );
 };
