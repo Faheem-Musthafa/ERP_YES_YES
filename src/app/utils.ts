@@ -26,3 +26,35 @@ export const STATUS_COLOR: Record<string, string> = {
     Billed: 'bg-teal-100 text-teal-700',
     Delivered: 'bg-purple-100 text-purple-700',
 };
+
+// ── CSV Export ──────────────────────────────────────────────────────────────
+
+/** Downloads an array of rows as a CSV file. */
+export const downloadCSV = (
+    headers: string[],
+    rows: (string | number | null | undefined)[][],
+    filename: string
+) => {
+    if (rows.length === 0) return;
+    const escape = (v: string | number | null | undefined) => {
+        const s = String(v ?? '');
+        // Prevent CSV formula injection: prefix dangerous-start chars with a single quote
+        const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+        return safe.includes(',') || safe.includes('"') || safe.includes('\n')
+            ? `"${safe.replace(/"/g, '""')}"`
+            : safe;
+    };
+    const csvContent = [
+        headers.map(escape).join(','),
+        ...rows.map(r => r.map(escape).join(',')),
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+};

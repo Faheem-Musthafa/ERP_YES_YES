@@ -5,11 +5,11 @@ import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Info, Check } from 'lucide-react';
+import { ArrowLeft, Info, Check, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
-import { FormSection, FormCard } from '@/app/components/ui/primitives';
+import { FormSection, FormCard, PageHeader } from '@/app/components/ui/primitives';
 import type { PaymentModeEnum } from '@/app/types/database';
 
 const mapMode = (m: string): PaymentModeEnum => (m === 'Bank' ? 'Bank Transfer' : m as PaymentModeEnum);
@@ -97,17 +97,25 @@ export const ReceiptEntry = () => {
       }
 
       const receiptNumber = `RCPT-${Date.now()}`;
+      const paymentStatus = MODE_STATUSES[modeOfReceipt]?.[0] ?? null;
       const { error } = await supabase.from('receipts').insert({
         receipt_number: receiptNumber,
         customer_id: finalCustomerId,
         order_id: onAccountOf === 'Invoice' ? selectedOrderId : null,
         amount: Number(receivedAmount),
         payment_mode: mapMode(modeOfReceipt),
+        payment_status: paymentStatus,
+        company: company || null,
+        brand: brand === 'Other' ? otherBrand : brand || null,
+        received_date: receivedDate || null,
+        cheque_number: chequeNumber || null,
+        cheque_date: chequeDate || null,
+        on_account_of: onAccountOf || null,
         recorded_by: user?.id ?? null,
       });
       if (error) throw error;
       toast.success(`Receipt ${receiptNumber} saved!`);
-      navigate('/sales/-'); // Need correct path or back
+      navigate('/sales/my-collection');
     } catch (err: any) { toast.error(err.message || 'Failed to save receipt'); } finally { setLoading(false); }
   };
 
@@ -119,22 +127,34 @@ export const ReceiptEntry = () => {
     </button>
   );
 
+  const hasUnsavedInput = Boolean(
+    company || modeOfReceipt || brand || otherBrand || selectedCustomerId || customerName || customerPhone ||
+    customerAddress || customerGst || receivedAmount || receivedDate || onAccountOf || selectedOrderId || chequeNumber || chequeDate
+  );
+
+  const handleCancel = () => {
+    if (!hasUnsavedInput || window.confirm('Discard this receipt entry? Unsaved changes will be lost.')) {
+      navigate(-1);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-12">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full shrink-0">
-          <ArrowLeft size={18} />
-        </Button>
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Receipt Entry</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">Record customer payment against invoice or advance</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Receipt Entry"
+        subtitle="Record customer payment against invoice or advance"
+        actions={(
+          <Button variant="ghost" size="sm" onClick={handleCancel} className="gap-2">
+            <ArrowLeft size={16} />
+            Back
+          </Button>
+        )}
+      />
 
       <FormCard>
         <form onSubmit={handleSubmit} className="space-y-8">
 
-          <FormSection title="Receipt Details">
+          <FormSection title="Receipt Details" subtitle="Start with legal entity and payment mode before tagging customer allocation.">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5"><Label>Company <span className="text-destructive">*</span></Label>
                 <Select value={company} onValueChange={setCompany}>
@@ -151,7 +171,7 @@ export const ReceiptEntry = () => {
             </div>
           </FormSection>
 
-          <FormSection title="Brand Assignment">
+          <FormSection title="Brand Assignment" subtitle="Assign internal brand reference for downstream reporting.">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5"><Label>Ref Brand <span className="text-destructive">*</span></Label>
                 <Select value={brand} onValueChange={setBrand}>
@@ -167,7 +187,7 @@ export const ReceiptEntry = () => {
             </div>
           </FormSection>
 
-          <FormSection title="Customer info" action={
+          <FormSection title="Customer Info" action={
             <div className="flex gap-2">
               <Pill active={customerType === 'existing'} onClick={() => handleCustomerTypeChange('existing')}>Existing</Pill>
               <Pill active={customerType === 'new'} onClick={() => handleCustomerTypeChange('new')}>New</Pill>
@@ -218,7 +238,7 @@ export const ReceiptEntry = () => {
             </div>
           </FormSection>
 
-          <FormSection title="Financial Allocation">
+          <FormSection title="Financial Allocation" subtitle="Map received amount either against an invoice or as advance.">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-1.5">
                 <Label>Amount Received (₹) <span className="text-destructive">*</span></Label>
@@ -278,13 +298,21 @@ export const ReceiptEntry = () => {
             </FormSection>
           )}
 
-          <div className="flex gap-3 pt-6 border-t border-border">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 flex items-start gap-2">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>Before saving, verify invoice selection and amount. Receipt records are financial entries and should not be duplicated.</span>
+          </div>
+
+          <div className="sticky bottom-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 rounded-xl border border-border p-3 flex flex-col-reverse sm:flex-row gap-3 sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">Required fields are marked with *. Use Cancel to safely discard this draft.</p>
+            <div className="flex gap-3">
             <Button type="submit" disabled={loading} className="w-full sm:w-auto min-w-[160px]">
               {loading ? 'Saving...' : 'Save Receipt'}
             </Button>
-            <Button type="button" variant="outline" onClick={() => navigate(-1)} className="w-full sm:w-auto">
+            <Button type="button" variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
               Cancel
             </Button>
+            </div>
           </div>
         </form>
       </FormCard>

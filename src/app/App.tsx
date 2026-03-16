@@ -18,6 +18,8 @@ const StaffManagement = lazy(() => import('@/app/pages/admin/StaffManagement').t
 const Customers = lazy(() => import('@/app/pages/admin/Customers').then(m => ({ default: m.Customers })));
 const CustomerForm = lazy(() => import('@/app/pages/admin/CustomerForm').then(m => ({ default: m.CustomerForm })));
 const AdminReports = lazy(() => import('@/app/pages/admin/AdminReports').then(m => ({ default: m.AdminReports })));
+const DeliveryDrivers = lazy(() => import('@/app/pages/admin/DeliveryDrivers').then(m => ({ default: m.DeliveryDrivers })));
+const ActivityLog = lazy(() => import('@/app/pages/admin/ActivityLog').then(m => ({ default: m.ActivityLog })));
 
 // Sales
 const SalesDashboard = lazy(() => import('@/app/pages/sales/Dashboard').then(m => ({ default: m.SalesDashboard })));
@@ -31,6 +33,7 @@ const CollectionStatus = lazy(() => import('@/app/pages/sales/CollectionStatus')
 const AccountsDashboard = lazy(() => import('@/app/pages/accounts/Dashboard').then(m => ({ default: m.AccountsDashboard })));
 const OrderReview = lazy(() => import('@/app/pages/accounts/OrderReview').then(m => ({ default: m.OrderReview })));
 const SalesRecords = lazy(() => import('@/app/pages/accounts/SalesRecords').then(m => ({ default: m.SalesRecords })));
+const Payments = lazy(() => import('@/app/pages/accounts/Payments').then(m => ({ default: m.Payments })));
 
 // Shared
 const StockManagement = lazy(() => import('@/app/pages/shared/StockManagement').then(m => ({ default: m.StockManagement })));
@@ -67,18 +70,8 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
   if (!user) return <Navigate to="/login" replace />;
   if (!user.is_active) return <Navigate to="/login" replace />;
   if (user.must_change_password) return <Navigate to="/change-password" replace />;
-  if (allowedRoles && user.role && !allowedRoles.includes(user.role)) return <Navigate to="/" replace />;
+  if (allowedRoles && !allowedRoles.includes(user.role ?? '')) return <Navigate to="/" replace />;
   return <Layout>{children}</Layout>;
-};
-
-const ProtectedRouteNoLayout = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
-  const { user, loading } = useAuth();
-  if (loading) return Loader;
-  if (!user) return <Navigate to="/login" replace />;
-  if (!user.is_active) return <Navigate to="/login" replace />;
-  if (user.must_change_password) return <Navigate to="/change-password" replace />;
-  if (allowedRoles && user.role && !allowedRoles.includes(user.role)) return <Navigate to="/" replace />;
-  return <>{children}</>;
 };
 
 const ChangePasswordRoute = () => {
@@ -107,14 +100,14 @@ const HomeRedirect = () => {
 // ── Routes ────────────────────────────────────────────────────────────────
 
 const AppRoutes = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   return (
     // Single Suspense boundary: spinner shown while any lazy chunk loads
     <Suspense fallback={Loader}>
       <Routes>
         <Route path="/" element={<HomeRedirect />} />
-        <Route path="/login" element={user && !user.must_change_password ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/login" element={loading ? Loader : user && !user.must_change_password ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/change-password" element={<ChangePasswordRoute />} />
 
         {/* Admin Routes */}
@@ -125,9 +118,10 @@ const AppRoutes = () => {
         <Route path="/admin/customers/:id/edit" element={<ProtectedRoute allowedRoles={['admin']}><CustomerForm /></ProtectedRoute>} />
         <Route path="/admin/brands" element={<ProtectedRoute allowedRoles={['admin']}><Brands /></ProtectedRoute>} />
         <Route path="/admin/products" element={<ProtectedRoute allowedRoles={['admin']}><Products /></ProtectedRoute>} />
-        <Route path="/admin/orders" element={<ProtectedRoute allowedRoles={['admin']}><SalesRecords /></ProtectedRoute>} />
         <Route path="/admin/sales" element={<ProtectedRoute allowedRoles={['admin']}><SalesRecords /></ProtectedRoute>} />
         <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={['admin']}><AdminReports /></ProtectedRoute>} />
+        <Route path="/admin/drivers" element={<ProtectedRoute allowedRoles={['admin']}><DeliveryDrivers /></ProtectedRoute>} />
+        <Route path="/admin/activity" element={<ProtectedRoute allowedRoles={['admin']}><ActivityLog /></ProtectedRoute>} />
 
         {/* Sales Routes */}
         <Route path="/sales" element={<ProtectedRoute allowedRoles={['sales']}><SalesDashboard /></ProtectedRoute>} />
@@ -142,10 +136,10 @@ const AppRoutes = () => {
         <Route path="/accounts/collection-status" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><CollectionStatus /></ProtectedRoute>} />
         <Route path="/accounts/pending-orders" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><OrderReview /></ProtectedRoute>} />
         <Route path="/accounts/sales" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><SalesRecords /></ProtectedRoute>} />
-        <Route path="/accounts/payments" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><div className="p-8"><h1 className="text-2xl font-semibold">Payments</h1><p className="text-gray-600 mt-2">Coming soon...</p></div></ProtectedRoute>} />
+        <Route path="/accounts/payments" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><Payments /></ProtectedRoute>} />
 
         {/* Shared Routes */}
-        <Route path="/stock" element={<ProtectedRoute allowedRoles={['admin', 'accounts']}><StockManagement /></ProtectedRoute>} />
+        <Route path="/stock" element={<ProtectedRoute allowedRoles={['admin', 'accounts', 'sales', 'inventory']}><StockManagement /></ProtectedRoute>} />
 
         {/* Inventory Routes */}
         <Route path="/inventory" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><InventoryDashboard /></ProtectedRoute>} />

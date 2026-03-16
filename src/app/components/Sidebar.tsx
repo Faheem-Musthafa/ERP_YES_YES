@@ -4,8 +4,9 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import {
   LayoutDashboard, Users, Package, ShoppingCart, TrendingUp,
   BarChart3, FileText, LogOut, DollarSign, FileCheck, Boxes,
-  Plus, Receipt, Wallet, ClipboardCheck, Truck,
+  Plus, Receipt, Wallet, ClipboardCheck, Truck, Car,
   UserCircle, ChevronRight, ChevronDown, X, PanelLeftClose, PanelLeftOpen,
+  ClipboardList, Activity,
 } from 'lucide-react';
 
 interface NavItem { label: string; path: string; icon: React.ReactNode; }
@@ -30,19 +31,35 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
         { label: 'Inv. Management', path: '/inventory/stock', icon: <Boxes size={16} /> },
         { label: 'Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={16} /> },
         { label: 'Delivery', path: '/inventory/delivery', icon: <Truck size={16} /> },
+        { label: 'Delivery Drivers', path: '/admin/drivers', icon: <Car size={16} /> },
       ],
     },
     {
       title: 'Sales & Finance',
       items: [
         { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={16} /> },
-        { label: 'All Orders', path: '/admin/orders', icon: <ShoppingCart size={16} /> },
+        { label: 'All Orders', path: '/admin/sales', icon: <ShoppingCart size={16} /> },
         { label: 'Back Order', path: '/accounts/pending-orders', icon: <FileCheck size={16} /> },
         { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={16} /> },
         { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={16} /> },
         { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={16} /> },
-        { label: 'Sales Records', path: '/admin/sales', icon: <TrendingUp size={16} /> },
         { label: 'Reports', path: '/admin/reports', icon: <FileText size={16} /> },
+      ],
+    },
+    {
+      title: 'Procurement',
+      items: [
+        { label: 'Purchase Orders', path: '/procurement/orders', icon: <ClipboardList size={16} /> },
+        { label: 'GRN', path: '/procurement/grn', icon: <ClipboardCheck size={16} /> },
+        { label: 'Purchase History', path: '/procurement/history', icon: <TrendingUp size={16} /> },
+        { label: 'Suppliers', path: '/procurement/suppliers', icon: <Truck size={16} /> },
+        { label: 'Proc. Reports', path: '/procurement/reports', icon: <BarChart3 size={16} /> },
+      ],
+    },
+    {
+      title: 'System',
+      items: [
+        { label: 'Activity Log', path: '/admin/activity', icon: <Activity size={16} /> },
       ],
     },
   ];
@@ -64,6 +81,12 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
       items: [
         { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={16} /> },
         { label: 'My Collection', path: '/sales/my-collection', icon: <Wallet size={16} /> },
+      ],
+    },
+    {
+      title: 'Inventory',
+      items: [
+        { label: 'Stock View', path: '/stock', icon: <BarChart3 size={16} /> },
       ],
     },
   ];
@@ -98,6 +121,7 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
     {
       title: 'Stock',
       items: [
+        { label: 'Stock View', path: '/stock', icon: <BarChart3 size={16} /> },
         { label: 'Inventory Stock', path: '/inventory/stock', icon: <Boxes size={16} /> },
         { label: 'Stock Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={16} /> },
         { label: 'Delivery', path: '/inventory/delivery', icon: <Truck size={16} /> },
@@ -147,7 +171,7 @@ const ROLE_META: Record<string, { label: string; color: string; dot: string }> =
 };
 
 const getInitials = (name: string) =>
-  name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
 interface SidebarProps {
   isOpen: boolean;
@@ -197,7 +221,7 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
   const w = isCollapsed ? 'lg:w-[68px]' : 'lg:w-[240px]';
 
   return (
-    <div
+    <aside
       className={`
         h-screen text-white flex flex-col fixed left-0 top-0 z-40
         border-r border-white/10
@@ -206,9 +230,10 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
         ${w}
       `}
       style={{
-        background: 'linear-gradient(160deg, #3bbfb6 0%, #34b0a7 40%, #2a9d94 100%)',
-        boxShadow: '4px 0 24px rgba(0,0,0,0.15)',
+        background: 'linear-gradient(178deg, #0b1320 0%, #111d2d 62%, #12263a 100%)',
+        boxShadow: '4px 0 28px rgba(0,0,0,0.28)',
       }}
+      aria-label="Primary sidebar"
     >
       {/* ── Brand ── */}
       <div className={`flex items-center gap-3 border-b border-white/15 shrink-0 ${isCollapsed ? 'px-3 py-4 justify-center' : 'px-5 py-4'
@@ -221,7 +246,7 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
               }`}
           />
           {/* Live indicator dot */}
-          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-white rounded-full border-2 border-[#34b0a7]" />
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-300 rounded-full border-2 border-[#0f1a2a]" />
         </div>
         {!isCollapsed && (
           <div className="flex-1 min-w-0">
@@ -234,8 +259,9 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
           </div>
         )}
         <button
+          type="button"
           onClick={onClose}
-          className="lg:hidden ml-auto p-1 rounded-md text-white/60 hover:bg-white/20 hover:text-white transition-all"
+          className="lg:hidden ml-auto p-1 rounded-md text-white/60 hover:bg-white/20 hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1a2a]"
           aria-label="Close sidebar"
         >
           <X size={16} />
@@ -255,11 +281,11 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
             </div>
           </NavTooltip>
         ) : (
-          <div className="flex items-center gap-3 bg-white/10 rounded-xl px-3 py-2.5 border border-white/20">
-            <div className="relative w-8 h-8 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-xs font-bold text-white shrink-0 select-none">
+            <div className="flex items-center gap-3 bg-white/[0.07] rounded-xl px-3 py-2.5 border border-white/10">
+              <div className="relative w-8 h-8 rounded-xl bg-white/[0.08] border border-white/15 flex items-center justify-center text-xs font-bold text-white shrink-0 select-none">
               {getInitials(user?.full_name ?? 'U')}
               {roleMeta && (
-                <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#34b0a7] ${roleMeta.dot}`} />
+                  <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#0f1a2a] ${roleMeta.dot}`} />
               )}
             </div>
             <div className="flex-1 min-w-0">
@@ -275,7 +301,7 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
       </div>
 
       {/* ── Navigation ── */}
-      <nav className={`flex-1 overflow-y-auto py-4 custom-scrollbar ${isCollapsed ? 'px-2.5' : 'px-3'
+      <nav aria-label="Main navigation" className={`flex-1 overflow-y-auto py-4 custom-scrollbar ${isCollapsed ? 'px-2.5' : 'px-3'
         } space-y-5`}>
         {groups.map((group) => {
           const sectionOpen = openSections[group.title] ?? true;
@@ -283,8 +309,11 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
             <div key={group.title}>
               {!isCollapsed ? (
                 <button
+                  type="button"
                   onClick={() => toggleSection(group.title)}
-                  className="w-full flex items-center justify-between px-2 mb-2 group/sec"
+                  className="w-full flex items-center justify-between px-2 mb-2 group/sec focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1a2a] rounded-md"
+                  aria-expanded={sectionOpen}
+                  aria-controls={`sidebar-section-${group.title.toLowerCase().replace(/\s+/g, '-')}`}
                 >
                   <span className="text-[9px] font-bold text-white/50 uppercase tracking-[0.18em] group-hover/sec:text-white/80 transition-colors">
                     {group.title}
@@ -299,7 +328,9 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                 <div className="w-5 h-px bg-white/10 mx-auto mb-2 mt-1" />
               )}
 
-              <ul className={`space-y-0.5 overflow-hidden transition-all duration-250 ease-in-out ${!isCollapsed && !sectionOpen ? 'max-h-0 opacity-0' : 'max-h-[1000px] opacity-100'
+              <ul
+                id={`sidebar-section-${group.title.toLowerCase().replace(/\s+/g, '-')}`}
+                className={`space-y-0.5 overflow-hidden transition-all duration-250 ease-in-out ${!isCollapsed && !sectionOpen ? 'max-h-0 opacity-0' : 'max-h-[1000px] opacity-100'
                 }`}>
                 {group.items.map((item) => {
                   const active = isActive(item.path);
@@ -309,22 +340,23 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                         <Link
                           to={item.path}
                           onClick={onClose}
+                          aria-label={item.label}
                           className={`
                             relative flex items-center rounded-lg text-[13px] font-medium
-                            transition-all duration-150 group/link
+                            transition-all duration-150 group/link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1a2a]
                             ${isCollapsed
                               ? 'justify-center w-10 h-9 mx-auto'
                               : 'gap-2.5 px-3 py-2'
                             }
                             ${active
-                              ? 'bg-white/20 text-white'
-                              : 'text-white/75 hover:bg-white/10 hover:text-white'
+                              ? 'bg-primary/22 text-white border border-primary/25'
+                              : 'text-white/75 hover:bg-white/[0.08] hover:text-white border border-transparent'
                             }
                           `}
                         >
                           {/* Active accent bar */}
                           {active && (
-                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-white rounded-r-full shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
+                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary rounded-r-full shadow-[0_0_10px_rgba(0,189,180,0.7)]" />
                           )}
                           <span className={`shrink-0 transition-colors ${active
                             ? 'text-white'
@@ -356,8 +388,9 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
           collapsed={isCollapsed}
         >
           <button
+            type="button"
             onClick={onToggleCollapse}
-            className={`w-full flex items-center rounded-lg text-xs font-medium text-white/70 hover:bg-white/15 hover:text-white transition-all duration-150 ${isCollapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-2'
+            className={`w-full flex items-center rounded-lg text-xs font-medium text-white/70 hover:bg-white/15 hover:text-white transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1a2a] ${isCollapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-2'
               }`}
             aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
@@ -373,15 +406,17 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
       <div className={`border-t border-white/15 shrink-0 ${isCollapsed ? 'px-3 py-3' : 'px-3 py-3'}`}>
         <NavTooltip label="Sign Out" collapsed={isCollapsed}>
           <button
+            type="button"
             onClick={logout}
-            className={`w-full flex items-center rounded-lg text-xs font-medium text-white/70 hover:bg-red-500/20 hover:text-red-200 transition-all duration-150 group/out ${isCollapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-2'
+            className={`w-full flex items-center rounded-lg text-xs font-medium text-white/70 hover:bg-red-500/20 hover:text-red-200 transition-all duration-150 group/out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1a2a] ${isCollapsed ? 'justify-center h-9' : 'gap-2.5 px-3 py-2'
               }`}
+            aria-label="Sign out"
           >
             <LogOut size={15} className="shrink-0 transition-colors group-hover/out:text-red-400" />
             {!isCollapsed && <span className="text-[13px]">Sign Out</span>}
           </button>
         </NavTooltip>
       </div>
-    </div>
+    </aside>
   );
 };

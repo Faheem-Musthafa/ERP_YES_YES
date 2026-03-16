@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import {
   PageHeader, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
-  EmptyState, Spinner, StatusBadge,
+  EmptyState, Spinner, StatusBadge, TablePagination,
 } from '@/app/components/ui/primitives';
 
 interface OrderItem {
@@ -26,6 +26,8 @@ export const OrderReview = () => {
   const [items, setItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
 
   useEffect(() => { fetchPendingOrders(); }, []);
 
@@ -68,15 +70,30 @@ export const OrderReview = () => {
 
   const approvedTotal = items.reduce((s, i) => s + i.approvedAmount, 0);
   const requestedTotal = items.reduce((s, i) => s + i.amount, 0);
+  useEffect(() => { setCurrentPage(1); }, [pendingOrders.length]);
+  const page = Math.min(currentPage, Math.max(1, Math.ceil(pendingOrders.length / pageSize)));
+  const paginatedOrders = pendingOrders.slice((page - 1) * pageSize, page * pageSize);
+  const resetReviewContext = async () => {
+    setSelectedOrder(null);
+    setItems([]);
+    await fetchPendingOrders();
+    navigate('/accounts/pending-orders', { replace: true });
+  };
 
   const handleApprove = async () => {
     if (!selectedOrder || !user) return;
     setSubmitting(true);
     try {
+      // Update each item's approved pricing
+      const itemErrors: string[] = [];
       for (const item of items) {
-        await supabase.from('order_items').update({
+        const { error } = await supabase.from('order_items').update({
           dealer_price: item.approvedDP, discount_pct: item.approvedDiscount, amount: item.approvedAmount,
         }).eq('id', item.id);
+        if (error) itemErrors.push(`${item.productName}: ${error.message}`);
+      }
+      if (itemErrors.length > 0) {
+        throw new Error(`Failed to update items: ${itemErrors.join('; ')}`);
       }
       const { error } = await supabase.from('orders').update({
         status: 'Approved', approved_by: user.id,
@@ -84,7 +101,7 @@ export const OrderReview = () => {
       }).eq('id', selectedOrder.id);
       if (error) throw error;
       toast.success(`Order ${selectedOrder.order_number} approved!`);
-      setSelectedOrder(null); setItems([]); fetchPendingOrders();
+      await resetReviewContext();
     } catch (err: any) { toast.error(err.message || 'Failed to approve order'); }
     finally { setSubmitting(false); }
   };
@@ -96,7 +113,7 @@ export const OrderReview = () => {
       const { error } = await supabase.from('orders').update({ status: 'Rejected' }).eq('id', selectedOrder.id);
       if (error) throw error;
       toast.success(`Order ${selectedOrder.order_number} rejected.`);
-      setSelectedOrder(null); setItems([]); fetchPendingOrders();
+      await resetReviewContext();
     } catch (err: any) { toast.error(err.message || 'Failed to reject order'); }
     finally { setSubmitting(false); }
   };
@@ -109,7 +126,13 @@ export const OrderReview = () => {
           title={`Reviewing: ${selectedOrder.order_number}`}
           subtitle="Adjust pricing below and approve or reject"
           actions={
-            <Button variant="ghost" size="sm" onClick={() => { setSelectedOrder(null); setItems([]); }} className="gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setSelectedOrder(null); setItems([]); }}
+              className="gap-2"
+              disabled={submitting}
+            >
               <ArrowLeft size={15} /> Back to Queue
             </Button>
           }
@@ -218,7 +241,7 @@ export const OrderReview = () => {
                 disabled={submitting}
               >
                 <CheckCircle size={15} />
-                {submitting ? 'Processing...' : 'Approve & Convert'}
+                {submitting ? 'Processing...' : 'Approve & Return'}
               </Button>
               <Button
                 onClick={handleReject}
@@ -249,7 +272,7 @@ export const OrderReview = () => {
           </DataCard>
         ) : (
           <div className="space-y-3">
-            {pendingOrders.map(order => (
+            {paginatedOrders.map(order => (
               <div
                 key={order.id}
                 onClick={() => selectOrder(order)}
@@ -275,6 +298,13 @@ export const OrderReview = () => {
                 </div>
               </div>
             ))}
+            <TablePagination
+              totalItems={pendingOrders.length}
+              currentPage={page}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              itemLabel="orders"
+            />
           </div>
         )
       }

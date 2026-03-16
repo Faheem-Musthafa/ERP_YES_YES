@@ -8,14 +8,30 @@ import {
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/app/components/ui/dialog';
-import { Plus, Copy, Check, UserPlus, Eye, EyeOff, Shield, Trash2 } from 'lucide-react';
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/app/components/ui/alert-dialog';
+import { Plus, Copy, Check, UserPlus, Eye, EyeOff, Shield, Trash2, Pencil, KeyRound } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 import {
     PageHeader, SearchBar, DataCard,
     StyledThead, StyledTh, StyledTr, StyledTd,
-    EmptyState, Spinner, StatusBadge, IconBtn,
+    EmptyState, Spinner, StatusBadge, IconBtn, TablePagination,
 } from '@/app/components/ui/primitives';
+import type { UserRole } from '@/app/types/database';
+
+interface StaffUser {
+    id: string;
+    full_name: string;
+    email: string;
+    role: UserRole;
+    is_active: boolean;
+    must_change_password: boolean;
+    employee_id: string | null;
+    created_at: string;
+}
 
 const ROLES = [
     { value: 'sales', label: 'Sales' },
@@ -45,7 +61,7 @@ function generatePassword(length = 12): string {
 }
 
 export const StaffManagement = () => {
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<StaffUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [createOpen, setCreateOpen] = useState(false);
@@ -55,6 +71,14 @@ export const StaffManagement = () => {
     const [createdUser, setCreatedUser] = useState<{ name: string; email: string; password: string } | null>(null);
     const [passwordVisible, setPasswordVisible] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<StaffUser | null>(null);
+    const [editOpen, setEditOpen] = useState(false);
+    const [editTarget, setEditTarget] = useState<StaffUser | null>(null);
+    const [editForm, setEditForm] = useState({ full_name: '', employee_id: '' });
+    const [editSaving, setEditSaving] = useState(false);
+    const [resetting, setResetting] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -100,18 +124,63 @@ export const StaffManagement = () => {
         }
     };
 
-    const handleToggleActive = async (u: any) => {
+    const handleToggleActive = async (u: StaffUser) => {
         const { error } = await supabase.from('users').update({ is_active: !u.is_active }).eq('id', u.id);
         if (error) toast.error(error.message);
         else { toast.success(`${u.full_name} ${!u.is_active ? 'activated' : 'deactivated'}`); fetchUsers(); }
     };
 
-    const handleDeleteStaff = async (u: any) => {
-        if (u.role === 'admin') { toast.error('Cannot delete admin accounts'); return; }
-        if (!window.confirm(`Delete "${u.full_name}" permanently? This cannot be undone.`)) return;
-        const { error } = await supabase.from('users').delete().eq('id', u.id);
-        if (error) toast.error('Failed to delete staff');
-        else { toast.success('Staff account deleted'); fetchUsers(); }
+    const handleDeleteStaff = async (u: StaffUser) => {
+        if (u.role === 'admin') { toast.error('Cannot deactivate admin accounts'); return; }
+        const { error } = await supabase.from('users').update({ is_active: false }).eq('id', u.id);
+        if (error) toast.error('Failed to deactivate staff');
+        else { toast.success(`${u.full_name} deactivated`); setDeleteTarget(null); fetchUsers(); }
+    };
+
+    const openEdit = (u: StaffUser) => {
+        setEditTarget(u);
+        setEditForm({ full_name: u.full_name, employee_id: u.employee_id ?? '' });
+        setEditOpen(true);
+    };
+
+    const handleEditSave = async () => {
+        if (!editTarget || !editForm.full_name.trim()) {
+            toast.error('Name is required'); return;
+        }
+        setEditSaving(true);
+        const { error } = await supabase.from('users').update({
+            full_name: editForm.full_name.trim(),
+            employee_id: editForm.employee_id.trim() || null,
+        }).eq('id', editTarget.id);
+        if (error) toast.error('Failed to update staff');
+        else { toast.success('Staff details updated'); setEditOpen(false); fetchUsers(); }
+        setEditSaving(false);
+    };
+
+    const handleResetPassword = async () => {
+        if (!editTarget) return;
+        setResetting(true);
+        const newPassword = generatePassword(12);
+        try {
+            const { data: result, error: fnError } = await supabase.functions.invoke('invite-user', {
+                body: {
+                    email: editTarget.email,
+                    full_name: editTarget.full_name,
+                    role: editTarget.role,
+                    password: newPassword,
+                    employee_id: editTarget.employee_id,
+                    reset_password: true,
+                },
+            });
+            if (fnError || result?.error) throw new Error(result?.error || fnError?.message || 'Failed to reset password');
+            await supabase.from('users').update({ must_change_password: true }).eq('id', editTarget.id);
+            setCreatedUser({ name: editTarget.full_name, email: editTarget.email, password: newPassword });
+            setEditOpen(false);
+            setSuccessOpen(true);
+            fetchUsers();
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to reset password');
+        } finally { setResetting(false); }
     };
 
     const filtered = users.filter(u =>
@@ -120,6 +189,9 @@ export const StaffManagement = () => {
         u.email.toLowerCase().includes(search.toLowerCase()) ||
         (u.employee_id ?? '').toLowerCase().includes(search.toLowerCase())
     );
+    useEffect(() => { setCurrentPage(1); }, [search, users.length]);
+    const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
+    const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
     const stats = [
         { label: 'Total', value: users.length, color: 'text-primary' },
@@ -166,86 +238,101 @@ export const StaffManagement = () => {
                     filtered.length === 0 ? (
                         <EmptyState icon={UserPlus} message="No staff accounts" sub="Create your first staff account to get started" />
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <StyledThead>
-                                    <tr>
-                                        <StyledTh>Staff Member</StyledTh>
-                                        <StyledTh>Employee ID</StyledTh>
-                                        <StyledTh>Role</StyledTh>
-                                        <StyledTh>Status</StyledTh>
-                                        <StyledTh>Pwd Changed</StyledTh>
-                                        <StyledTh>Joined</StyledTh>
-                                        <StyledTh right>Actions</StyledTh>
-                                    </tr>
-                                </StyledThead>
-                                <tbody>
-                                    {filtered.map(u => (
-                                        <StyledTr key={u.id}>
-                                            <StyledTd>
-                                                <div>
-                                                    <p className="font-semibold text-foreground">{u.full_name}</p>
-                                                    <p className="text-xs text-muted-foreground">{u.email}</p>
-                                                </div>
-                                            </StyledTd>
-                                            <StyledTd mono className="text-muted-foreground">{u.employee_id ?? '—'}</StyledTd>
-                                            <StyledTd>
-                                                {u.role === 'admin' ? (
-                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${ROLE_STYLES.admin}`}>
-                                                        <Shield size={9} /> admin
-                                                    </span>
-                                                ) : (
-                                                    <Select
-                                                        value={u.role}
-                                                        onValueChange={async (newRole) => {
-                                                            const { error } = await supabase.from('users').update({ role: newRole }).eq('id', u.id);
-                                                            if (error) toast.error('Failed to update role');
-                                                            else { toast.success('Role updated'); fetchUsers(); }
-                                                        }}
-                                                    >
-                                                        <SelectTrigger className={`h-7 w-28 text-[10px] font-semibold rounded-full px-2.5 border ${ROLE_STYLES[u.role] ?? ''}`}>
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {ROLES.map(r => <SelectItem key={r.value} value={r.value} className="text-xs">{r.label}</SelectItem>)}
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
-                                            </StyledTd>
-                                            <StyledTd><StatusBadge status={u.is_active ? 'Active' : 'Inactive'} /></StyledTd>
-                                            <StyledTd>
-                                                <StatusBadge status={u.must_change_password ? 'Pending' : 'Approved'} />
-                                            </StyledTd>
-                                            <StyledTd mono className="text-xs text-muted-foreground">
-                                                {new Date(u.created_at).toLocaleDateString()}
-                                            </StyledTd>
-                                            <StyledTd right>
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => handleToggleActive(u)}
-                                                        disabled={u.role === 'admin'}
-                                                        className={`h-6 text-[10px] px-2 rounded-full ${u.is_active
-                                                            ? 'text-red-600 border-red-200 hover:bg-red-50'
-                                                            : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
-                                                    >
-                                                        {u.is_active ? 'Deactivate' : 'Activate'}
-                                                    </Button>
-                                                    <IconBtn
-                                                        onClick={() => handleDeleteStaff(u)}
-                                                        title={u.role === 'admin' ? 'Cannot delete admin' : 'Delete'}
-                                                        danger
-                                                    >
-                                                        <Trash2 size={13} />
-                                                    </IconBtn>
-                                                </div>
-                                            </StyledTd>
-                                        </StyledTr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        <>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <StyledThead>
+                                        <tr>
+                                            <StyledTh>Staff Member</StyledTh>
+                                            <StyledTh>Employee ID</StyledTh>
+                                            <StyledTh>Role</StyledTh>
+                                            <StyledTh>Status</StyledTh>
+                                            <StyledTh>Pwd Changed</StyledTh>
+                                            <StyledTh>Joined</StyledTh>
+                                            <StyledTh right>Actions</StyledTh>
+                                        </tr>
+                                    </StyledThead>
+                                    <tbody>
+                                        {paginated.map(u => (
+                                            <StyledTr key={u.id}>
+                                                <StyledTd>
+                                                    <div>
+                                                        <p className="font-semibold text-foreground">{u.full_name}</p>
+                                                        <p className="text-xs text-muted-foreground">{u.email}</p>
+                                                    </div>
+                                                </StyledTd>
+                                                <StyledTd mono className="text-muted-foreground">{u.employee_id ?? '—'}</StyledTd>
+                                                <StyledTd>
+                                                    {u.role === 'admin' ? (
+                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${ROLE_STYLES.admin}`}>
+                                                            <Shield size={9} /> admin
+                                                        </span>
+                                                    ) : (
+                                                        <Select
+                                                            value={u.role}
+                                                            onValueChange={async (newRole) => {
+                                                                const { error } = await supabase.from('users').update({ role: newRole }).eq('id', u.id);
+                                                                if (error) toast.error('Failed to update role');
+                                                                else { toast.success('Role updated'); fetchUsers(); }
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className={`h-7 w-28 text-[10px] font-semibold rounded-full px-2.5 border ${ROLE_STYLES[u.role] ?? ''}`}>
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {ROLES.map(r => <SelectItem key={r.value} value={r.value} className="text-xs">{r.label}</SelectItem>)}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    )}
+                                                </StyledTd>
+                                                <StyledTd><StatusBadge status={u.is_active ? 'Active' : 'Inactive'} /></StyledTd>
+                                                <StyledTd>
+                                                    <StatusBadge status={u.must_change_password ? 'Pending' : 'Approved'} />
+                                                </StyledTd>
+                                                <StyledTd mono className="text-xs text-muted-foreground">
+                                                    {new Date(u.created_at).toLocaleDateString()}
+                                                </StyledTd>
+                                                <StyledTd right>
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <IconBtn
+                                                            onClick={() => openEdit(u)}
+                                                            title={`Edit ${u.full_name}`}
+                                                        >
+                                                            <Pencil size={13} />
+                                                        </IconBtn>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            onClick={() => handleToggleActive(u)}
+                                                            disabled={u.role === 'admin'}
+                                                            className={`h-6 text-[10px] px-2 rounded-full ${u.is_active
+                                                                ? 'text-red-600 border-red-200 hover:bg-red-50'
+                                                                : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
+                                                        >
+                                                            {u.is_active ? 'Deactivate' : 'Activate'}
+                                                        </Button>
+                                                        <IconBtn
+                                                            onClick={() => u.role !== 'admin' && setDeleteTarget(u)}
+                                                            title={u.role === 'admin' ? `Cannot delete admin account ${u.name}` : `Delete staff account ${u.name}`}
+                                                            danger
+                                                        >
+                                                            <Trash2 size={13} />
+                                                        </IconBtn>
+                                                    </div>
+                                                </StyledTd>
+                                            </StyledTr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <TablePagination
+                                totalItems={filtered.length}
+                                currentPage={page}
+                                pageSize={pageSize}
+                                onPageChange={setCurrentPage}
+                                itemLabel="staff members"
+                            />
+                        </>
                     )
                 }
             </DataCard>
@@ -326,11 +413,12 @@ export const StaffManagement = () => {
                                         <code className="flex-1 font-mono text-sm tracking-wider text-foreground">
                                             {passwordVisible ? createdUser.password : '•'.repeat(createdUser.password.length)}
                                         </code>
-                                        <button onClick={() => setPasswordVisible(v => !v)} className="text-muted-foreground hover:text-foreground transition-colors">
+                                        <button onClick={() => setPasswordVisible(v => !v)} aria-label={passwordVisible ? 'Hide temporary password' : 'Show temporary password'} className="text-muted-foreground hover:text-foreground transition-colors">
                                             {passwordVisible ? <EyeOff size={15} /> : <Eye size={15} />}
                                         </button>
                                         <button
                                             onClick={handleCopyPassword}
+                                            aria-label="Copy temporary password"
                                             className={`transition-colors ${copied ? 'text-emerald-600' : 'text-muted-foreground hover:text-foreground'}`}
                                         >
                                             {copied ? <Check size={15} /> : <Copy size={15} />}
@@ -350,6 +438,85 @@ export const StaffManagement = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            {/* Edit Staff Dialog */}
+            <Dialog open={editOpen} onOpenChange={open => { if (!open) setEditOpen(false); }}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-base">
+                            <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                                <Pencil size={14} className="text-blue-600" />
+                            </div>
+                            Edit Staff Member
+                        </DialogTitle>
+                    </DialogHeader>
+                    {editTarget && (
+                        <div className="space-y-3 py-2">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Full Name <span className="text-destructive">*</span></Label>
+                                <Input
+                                    value={editForm.full_name}
+                                    onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
+                                    placeholder="Full name"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Email</Label>
+                                <Input value={editTarget.email} disabled className="opacity-60" />
+                                <p className="text-[10px] text-muted-foreground">Email cannot be changed after account creation</p>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Employee ID</Label>
+                                <Input
+                                    value={editForm.employee_id}
+                                    onChange={e => setEditForm(f => ({ ...f, employee_id: e.target.value }))}
+                                    placeholder="e.g. EMP-001"
+                                />
+                            </div>
+                            <div className="pt-2 border-t">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleResetPassword}
+                                    disabled={resetting}
+                                    className="gap-2 text-amber-700 border-amber-200 hover:bg-amber-50"
+                                >
+                                    <KeyRound size={14} />
+                                    {resetting ? 'Resetting...' : 'Reset Password'}
+                                </Button>
+                                <p className="text-[10px] text-muted-foreground mt-1.5">
+                                    Generates a new temporary password. The staff member will be required to change it on next login.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+                        <Button onClick={handleEditSave} disabled={editSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                            {editSaving ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <AlertDialog open={Boolean(deleteTarget)} onOpenChange={open => !open && setDeleteTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete staff account permanently?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {deleteTarget ? `Delete "${deleteTarget.full_name}" permanently? This action cannot be undone.` : ''}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => deleteTarget && void handleDeleteStaff(deleteTarget)}
+                        >
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };

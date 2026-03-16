@@ -4,10 +4,11 @@ import { Input } from '@/app/components/ui/input';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Plus, Trash2, Info, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Info, ChevronRight, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
+import { PageHeader } from '@/app/components/ui/primitives';
 import type { CompanyEnum, InvoiceTypeEnum } from '@/app/types/database';
 
 interface OrderItem {
@@ -81,7 +82,18 @@ export const CreateOrder = () => {
   };
 
   const handleAddItem = () => setOrderItems(prev => [...prev, { id: String(Date.now()), productId: '', product: '', brand: '', sku: '', stock: 0, quantity: '', dp: 0, mrp: 0, discount: '', amount: '' }]);
-  const handleRemoveItem = (id: string) => setOrderItems(prev => prev.filter(i => i.id !== id));
+  const handleRemoveItem = (id: string) => {
+    if (window.confirm('Remove this line item from the order?')) {
+      setOrderItems(prev => prev.filter(i => i.id !== id));
+    }
+  };
+
+  const clampDiscountInput = (value: string): string => {
+    if (value === '') return '';
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) return '';
+    return String(Math.max(0, Math.min(100, parsed)));
+  };
 
   useEffect(() => {
     setOrderItems(prev => prev.map(item => {
@@ -97,9 +109,9 @@ export const CreateOrder = () => {
     }));
   }, [orderItems.map(i => `${i.id}-${i.quantity}-${i.discount}-${i.amount}-${i.dp}-${i.lastEdited}`).join(',')]);
 
-  const subtotal = orderItems.reduce((s, i) => s + (i.dp * (Number(i.quantity) || 0)), 0);
-  const totalDiscount = orderItems.reduce((s, i) => s + (i.dp * (Number(i.quantity) || 0) * (Number(i.discount) || 0) / 100), 0);
-  const grandTotal = orderItems.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const subtotal = Math.round(orderItems.reduce((s, i) => s + (i.dp * (Number(i.quantity) || 0)), 0) * 100) / 100;
+  const totalDiscount = Math.round(orderItems.reduce((s, i) => s + (i.dp * (Number(i.quantity) || 0) * (Number(i.discount) || 0) / 100), 0) * 100) / 100;
+  const grandTotal = Math.round(orderItems.reduce((s, i) => s + (Number(i.amount) || 0), 0) * 100) / 100;
 
   const getDeliveryDate = (): string => {
     const today = new Date();
@@ -132,8 +144,12 @@ export const CreateOrder = () => {
         status: 'Pending', created_by: user?.id ?? null,
       }).select('id').single();
       if (orderErr) throw orderErr;
-      const { error: itemsErr } = await supabase.from('order_items').insert(validItems.map(i => ({ order_id: order.id, product_id: i.productId, quantity: Number(i.quantity), dealer_price: i.dp, discount_pct: Number(i.discount) || 0, amount: Number(i.amount) || 0 })));
-      if (itemsErr) throw itemsErr;
+      const { error: itemsErr } = await supabase.from('order_items').insert(validItems.map(i => ({ order_id: order.id, product_id: i.productId, quantity: Number(i.quantity), dealer_price: i.dp, discount_pct: Number(i.discount) || 0, amount: Math.round((Number(i.amount) || 0) * 100) / 100 })));
+      if (itemsErr) {
+        // Rollback: delete orphaned order if items insert failed
+        await supabase.from('orders').delete().eq('id', order.id);
+        throw itemsErr;
+      }
       toast.success(`Order ${orderNumber} created!`);
       navigate('/sales/my-orders');
     } catch (err: any) { toast.error(err.message || 'Failed'); } finally { setLoading(false); }
@@ -141,31 +157,46 @@ export const CreateOrder = () => {
 
   /* ─── tiny helpers ─── */
   const Pill = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
-    <button type="button" onClick={onClick}
-      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${active ? 'bg-[#34b0a7] border-[#34b0a7] text-white' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#34b0a7] focus-visible:ring-offset-2 ${active ? 'bg-[#34b0a7] border-[#34b0a7] text-white' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
+    >
       {children}
     </button>
   );
 
-  const FL = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
+  const FL = ({ label, htmlFor, required, children }: { label: string; htmlFor?: string; required?: boolean; children: React.ReactNode }) => (
     <div className="space-y-1">
-      <label className="text-xs font-semibold text-gray-500">{label}{required && <span className="text-red-400 ml-0.5">*</span>}</label>
+      <label htmlFor={htmlFor} className="text-xs font-semibold text-gray-500">{label}{required && <span className="text-red-400 ml-0.5">*</span>}</label>
       {children}
     </div>
   );
 
+  const hasUnsavedInput = Boolean(
+    company || invoiceType || selectedCustomerId || customerName || customerPhone || customerAddress || customerGst ||
+    siteAddress || remarks || customDate || orderItems.some(i => i.productId || i.quantity || i.discount || i.amount)
+  );
+
+  const handleCancel = () => {
+    if (!hasUnsavedInput || window.confirm('Discard this order draft? Unsaved changes will be lost.')) {
+      navigate('/sales');
+    }
+  };
+
   return (
     <div className="space-y-4 pb-6">
-      {/* ── header ── */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate('/sales')} className="text-gray-400 hover:text-gray-700 transition-colors">
-          <ArrowLeft size={18} />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">New Sales Order</h1>
-          <p className="text-xs text-gray-400">Fill in the fields and submit</p>
-        </div>
-      </div>
+      <PageHeader
+        title="New Sales Order"
+        subtitle="Fill in the fields and submit"
+        actions={(
+          <Button type="button" variant="ghost" size="sm" onClick={handleCancel} className="gap-2">
+            <ArrowLeft size={16} />
+            Cancel Draft
+          </Button>
+        )}
+      />
 
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col xl:flex-row gap-4">
@@ -173,13 +204,18 @@ export const CreateOrder = () => {
           {/* ══ LEFT: Main form ══ */}
           <div className="flex-1 space-y-4 min-w-0">
 
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 flex items-start gap-2">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <span>Review company, invoice type, quantities, and totals before submit. Order submission creates transactional records immediately.</span>
+            </div>
+
             {/* ── Invoice Config ── */}
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Invoice Config</p>
               <div className="grid grid-cols-2 gap-3">
-                <FL label="Company" required>
+                <FL label="Company" htmlFor="company" required>
                   <Select value={company} onValueChange={(v: string) => setCompany(v as CompanyEnum)}>
-                    <SelectTrigger className="h-9 rounded-lg text-sm"><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectTrigger id="company" className="h-9 rounded-lg text-sm"><SelectValue placeholder="Select…" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="LLP">LLP</SelectItem>
                       <SelectItem value="YES YES">YES YES</SelectItem>
@@ -187,9 +223,9 @@ export const CreateOrder = () => {
                     </SelectContent>
                   </Select>
                 </FL>
-                <FL label="Invoice Type" required>
+                <FL label="Invoice Type" htmlFor="invoiceType" required>
                   <Select value={invoiceType} onValueChange={(v: string) => setInvoiceType(v as InvoiceTypeEnum)}>
-                    <SelectTrigger className="h-9 rounded-lg text-sm"><SelectValue placeholder="Select…" /></SelectTrigger>
+                    <SelectTrigger id="invoiceType" className="h-9 rounded-lg text-sm"><SelectValue placeholder="Select…" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="GST">GST</SelectItem>
                       <SelectItem value="NGST">NGST</SelectItem>
@@ -215,40 +251,40 @@ export const CreateOrder = () => {
               </div>
 
               {customerType === 'existing' ? (
-                <FL label="Select Customer" required>
+                <FL label="Select Customer" htmlFor="selectedCustomerId" required>
                   <Select value={selectedCustomerId} onValueChange={handleCustomerSelect}>
-                    <SelectTrigger className="h-9 rounded-lg text-sm"><SelectValue placeholder="Pick a customer…" /></SelectTrigger>
+                    <SelectTrigger id="selectedCustomerId" className="h-9 rounded-lg text-sm"><SelectValue placeholder="Pick a customer…" /></SelectTrigger>
                     <SelectContent>{customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </FL>
               ) : (
-                <FL label="Customer Name" required>
-                  <Input value={customerName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerName(e.target.value)} placeholder="Enter name" className="h-9 rounded-lg text-sm" required />
+                <FL label="Customer Name" htmlFor="customerName" required>
+                  <Input id="customerName" value={customerName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerName(e.target.value)} placeholder="Enter name" className="h-9 rounded-lg text-sm" required />
                 </FL>
               )}
 
               {/* Auto-filled contact info */}
               <div className="grid grid-cols-2 gap-3">
-                <FL label="Phone" required>
+                <FL label="Phone" htmlFor="customerPhone" required>
                   <div className="relative">
-                    <Input type="tel" value={customerPhone} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }}
+                    <Input id="customerPhone" type="tel" value={customerPhone} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }}
                       placeholder="Mobile" required className={`h-9 rounded-lg text-sm ${phoneAutoFilled ? 'bg-teal-50 border-teal-200' : ''}`} />
-                    {phoneAutoFilled && <Info size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-teal-500" />}
+                    {phoneAutoFilled && <Info aria-hidden="true" size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-teal-500" />}
                   </div>
                 </FL>
-                <FL label="GST / PAN">
+                <FL label="GST / PAN" htmlFor="customerGst">
                   <div className="relative">
-                    <Input value={customerGst} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setCustomerGst(e.target.value); setGstAutoFilled(false); }}
+                    <Input id="customerGst" value={customerGst} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setCustomerGst(e.target.value); setGstAutoFilled(false); }}
                       placeholder="Optional" className={`h-9 rounded-lg text-sm ${gstAutoFilled ? 'bg-teal-50 border-teal-200' : ''}`} />
-                    {gstAutoFilled && <Info size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-teal-500" />}
+                    {gstAutoFilled && <Info aria-hidden="true" size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-teal-500" />}
                   </div>
                 </FL>
               </div>
-              <FL label="Billing Address" required>
+              <FL label="Billing Address" htmlFor="customerAddress" required>
                 <div className="relative">
-                  <Textarea value={customerAddress} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }}
+                  <Textarea id="customerAddress" value={customerAddress} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }}
                     placeholder="Customer address" rows={2} required className={`rounded-lg text-sm resize-none ${addressAutoFilled ? 'bg-teal-50 border-teal-200' : ''}`} />
-                  {addressAutoFilled && <Info size={13} className="absolute right-2.5 top-2.5 text-teal-500" />}
+                  {addressAutoFilled && <Info aria-hidden="true" size={13} className="absolute right-2.5 top-2.5 text-teal-500" />}
                 </div>
                 {(phoneAutoFilled || addressAutoFilled) && <p className="text-[10px] text-teal-600 mt-0.5">Auto-filled from profile · editable</p>}
               </FL>
@@ -259,16 +295,18 @@ export const CreateOrder = () => {
               <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Products</p>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
+                  <caption className="sr-only">Order items with product, pricing, quantity, discount and amount</caption>
                   <thead>
                     <tr className="border-b border-gray-100">
-                      <th className="text-left pb-2 font-semibold text-gray-500 min-w-[160px]">Product</th>
-                      <th className="text-left pb-2 font-semibold text-gray-500 min-w-[80px]">Brand</th>
-                      <th className="text-right pb-2 font-semibold text-gray-500 w-16">Stock</th>
-                      <th className="text-right pb-2 font-semibold text-gray-500 w-14">Qty</th>
-                      <th className="text-right pb-2 font-semibold text-gray-500 w-20">DP (₹)</th>
-                      <th className="text-right pb-2 font-semibold text-gray-500 w-16">Disc%</th>
-                      <th className="text-right pb-2 font-semibold text-gray-500 w-24">Amount (₹)</th>
-                      <th className="w-6" />
+                      <th scope="col" className="text-left pb-2 font-semibold text-gray-500 min-w-[160px]">Product</th>
+                      <th scope="col" className="text-left pb-2 font-semibold text-gray-500 min-w-[80px]">Brand</th>
+                      <th scope="col" className="text-right pb-2 font-semibold text-gray-500 w-16">MRP</th>
+                      <th scope="col" className="text-right pb-2 font-semibold text-gray-500 w-14">Stock</th>
+                      <th scope="col" className="text-right pb-2 font-semibold text-gray-500 w-20">Qty</th>
+                      <th scope="col" className="text-right pb-2 font-semibold text-gray-500 w-20">DP (₹)</th>
+                      <th scope="col" className="text-right pb-2 font-semibold text-gray-500 w-16">Disc%</th>
+                      <th scope="col" className="text-right pb-2 font-semibold text-gray-500 w-24">Amount (₹)</th>
+                      <th scope="col" className="w-6"><span className="sr-only">Actions</span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -294,22 +332,22 @@ export const CreateOrder = () => {
                           </div>
                         </td>
                         <td className="py-1.5 pr-2">
-                          <Input type="number" value={item.quantity}
+                          <Input id={`quantity-${item.id}`} type="number" value={item.quantity}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, quantity: e.target.value, lastEdited: 'quantity' } : i))}
-                            placeholder="0" className="h-8 text-right rounded-lg text-xs w-14" />
+                            placeholder="0" className="h-8 text-right rounded-lg text-xs w-20" />
                         </td>
                         <td className="py-1.5 pr-2">
                           <div className="relative">
                             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">₹</span>
-                            <Input type="number" value={item.dp}
+                            <Input id={`dp-${item.id}`} type="number" value={item.dp}
                               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, dp: Number(e.target.value) || 0, lastEdited: 'dp' } : i))}
                               className="h-8 text-right pl-5 rounded-lg text-xs w-20" />
                           </div>
                         </td>
                         <td className="py-1.5 pr-2">
                           <div className="relative">
-                            <Input type="number" min="0" max="100" value={item.discount}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, discount: e.target.value, lastEdited: 'discount' } : i))}
+                            <Input id={`discount-${item.id}`} type="number" min="0" max="100" value={item.discount}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, discount: clampDiscountInput(e.target.value), lastEdited: 'discount' } : i))}
                               placeholder="0" className="h-8 text-right pr-5 rounded-lg text-xs w-16" />
                             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">%</span>
                           </div>
@@ -317,14 +355,19 @@ export const CreateOrder = () => {
                         <td className="py-1.5 pr-2">
                           <div className="relative">
                             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]">₹</span>
-                            <Input type="number" value={item.amount}
+                            <Input id={`amount-${item.id}`} type="number" value={item.amount}
                               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, amount: e.target.value, lastEdited: 'amount' } : i))}
                               placeholder="0.00" className="h-8 text-right pl-5 rounded-lg text-xs w-24 bg-teal-50/70 border-teal-200" />
                           </div>
                         </td>
                         <td className="py-1.5">
                           {orderItems.length > 1 && (
-                            <button type="button" onClick={() => handleRemoveItem(item.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(item.id)}
+                              aria-label={`Remove ${item.product || 'line item'}`}
+                              className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+                            >
                               <Trash2 size={13} />
                             </button>
                           )}
@@ -350,7 +393,7 @@ export const CreateOrder = () => {
                   <Pill key={o.v} active={deliveryOption === o.v} onClick={() => setDeliveryOption(o.v)}>{o.l}</Pill>
                 ))}
                 {deliveryOption === 'select' && (
-                  <Input type="date" value={customDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomDate(e.target.value)} className="h-8 rounded-lg text-xs w-36 ml-1" />
+                  <Input id="customDate" type="date" value={customDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomDate(e.target.value)} className="h-8 rounded-lg text-xs w-36 ml-1" />
                 )}
               </div>
 
@@ -361,7 +404,7 @@ export const CreateOrder = () => {
               </div>
 
               {isSiteOrder === 'yes' && (
-                <Textarea value={siteAddress} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSiteAddress(e.target.value)}
+                <Textarea id="siteAddress" value={siteAddress} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSiteAddress(e.target.value)}
                   placeholder="Site / delivery address" rows={2} required className="rounded-lg text-sm resize-none border-amber-200 focus:border-amber-400 bg-amber-50/30" />
               )}
               {isSiteOrder === 'no' && customerAddress && (
@@ -370,7 +413,7 @@ export const CreateOrder = () => {
                 </div>
               )}
 
-              <Textarea value={remarks} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setRemarks(e.target.value)}
+              <Textarea id="remarks" value={remarks} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setRemarks(e.target.value)}
                 placeholder="Remarks / notes (optional)" rows={2} className="rounded-lg text-sm resize-none" />
             </div>
           </div>
@@ -411,13 +454,14 @@ export const CreateOrder = () => {
                   </div>
                 </div>
 
+                <p className="text-[11px] text-gray-500 border-t border-gray-100 pt-2">Fields marked * are mandatory. Removal of any row requires confirmation.</p>
                 <Button type="submit" disabled={loading}
                   className="w-full bg-[#34b0a7] hover:bg-[#2a9d94] text-white rounded-xl h-10 font-semibold flex items-center justify-center gap-2">
                   {loading
                     ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Submitting…</>
                     : <>Submit Order <ChevronRight size={15} /></>}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => navigate('/sales')} className="w-full rounded-xl h-9 text-sm">
+                <Button type="button" variant="outline" onClick={handleCancel} className="w-full rounded-xl h-9 text-sm">
                   Cancel
                 </Button>
               </div>

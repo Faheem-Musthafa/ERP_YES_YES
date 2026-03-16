@@ -58,7 +58,8 @@ async function fetchUserProfile(authId: string, email: string): Promise<User | n
       must_change_password: row.must_change_password ?? false,
       employee_id: row.employee_id ?? null,
     };
-  } catch {
+  } catch (err) {
+    console.error('Failed to fetch user profile:', err);
     return null;
   }
 }
@@ -74,7 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // onAuthStateChange handler causes a deadlock with Supabase's internal token refresh
       // on page reload: the DB query internally calls getSession() which waits for the
       // token refresh, but the token refresh fires TOKEN_REFRESHED which can't be processed
-      // until the current INITIAL_SESSION handler returns â†’ deadlock â†’ loading loop.
+      // until the current INITIAL_SESSION handler returns -> deadlock -> loading loop.
       //
       // Fix: Keep handler sync, defer DB work to next macrotask via setTimeout(0).
       (event, session) => {
@@ -118,7 +119,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
     setUser(null);
   };
 
