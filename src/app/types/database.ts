@@ -67,6 +67,8 @@ export interface Database {
                     name: string;
                     phone: string;
                     address: string;
+                    place: string | null;
+                    pincode: string | null;
                     gst_pan: string | null;
                     is_active: boolean;
                     created_at: string;
@@ -81,6 +83,7 @@ export interface Database {
                     order_number: string;
                     company: CompanyEnum;
                     invoice_type: InvoiceTypeEnum;
+                    invoice_number: string | null;
                     customer_id: string | null;
                     site_address: string;
                     remarks: string | null;
@@ -119,6 +122,8 @@ export interface Database {
                     order_id: string;
                     amount: number;
                     payment_mode: PaymentModeEnum;
+                    payment_status: string | null;
+                    bounce_reason: string | null;
                     recorded_by: string | null;
                     created_at: string;
                 };
@@ -146,9 +151,13 @@ export interface Database {
                     id: string;
                     delivery_number: string;
                     order_id: string;
+                    initiated_by: string | null;
+                    initiated_by_name: string | null;
+                    delivery_agent_id: string | null;
                     driver_name: string | null;
                     vehicle_number: string | null;
                     status: DeliveryStatusEnum;
+                    failure_reason: string | null;
                     dispatched_at: string | null;
                     delivered_at: string | null;
                     created_by: string | null;
@@ -157,6 +166,20 @@ export interface Database {
                 };
                 Insert: Omit<Database['public']['Tables']['deliveries']['Row'], 'id' | 'created_at' | 'updated_at'>;
                 Update: Partial<Database['public']['Tables']['deliveries']['Insert']>;
+            };
+            delivery_agents: {
+                Row: {
+                    id: string;
+                    name: string;
+                    vehicle_number: string | null;
+                    phone: string | null;
+                    is_active: boolean;
+                    created_by: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: Omit<Database['public']['Tables']['delivery_agents']['Row'], 'id' | 'created_at' | 'updated_at'>;
+                Update: Partial<Database['public']['Tables']['delivery_agents']['Insert']>;
             };
             stock_adjustments: {
                 Row: {
@@ -185,6 +208,48 @@ export interface Database {
                 };
                 Insert: Omit<Database['public']['Tables']['suppliers']['Row'], 'id' | 'created_at' | 'updated_at'>;
                 Update: Partial<Database['public']['Tables']['suppliers']['Insert']>;
+            };
+            purchase_orders: {
+                Row: {
+                    id: string;
+                    po_number: string;
+                    supplier_id: string;
+                    status: PoStatusEnum;
+                    total_amount: number;
+                    created_by: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: Omit<Database['public']['Tables']['purchase_orders']['Row'], 'id' | 'created_at' | 'updated_at'>;
+                Update: Partial<Database['public']['Tables']['purchase_orders']['Insert']>;
+            };
+            grn_items: {
+                Row: {
+                    id: string;
+                    purchase_order_id: string;
+                    product_id: string;
+                    expected_qty: number;
+                    received_qty: number;
+                    status: GrnStatusEnum;
+                    received_date: string | null;
+                    created_at: string;
+                };
+                Insert: Omit<Database['public']['Tables']['grn_items']['Row'], 'id' | 'created_at'>;
+                Update: Partial<Database['public']['Tables']['grn_items']['Insert']>;
+            };
+            stock_movements: {
+                Row: {
+                    id: string;
+                    product_id: string;
+                    quantity: number;
+                    movement_type: string;
+                    reference_type: string | null;
+                    reference_id: string | null;
+                    created_by: string | null;
+                    created_at: string;
+                };
+                Insert: Omit<Database['public']['Tables']['stock_movements']['Row'], 'id' | 'created_at'>;
+                Update: Partial<Database['public']['Tables']['stock_movements']['Insert']>;
             };
         };
     };

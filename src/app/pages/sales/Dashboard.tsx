@@ -9,7 +9,7 @@ import {
 import { Link } from 'react-router';
 import { Button } from '@/app/components/ui/button';
 import {
-  PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd, StatusBadge, EmptyState, Spinner
+  PageHeader, DataCard, StatusBadge, EmptyState, Spinner, ErrorState
 } from '@/app/components/ui/primitives';
 
 const MONTHLY_TARGET = 500000;
@@ -24,48 +24,57 @@ export const SalesDashboard = () => {
   });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [monthlyData, setMonthlyData] = useState<{ week: string; sales: number }[]>([]);
+  const [error, setError] = useState('');
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
+    setError('');
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [
-      { data: allMyOrders },
-      { data: myMonthOrders },
-      { data: myReceipts },
-      { data: myMonthReceipts },
-    ] = await Promise.all([
-      supabase.from('orders').select('id, order_number, status, grand_total, created_at, customers(name)').eq('created_by', user!.id).order('created_at', { ascending: false }).limit(50),
-      supabase.from('orders').select('id, status, grand_total, created_at').eq('created_by', user!.id).gte('created_at', monthStart),
-      supabase.from('receipts').select('id, amount').eq('recorded_by', user!.id),
-      supabase.from('receipts').select('id, amount').eq('recorded_by', user!.id).gte('created_at', monthStart),
-    ]);
+    try {
+      const [
+        { data: allMyOrders, error: allMyOrdersError },
+        { data: myMonthOrders, error: myMonthOrdersError },
+        { data: myReceipts, error: myReceiptsError },
+        { data: myMonthReceipts, error: myMonthReceiptsError },
+      ] = await Promise.all([
+        supabase.from('orders').select('id, order_number, status, grand_total, created_at, customers(name)').eq('created_by', user!.id).order('created_at', { ascending: false }).limit(50),
+        supabase.from('orders').select('id, status, grand_total, created_at').eq('created_by', user!.id).gte('created_at', monthStart),
+        supabase.from('receipts').select('id, amount').eq('recorded_by', user!.id),
+        supabase.from('receipts').select('id, amount').eq('recorded_by', user!.id).gte('created_at', monthStart),
+      ]);
+      const fetchError = allMyOrdersError || myMonthOrdersError || myReceiptsError || myMonthReceiptsError;
+      if (fetchError) throw new Error(fetchError.message);
 
-    const validated = (allMyOrders ?? []).filter(o => ['Approved', 'Billed', 'Delivered'].includes(o.status));
-    const myMonthSalesOrders = (myMonthOrders ?? []).filter(o => ['Approved', 'Billed', 'Delivered'].includes(o.status));
+      const validated = (allMyOrders ?? []).filter(o => ['Approved', 'Billed', 'Delivered'].includes(o.status));
+      const myMonthSalesOrders = (myMonthOrders ?? []).filter(o => ['Approved', 'Billed', 'Delivered'].includes(o.status));
 
-    const weeks: Record<string, number> = { 'W1': 0, 'W2': 0, 'W3': 0, 'W4': 0 };
-    myMonthSalesOrders.forEach(o => {
-      const day = new Date(o.created_at).getDate();
-      const wk = day <= 7 ? 'W1' : day <= 14 ? 'W2' : day <= 21 ? 'W3' : 'W4';
-      weeks[wk] += o.grand_total ?? 0;
-    });
+      const weeks: Record<string, number> = { 'W1': 0, 'W2': 0, 'W3': 0, 'W4': 0 };
+      myMonthSalesOrders.forEach(o => {
+        const day = new Date(o.created_at).getDate();
+        const wk = day <= 7 ? 'W1' : day <= 14 ? 'W2' : day <= 21 ? 'W3' : 'W4';
+        weeks[wk] += o.grand_total ?? 0;
+      });
 
-    setMonthlyData(Object.entries(weeks).map(([week, sales]) => ({ week, sales })));
-    setRecentOrders((allMyOrders ?? []).slice(0, 5));
+      setMonthlyData(Object.entries(weeks).map(([week, sales]) => ({ week, sales })));
+      setRecentOrders((allMyOrders ?? []).slice(0, 5));
 
-    setStats({
-      myOrdersTotal: validated.reduce((s, o) => s + (o.grand_total ?? 0), 0),
-      myMonthSales: myMonthSalesOrders.reduce((s, o) => s + (o.grand_total ?? 0), 0),
-      myMonthOrders: (myMonthOrders ?? []).length,
-      myPending: (allMyOrders ?? []).filter(o => o.status === 'Pending').length,
-      myApproved: (allMyOrders ?? []).filter(o => o.status === 'Approved').length,
-      myCollected: (myReceipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
-      myMonthCollected: (myMonthReceipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
-      totalOrders: (allMyOrders ?? []).length,
-    });
-    setLoading(false);
+      setStats({
+        myOrdersTotal: validated.reduce((s, o) => s + (o.grand_total ?? 0), 0),
+        myMonthSales: myMonthSalesOrders.reduce((s, o) => s + (o.grand_total ?? 0), 0),
+        myMonthOrders: (myMonthOrders ?? []).length,
+        myPending: (allMyOrders ?? []).filter(o => o.status === 'Pending').length,
+        myApproved: (allMyOrders ?? []).filter(o => o.status === 'Approved').length,
+        myCollected: (myReceipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
+        myMonthCollected: (myMonthReceipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
+        totalOrders: (allMyOrders ?? []).length,
+      });
+    } catch (err: any) {
+      setError(err?.message || 'Unable to load sales dashboard');
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => { if (user?.id) fetchAll(); }, [user?.id, fetchAll]);
@@ -74,11 +83,8 @@ export const SalesDashboard = () => {
   const monthName = new Date().toLocaleString('en-IN', { month: 'long' });
   const maxWeekSales = Math.max(...monthlyData.map(d => d.sales), 1);
 
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-[50vh]">
-      <Spinner size={32} />
-    </div>
-  );
+  if (loading) return <Spinner size={32} />;
+  if (error) return <ErrorState message={error} onRetry={() => void fetchAll()} />;
 
   return (
     <div className="space-y-6 pb-12">
@@ -188,18 +194,21 @@ export const SalesDashboard = () => {
           <DataCard className="flex flex-col h-full min-h-[300px]">
             <div className="p-5 border-b border-border flex items-center justify-between">
               <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Recent Orders</h3>
-              <Link to="/sales/my-orders" className="text-[10px] text-primary font-bold uppercase tracking-widest hover:underline">View All</Link>
+              <Link
+                to="/sales/my-orders"
+                className="text-[10px] text-primary font-bold uppercase tracking-widest hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
+                aria-label="View all recent orders"
+              >
+                View All
+              </Link>
             </div>
             <div className="p-0">
               {recentOrders.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  <FileText className="mx-auto mb-2 opacity-20" size={32} />
-                  <p className="text-sm">No recent orders</p>
-                </div>
+                <EmptyState icon={FileText} message="No recent orders" />
               ) : (
-                <div className="divide-y divide-border">
+                <ul className="divide-y divide-border" aria-label="Recent orders list">
                   {recentOrders.map(o => (
-                    <div key={o.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                    <li key={o.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
                       <div className="flex flex-col gap-1">
                         <span className="text-sm font-semibold text-foreground leading-none">{o.order_number}</span>
                         <span className="text-xs text-muted-foreground truncate max-w-[150px]">{o.customers?.name ?? '—'}</span>
@@ -208,9 +217,9 @@ export const SalesDashboard = () => {
                         <span className="text-sm font-bold font-mono text-foreground leading-none">₹{o.grand_total?.toLocaleString('en-IN') ?? '0'}</span>
                         <StatusBadge status={o.status} className="h-5 text-[9px] px-1.5" />
                       </div>
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </div>
           </DataCard>

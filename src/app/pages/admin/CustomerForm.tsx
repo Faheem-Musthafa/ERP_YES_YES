@@ -71,13 +71,23 @@ export const CustomerForm = () => {
 
     if (fetching) return <Spinner />;
 
+    const hasChanges = Boolean(
+        form.name.trim() || form.place.trim() || form.address.trim() || form.phone.trim() || form.pincode.trim() || form.gst_pan.trim()
+    );
+
+    const handleCancel = () => {
+        if (!hasChanges || window.confirm('Discard current changes?')) {
+            navigate('/admin/customers');
+        }
+    };
+
     return (
         <div className="space-y-6">
             <PageHeader
                 title={isEdit ? 'Edit Customer' : 'Add New Customer'}
                 subtitle={isEdit ? 'Update customer information below.' : 'Fill in the details to add a new customer.'}
                 actions={
-                    <Button variant="ghost" size="sm" onClick={() => navigate('/admin/customers')} className="gap-2">
+                    <Button variant="ghost" size="sm" onClick={handleCancel} className="gap-2">
                         <ArrowLeft size={15} /> Back to Customers
                     </Button>
                 }
@@ -85,7 +95,7 @@ export const CustomerForm = () => {
 
             <FormCard>
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <FormSection title="Basic Information">
+                    <FormSection title="Basic Information" subtitle="Capture customer identity and contact details clearly.">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2 space-y-1.5">
                                 <Label>Customer Name <span className="text-destructive">*</span></Label>
@@ -102,7 +112,7 @@ export const CustomerForm = () => {
                         </div>
                     </FormSection>
 
-                    <FormSection title="Address Details">
+                    <FormSection title="Address Details" subtitle="Use complete address data for invoicing and delivery operations.">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2 space-y-1.5">
                                 <Label>Full Address <span className="text-destructive">*</span></Label>
@@ -122,12 +132,19 @@ export const CustomerForm = () => {
                         </div>
                     </FormSection>
 
-                    <div className="flex gap-3 pt-2 border-t border-border">
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                        Fields marked with * are required. Verify phone number and address before saving.
+                    </div>
+
+                    <div className="sticky bottom-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 rounded-xl border border-border p-3 flex flex-col-reverse sm:flex-row gap-3 sm:items-center sm:justify-between">
+                        <p className="text-xs text-muted-foreground">{isEdit ? 'Updating this customer will affect future transactions.' : 'New customer will be available immediately in sales forms.'}</p>
+                        <div className="flex gap-3">
                         <Button type="submit" disabled={loading} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
                             <Save size={15} />
                             {loading ? 'Saving...' : isEdit ? 'Update Customer' : 'Add Customer'}
                         </Button>
-                        <Button type="button" variant="outline" onClick={() => navigate('/admin/customers')}>Cancel</Button>
+                        <Button type="button" variant="outline" onClick={handleCancel}>Cancel</Button>
+                        </div>
                     </div>
                 </form>
             </FormCard>

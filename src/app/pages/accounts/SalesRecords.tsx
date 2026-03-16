@@ -3,9 +3,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FileText } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import {
-  PageHeader, SearchBar, DataCard,
+  PageHeader, SearchBar, DataCard, FilterBar, FilterField,
   StyledThead, StyledTh, StyledTr, StyledTd,
-  EmptyState, Spinner, StatusBadge,
+  EmptyState, Spinner, StatusBadge, TablePagination,
 } from '@/app/components/ui/primitives';
 
 export const SalesRecords = () => {
@@ -13,6 +13,8 @@ export const SalesRecords = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     (async () => {
@@ -34,6 +36,9 @@ export const SalesRecords = () => {
     const matchStatus = !statusFilter || statusFilter === 'all' || o.status === statusFilter;
     return matchSearch && matchStatus;
   });
+  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, orders.length]);
+  const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const total = filtered.reduce((s, o) => s + (o.grand_total ?? 0), 0);
 
@@ -44,25 +49,27 @@ export const SalesRecords = () => {
         subtitle="All approved, billed, and delivered orders"
       />
 
-      <div className="flex gap-3 flex-wrap">
+      <FilterBar>
         <SearchBar
           placeholder="Search by order no / customer..."
           value={search}
           onChange={setSearch}
-          className="max-w-xs"
+          className="w-full md:max-w-md"
         />
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40 h-9 text-sm">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="Approved">Approved</SelectItem>
-            <SelectItem value="Billed">Billed</SelectItem>
-            <SelectItem value="Delivered">Delivered</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        <FilterField label="Status">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40 h-10 text-sm">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="Approved">Approved</SelectItem>
+              <SelectItem value="Billed">Billed</SelectItem>
+              <SelectItem value="Delivered">Delivered</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterField>
+      </FilterBar>
 
       <DataCard>
         {loading ? <Spinner /> :
@@ -84,7 +91,7 @@ export const SalesRecords = () => {
                     </tr>
                   </StyledThead>
                   <tbody>
-                    {filtered.map(o => (
+                    {paginated.map(o => (
                       <StyledTr key={o.id}>
                         <StyledTd mono className="text-primary font-semibold">{o.order_number}</StyledTd>
                         <StyledTd className="text-foreground">{o.customers?.name ?? '—'}</StyledTd>
@@ -108,6 +115,13 @@ export const SalesRecords = () => {
                   Total: ₹{total.toLocaleString('en-IN')}
                 </span>
               </div>
+              <TablePagination
+                totalItems={filtered.length}
+                currentPage={page}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                itemLabel="records"
+              />
             </>
           )
         }

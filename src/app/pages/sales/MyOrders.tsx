@@ -6,9 +6,9 @@ import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Button } from '@/app/components/ui/button';
 import {
-  PageHeader, SearchBar, DataCard,
+  PageHeader, SearchBar, DataCard, FilterBar, FilterField,
   StyledThead, StyledTh, StyledTr, StyledTd,
-  StatusBadge, EmptyState, Spinner
+  StatusBadge, EmptyState, Spinner, TablePagination
 } from '@/app/components/ui/primitives';
 
 export const MyOrders = () => {
@@ -18,6 +18,8 @@ export const MyOrders = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     if (!user) return;
@@ -38,6 +40,9 @@ export const MyOrders = () => {
     const matchStatus = !statusFilter || statusFilter === 'all' || o.status === statusFilter;
     return matchSearch && matchStatus;
   });
+  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, orders.length]);
+  const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="space-y-5">
@@ -51,26 +56,28 @@ export const MyOrders = () => {
         }
       />
 
-      <div className="flex gap-3 flex-wrap">
+      <FilterBar>
         <SearchBar
           placeholder="Search by order no / customer..."
           value={search} onChange={setSearch}
-          className="min-w-[280px]"
+          className="w-full md:max-w-md"
         />
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-44 h-9 text-sm">
-            <SelectValue placeholder="All Statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="Approved">Approved</SelectItem>
-            <SelectItem value="Rejected">Rejected</SelectItem>
-            <SelectItem value="Billed">Billed</SelectItem>
-            <SelectItem value="Delivered">Delivered</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        <FilterField label="Order Status">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-44 h-10 text-sm">
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="Pending">Pending</SelectItem>
+              <SelectItem value="Approved">Approved</SelectItem>
+              <SelectItem value="Rejected">Rejected</SelectItem>
+              <SelectItem value="Billed">Billed</SelectItem>
+              <SelectItem value="Delivered">Delivered</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterField>
+      </FilterBar>
 
       <DataCard>
         {loading ? <Spinner /> : filtered.length === 0 ? (
@@ -91,8 +98,8 @@ export const MyOrders = () => {
                 </tr>
               </StyledThead>
               <tbody>
-                {filtered.map(order => (
-                  <StyledTr key={order.id} onClick={() => { /* View details later */ }} className="cursor-pointer group">
+                {paginated.map(order => (
+                  <StyledTr key={order.id} className="group">
                     <StyledTd className="font-semibold text-primary group-hover:underline">{order.order_number}</StyledTd>
                     <StyledTd className="font-medium text-foreground">{order.customers?.name ?? '—'}</StyledTd>
                     <StyledTd className="text-muted-foreground">{order.company}</StyledTd>
@@ -105,6 +112,13 @@ export const MyOrders = () => {
                 ))}
               </tbody>
             </table>
+            <TablePagination
+              totalItems={filtered.length}
+              currentPage={page}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              itemLabel="orders"
+            />
           </div>
         )}
       </DataCard>

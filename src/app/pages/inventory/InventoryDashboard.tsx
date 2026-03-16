@@ -1,103 +1,131 @@
-﻿import React, { useState, useEffect } from 'react';
-import { Package, CheckCircle, AlertTriangle, Tag } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package, CheckCircle, AlertTriangle, Tag, Boxes } from 'lucide-react';
 import { supabase } from '@/app/supabase';
+import {
+  PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd, EmptyState, Spinner, ErrorState,
+} from '@/app/components/ui/primitives';
 
 export const InventoryDashboard = () => {
   const [stats, setStats] = useState({ totalProducts: 0, inStock: 0, lowStock: 0, totalBrands: 0 });
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
-      const [{ data: products }, { data: brands }] = await Promise.all([
-        supabase.from('products').select('id, name, stock_qty, brands(name)').eq('is_active', true),
-        supabase.from('brands').select('id').eq('is_active', true),
-      ]);
-      if (products) {
-        const low = products.filter(p => p.stock_qty <= 5);
-        setLowStockItems(low.slice(0, 10));
-        setStats({
-          totalProducts: products.length,
-          inStock: products.filter(p => p.stock_qty > 5).length,
-          lowStock: low.length,
-          totalBrands: (brands ?? []).length,
-        });
+      setLoading(true);
+      setError('');
+      try {
+        const [{ data: products, error: productsError }, { data: brands, error: brandsError }] = await Promise.all([
+          supabase.from('products').select('id, name, stock_qty, brands(name)').eq('is_active', true),
+          supabase.from('brands').select('id').eq('is_active', true),
+        ]);
+        const fetchError = productsError || brandsError;
+        if (fetchError) throw new Error(fetchError.message);
+
+        if (products) {
+          const low = products.filter(p => p.stock_qty <= 5);
+          setLowStockItems(low.slice(0, 10));
+          setStats({
+            totalProducts: products.length,
+            inStock: products.filter(p => p.stock_qty > 5).length,
+            lowStock: low.length,
+            totalBrands: (brands ?? []).length,
+          });
+        }
+      } catch (err: any) {
+        setError(err?.message || 'Unable to load inventory dashboard');
+      } finally {
+        setLoading(false);
       }
     };
-    fetchData();
+    void fetchData();
   }, []);
 
-  const cards = [
-    { title: 'Total Products', value: stats.totalProducts, icon: <Package className="text-teal-600" size={24} />, bg: 'bg-teal-50' },
-    { title: 'In Stock', value: stats.inStock, icon: <CheckCircle className="text-green-600" size={24} />, bg: 'bg-green-50' },
-    { title: 'Low Stock Alerts', value: stats.lowStock, icon: <AlertTriangle className="text-teal-600" size={24} />, bg: 'bg-teal-50' },
-    { title: 'Total Brands', value: stats.totalBrands, icon: <Tag className="text-purple-600" size={24} />, bg: 'bg-purple-50' },
-  ];
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Inventory Dashboard</h1>
-        <p className="text-gray-500 mt-1 text-sm">Overview of stock levels and inventory health</p>
-      </div>
+    <div className="space-y-6 pb-12">
+      <PageHeader
+        title="Inventory Dashboard"
+        subtitle="Overview of stock levels and inventory health"
+      />
+      {loading ? <Spinner /> : error ? <ErrorState message={error} /> : (
+        <>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { title: 'Total Products', value: stats.totalProducts, icon: <Package className="text-teal-600" size={20} />, bg: 'bg-teal-50', border: 'border-l-4 border-l-teal-500' },
-          { title: 'In Stock', value: stats.inStock, icon: <CheckCircle className="text-emerald-600" size={20} />, bg: 'bg-emerald-50', border: 'border-l-4 border-l-emerald-500' },
-          { title: 'Low Stock Alerts', value: stats.lowStock, icon: <AlertTriangle className="text-amber-600" size={20} />, bg: 'bg-amber-50', border: 'border-l-4 border-l-amber-500' },
-          { title: 'Total Brands', value: stats.totalBrands, icon: <Tag className="text-purple-600" size={20} />, bg: 'bg-purple-50', border: 'border-l-4 border-l-purple-500' },
-        ].map((c, i) => (
-          <div key={i} className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-5 ${c.border}`}>
+          { label: 'Total Products', value: stats.totalProducts, icon: <Package size={18} />, color: 'text-teal-600', bg: 'bg-teal-50', border: 'border-teal-200 hover:border-teal-300' },
+          { label: 'In Stock', value: stats.inStock, icon: <CheckCircle size={18} />, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200 hover:border-emerald-300' },
+          { label: 'Low Stock Alerts', value: stats.lowStock, icon: <AlertTriangle size={18} />, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200 hover:border-amber-300' },
+          { label: 'Total Brands', value: stats.totalBrands, icon: <Tag size={18} />, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200 hover:border-purple-300' },
+        ].map((s, i) => (
+          <DataCard key={i} className={`p-5 transition-colors group cursor-default ${s.border}`}>
             <div className="flex items-start justify-between mb-3">
-              <div className={`p-2.5 rounded-xl ${c.bg}`}>{c.icon}</div>
+              <div className={`p-2 rounded-xl ${s.bg} ${s.color} transition-transform group-hover:scale-110`}>{s.icon}</div>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{c.value}</p>
-            <p className="text-xs font-medium text-gray-500 mt-1 uppercase tracking-wide">{c.title}</p>
-          </div>
+            <p className="text-2xl font-bold text-foreground">{s.value}</p>
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground mt-1">{s.label}</p>
+          </DataCard>
         ))}
       </div>
 
-      {/* Low Stock Table */}
-      {lowStockItems.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2 uppercase tracking-wide">
-            <AlertTriangle size={15} className="text-amber-500" /> Items Requiring Attention
-            <span className="ml-auto text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">{lowStockItems.length} items</span>
-          </h3>
+      <DataCard className="flex flex-col">
+        <div className="p-5 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Boxes size={16} className="text-muted-foreground" />
+            <h3 className="text-xs font-bold text-foreground uppercase tracking-widest">Items Requiring Attention</h3>
+          </div>
+          {lowStockItems.length > 0 && (
+            <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+              {lowStockItems.length} Items
+            </span>
+          )}
+        </div>
+        {lowStockItems.length === 0 ? (
+          <EmptyState
+            icon={CheckCircle}
+            message="No low stock alerts"
+            sub="All active products are above the reorder threshold."
+          />
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Product</th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Brand</th>
-                  <th className="text-right px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Stock</th>
-                  <th className="text-center px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Status</th>
+              <StyledThead>
+                <tr>
+                  <StyledTh>Product</StyledTh>
+                  <StyledTh>Brand</StyledTh>
+                  <StyledTh right>Stock</StyledTh>
+                  <StyledTh className="text-center">Status</StyledTh>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
+              </StyledThead>
+              <tbody>
                 {lowStockItems.map(p => (
-                  <tr key={p.id} className="hover:bg-gray-50/70 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-gray-900">{p.name}</td>
-                    <td className="px-4 py-3 text-gray-500">{(p.brands as any)?.name ?? '-'}</td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-bold text-gray-800">{p.stock_qty}</span>
-                      <span className="text-gray-400 text-xs"> units</span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${p.stock_qty === 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                  <StyledTr key={p.id}>
+                    <StyledTd className="font-semibold text-foreground">{p.name}</StyledTd>
+                    <StyledTd className="text-muted-foreground">{(p.brands as any)?.name ?? '-'}</StyledTd>
+                    <StyledTd right className="font-bold">
+                      {p.stock_qty}
+                      <span className="text-muted-foreground font-normal text-xs ml-1">units</span>
+                    </StyledTd>
+                    <StyledTd className="text-center">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                          p.stock_qty === 0
+                            ? 'bg-red-50 text-red-700 border-red-200/80'
+                            : 'bg-amber-50 text-amber-700 border-amber-200/80'
+                        }`}
+                      >
                         {p.stock_qty === 0 ? 'Out of Stock' : 'Low Stock'}
                       </span>
-                    </td>
-                  </tr>
+                    </StyledTd>
+                  </StyledTr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        )}
+      </DataCard>
+        </>
       )}
     </div>
   );
 };
-

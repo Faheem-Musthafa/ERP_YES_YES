@@ -1,19 +1,25 @@
-﻿import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Plus, Eye, Truck } from 'lucide-react';
 import {
   PageHeader, SearchBar, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
-  StatusBadge, IconBtn, EmptyState
+  StatusBadge, EmptyState
 } from '@/app/components/ui/primitives';
 
 export const PurchaseOrders = () => {
+  const [search, setSearch] = useState('');
   const purchaseOrders = [
     { poNumber: 'PO-2024-175', supplier: 'Supplier A', items: 15, amount: 245000, date: '2026-02-20', expectedDate: '2026-02-25', status: 'In Transit' },
     { poNumber: 'PO-2024-176', supplier: 'Supplier B', items: 8, amount: 182500, date: '2026-02-19', expectedDate: '2026-02-26', status: 'Pending' },
     { poNumber: 'PO-2024-177', supplier: 'Supplier C', items: 22, amount: 395000, date: '2026-02-18', expectedDate: '2026-02-28', status: 'In Transit' },
     { poNumber: 'PO-2024-178', supplier: 'Supplier A', items: 12, amount: 156000, date: '2026-02-17', expectedDate: '2026-02-22', status: 'Approved' },
   ];
+  const filteredOrders = purchaseOrders.filter(po =>
+    !search.trim() ||
+    po.poNumber.toLowerCase().includes(search.toLowerCase()) ||
+    po.supplier.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-5">
@@ -21,7 +27,12 @@ export const PurchaseOrders = () => {
         title="Purchase Orders"
         subtitle="Manage and track purchase orders"
         actions={
-          <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+          <Button
+            size="sm"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+            disabled
+            title="Create PO flow is coming soon"
+          >
             <Plus size={15} /> Create PO
           </Button>
         }
@@ -29,12 +40,13 @@ export const PurchaseOrders = () => {
 
       <SearchBar
         placeholder="Search by PO number, supplier..."
-        value="" onChange={() => { }}
+        value={search}
+        onChange={setSearch}
         className="max-w-sm"
       />
 
       <DataCard>
-        {purchaseOrders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <EmptyState icon={Truck} message="No purchase orders found" sub="Create a new PO to get started" />
         ) : (
           <div className="overflow-x-auto">
@@ -52,7 +64,7 @@ export const PurchaseOrders = () => {
                 </tr>
               </StyledThead>
               <tbody>
-                {purchaseOrders.map((po, index) => (
+                {filteredOrders.map((po, index) => (
                   <StyledTr key={index}>
                     <StyledTd className="font-semibold text-primary">{po.poNumber}</StyledTd>
                     <StyledTd className="text-foreground">{po.supplier}</StyledTd>
@@ -63,7 +75,9 @@ export const PurchaseOrders = () => {
                     <StyledTd><StatusBadge status={po.status} /></StyledTd>
                     <StyledTd right>
                       <div className="flex justify-end">
-                        <IconBtn title="View PO details"><Eye size={14} /></IconBtn>
+                        <Button variant="ghost" size="icon" disabled title={`Details for ${po.poNumber} coming soon`} aria-label={`Details for ${po.poNumber} coming soon`}>
+                          <Eye size={14} />
+                        </Button>
                       </div>
                     </StyledTd>
                   </StyledTr>

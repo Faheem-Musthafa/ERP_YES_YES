@@ -3,9 +3,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PackageOpen } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import {
-  PageHeader, SearchBar, DataCard,
+  PageHeader, SearchBar, DataCard, FilterBar, FilterField,
   StyledThead, StyledTh, StyledTr, StyledTd,
-  EmptyState, Spinner,
+  EmptyState, Spinner, TablePagination, ErrorState,
 } from '@/app/components/ui/primitives';
 
 export const InventoryStock = () => {
@@ -14,16 +14,30 @@ export const InventoryStock = () => {
   const [search, setSearch] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
   const [brands, setBrands] = useState<any[]>([]);
+  const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError('');
+    const [{ data: prod, error: prodError }, { data: br, error: brError }] = await Promise.all([
+      supabase.from('products').select('id, name, sku, stock_qty, dealer_price, brands(id, name)').eq('is_active', true).order('name'),
+      supabase.from('brands').select('id, name').eq('is_active', true).order('name'),
+    ]);
+    if (prodError || brError) {
+      setError(prodError?.message || brError?.message || 'Unable to load stock');
+      setProducts([]);
+      setBrands([]);
+    } else {
+      setProducts(prod ?? []);
+      setBrands(br ?? []);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const [{ data: prod }, { data: br }] = await Promise.all([
-        supabase.from('products').select('id, name, sku, stock_qty, dealer_price, brands(id, name)').eq('is_active', true).order('name'),
-        supabase.from('brands').select('id, name').eq('is_active', true).order('name'),
-      ]);
-      setProducts(prod ?? []); setBrands(br ?? []); setLoading(false);
-    })();
+    void fetchData();
   }, []);
 
   const filtered = products.filter(p => {
@@ -31,6 +45,9 @@ export const InventoryStock = () => {
     const matchBrand = !brandFilter || brandFilter === 'all' || (p.brands?.id === brandFilter);
     return matchSearch && matchBrand;
   });
+  useEffect(() => { setCurrentPage(1); }, [search, brandFilter, products.length]);
+  const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const getStockStatus = (qty: number) => {
     if (qty === 0) return { label: 'Out of Stock', cls: 'bg-red-50 text-red-700 border-red-200' };
@@ -45,25 +62,29 @@ export const InventoryStock = () => {
         subtitle="Current stock levels for all products"
       />
 
-      <div className="flex gap-3 flex-wrap">
+      <FilterBar>
         <SearchBar
           placeholder="Search by name / SKU..."
           value={search} onChange={setSearch}
-          className="min-w-[240px]"
+          className="w-full md:max-w-md"
         />
-        <Select value={brandFilter} onValueChange={setBrandFilter}>
-          <SelectTrigger className="w-48 h-9 text-sm">
-            <SelectValue placeholder="All Brands" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Brands</SelectItem>
-            {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+        <FilterField label="Brand">
+          <Select value={brandFilter} onValueChange={setBrandFilter}>
+            <SelectTrigger className="w-48 h-10 text-sm">
+              <SelectValue placeholder="All Brands" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Brands</SelectItem>
+              {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </FilterField>
+      </FilterBar>
 
       <DataCard>
-        {loading ? <Spinner /> : filtered.length === 0 ? (
+        {loading ? <Spinner /> : error ? (
+          <ErrorState message={error} onRetry={() => void fetchData()} />
+        ) : filtered.length === 0 ? (
           <EmptyState icon={PackageOpen} message="No products found" sub="Adjust filters or add new products" />
         ) : (
           <div className="overflow-x-auto">
@@ -79,7 +100,7 @@ export const InventoryStock = () => {
                 </tr>
               </StyledThead>
               <tbody>
-                {filtered.map(p => {
+                {paginated.map(p => {
                   const s = getStockStatus(p.stock_qty);
                   return (
                     <StyledTr key={p.id}>
@@ -88,7 +109,7 @@ export const InventoryStock = () => {
                       <StyledTd mono className="text-xs text-muted-foreground">{p.sku}</StyledTd>
                       <StyledTd right mono>₹{p.dealer_price?.toLocaleString('en-IN')}</StyledTd>
                       <StyledTd right mono>
-                        <span className={`font-bold ${p.stock_qty <= 5 ? 'text-amber-600' : p.stock_qty === 0 ? 'text-red-600' : 'text-foreground'}`}>
+                        <span className={`font-bold ${p.stock_qty === 0 ? 'text-red-600' : p.stock_qty <= 5 ? 'text-amber-600' : 'text-foreground'}`}>
                           {p.stock_qty}
                         </span>
                       </StyledTd>
@@ -102,6 +123,13 @@ export const InventoryStock = () => {
                 })}
               </tbody>
             </table>
+            <TablePagination
+              totalItems={filtered.length}
+              currentPage={page}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              itemLabel="products"
+            />
           </div>
         )}
       </DataCard>

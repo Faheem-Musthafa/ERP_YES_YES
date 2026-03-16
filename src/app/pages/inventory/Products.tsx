@@ -4,13 +4,17 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/app/components/ui/alert-dialog';
 import { Plus, Pencil, Package, Trash2 } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 import {
-  PageHeader, SearchBar, DataCard,
+  PageHeader, SearchBar, DataCard, FilterBar, FilterField,
   StyledThead, StyledTh, StyledTr, StyledTd,
-  EmptyState, Spinner, StatusBadge, IconBtn,
+  EmptyState, Spinner, StatusBadge, IconBtn, TablePagination,
 } from '@/app/components/ui/primitives';
 
 export const Products = () => {
@@ -23,6 +27,9 @@ export const Products = () => {
   const [editing, setEditing] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', brand_id: '', sku: '', dealer_price: '', stock_qty: '0' });
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const fetchData = async () => {
     setLoading(true);
@@ -56,10 +63,9 @@ export const Products = () => {
   };
 
   const deleteProduct = async (p: any) => {
-    if (!window.confirm(`Delete "${p.name}" permanently?`)) return;
     const { error } = await supabase.from('products').delete().eq('id', p.id);
     if (error) toast.error('Failed to delete product');
-    else { toast.success('Product deleted'); fetchData(); }
+    else { toast.success('Product deleted'); setDeleteTarget(null); fetchData(); }
   };
 
   const filtered = products.filter(p => {
@@ -67,6 +73,9 @@ export const Products = () => {
     const matchBrand = !brandFilter || brandFilter === 'all' || (p.brands?.id === brandFilter);
     return matchSearch && matchBrand;
   });
+  useEffect(() => { setCurrentPage(1); }, [search, brandFilter, products.length]);
+  const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="space-y-5">
@@ -80,65 +89,79 @@ export const Products = () => {
         }
       />
 
-      <div className="flex gap-3 flex-wrap">
+      <FilterBar>
         <SearchBar
           placeholder="Search by name / SKU..."
           value={search} onChange={setSearch}
-          className="min-w-[240px]"
+          className="w-full md:max-w-md"
         />
-        <Select value={brandFilter} onValueChange={setBrandFilter}>
-          <SelectTrigger className="w-48 h-9 text-sm">
-            <SelectValue placeholder="All Brands" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Brands</SelectItem>
-            {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+        <FilterField label="Brand">
+          <Select value={brandFilter} onValueChange={setBrandFilter}>
+            <SelectTrigger className="w-48 h-10 text-sm">
+              <SelectValue placeholder="All Brands" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Brands</SelectItem>
+              {brands.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </FilterField>
+      </FilterBar>
 
       <DataCard>
         {loading ? <Spinner /> :
           filtered.length === 0 ? (
             <EmptyState icon={Package} message="No products found" sub="Adjust filters or add a new product" />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <StyledThead>
-                  <tr>
-                    <StyledTh>Product</StyledTh>
-                    <StyledTh>Brand</StyledTh>
-                    <StyledTh>SKU</StyledTh>
-                    <StyledTh right>Dealer Price</StyledTh>
-                    <StyledTh right>Stock</StyledTh>
-                    <StyledTh>Status</StyledTh>
-                    <StyledTh right>Actions</StyledTh>
-                  </tr>
-                </StyledThead>
-                <tbody>
-                  {filtered.map(p => (
-                    <StyledTr key={p.id}>
-                      <StyledTd className="font-semibold text-foreground">{p.name}</StyledTd>
-                      <StyledTd className="text-muted-foreground">{p.brands?.name ?? '—'}</StyledTd>
-                      <StyledTd mono className="text-xs text-muted-foreground">{p.sku}</StyledTd>
-                      <StyledTd right mono>₹{p.dealer_price?.toLocaleString('en-IN')}</StyledTd>
-                      <StyledTd right mono>
-                        <span className={`font-bold ${p.stock_qty <= 5 ? 'text-amber-600' : p.stock_qty === 0 ? 'text-red-600' : 'text-foreground'}`}>
-                          {p.stock_qty}
-                        </span>
-                      </StyledTd>
-                      <StyledTd><StatusBadge status={p.is_active ? 'Active' : 'Inactive'} /></StyledTd>
-                      <StyledTd right>
-                        <div className="flex items-center justify-end gap-1">
-                          <IconBtn onClick={() => openEdit(p)} title="Edit"><Pencil size={14} /></IconBtn>
-                          <IconBtn onClick={() => deleteProduct(p)} title="Delete" danger><Trash2 size={13} /></IconBtn>
-                        </div>
-                      </StyledTd>
-                    </StyledTr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <StyledThead>
+                    <tr>
+                      <StyledTh>Product</StyledTh>
+                      <StyledTh>Brand</StyledTh>
+                      <StyledTh>SKU</StyledTh>
+                      <StyledTh right>Dealer Price</StyledTh>
+                      <StyledTh right>Stock</StyledTh>
+                      <StyledTh>Status</StyledTh>
+                      <StyledTh right>Actions</StyledTh>
+                    </tr>
+                  </StyledThead>
+                  <tbody>
+                    {paginated.map(p => (
+                      <StyledTr key={p.id}>
+                        <StyledTd className="font-semibold text-foreground">{p.name}</StyledTd>
+                        <StyledTd className="text-muted-foreground">{p.brands?.name ?? '—'}</StyledTd>
+                        <StyledTd mono className="text-xs text-muted-foreground">{p.sku}</StyledTd>
+                        <StyledTd right mono>₹{p.dealer_price?.toLocaleString('en-IN')}</StyledTd>
+                        <StyledTd right mono>
+                          <span
+                            title={p.stock_qty === 0 ? 'Out of stock' : p.stock_qty <= 5 ? 'Low stock' : 'In stock'}
+                            className={`font-bold ${p.stock_qty === 0 ? 'text-red-600' : p.stock_qty <= 5 ? 'text-amber-600' : 'text-foreground'}`}
+                          >
+                            {p.stock_qty}
+                          </span>
+                        </StyledTd>
+                        <StyledTd><StatusBadge status={p.is_active ? 'Active' : 'Inactive'} /></StyledTd>
+                        <StyledTd right>
+                          <div className="flex items-center justify-end gap-1">
+                            <IconBtn onClick={() => openEdit(p)} title={`Edit product ${p.name}`}><Pencil size={14} /></IconBtn>
+                            <IconBtn onClick={() => setDeleteTarget(p)} title={`Delete product ${p.name}`} danger><Trash2 size={13} /></IconBtn>
+                          </div>
+                        </StyledTd>
+                      </StyledTr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination
+                totalItems={filtered.length}
+                currentPage={page}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                itemLabel="products"
+              />
+            </>
           )
         }
       </DataCard>
@@ -179,7 +202,9 @@ export const Products = () => {
               <div className="space-y-1.5">
                 <Label className="text-xs">Initial Stock</Label>
                 <Input type="number" value={form.stock_qty} onChange={e => setForm(f => ({ ...f, stock_qty: e.target.value }))} disabled={Boolean(editing)} />
-                {Boolean(editing) && <p className="text-[10px] text-muted-foreground">Modify stock via Adjustments</p>}
+                <p className="text-[10px] text-muted-foreground">
+                  {Boolean(editing) ? 'Modify stock via Adjustments' : 'Initial stock is set during product creation'}
+                </p>
               </div>
             </div>
           </div>
@@ -191,6 +216,25 @@ export const Products = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete product permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget ? `Delete "${deleteTarget.name}" permanently? This action cannot be undone.` : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && void deleteProduct(deleteTarget)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

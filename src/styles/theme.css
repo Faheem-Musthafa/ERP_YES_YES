@@ -10,9 +10,9 @@
   --font-size: 15px;
 
   /* ── Core palette ────────────────────────────────── */
-  --background:           #f5f7fa;
+  --background:           #f2f5f9;
   --foreground:           #0d1117;
-  --card:                 #ffffff;
+  --card:                 #fdfefe;
   --card-foreground:      #0d1117;
   --popover:              #ffffff;
   --popover-foreground:   #0d1117;
@@ -59,7 +59,7 @@
   --chart-5: #34d399;
 
   /* ── Radius ──────────────────────────────────────── */
-  --radius: 0.625rem;
+  --radius: 0.75rem;
 
   /* ── Sidebar: DARK navy on light mode too ─────────── */
   --sidebar:                    #0d1117;
@@ -179,6 +179,11 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    background-image:
+      radial-gradient(1200px 520px at -12% -8%, rgba(0, 189, 180, 0.09), transparent 58%),
+      radial-gradient(900px 420px at 108% -2%, rgba(99, 102, 241, 0.08), transparent 48%),
+      linear-gradient(180deg, #f9fbfd 0%, #f2f5f9 60%, #edf2f7 100%);
+    background-attachment: fixed;
   }
 
   /* DM Sans optical sizing feels better at these weights */
@@ -239,8 +244,23 @@
     background-image: radial-gradient(circle, #c8d3e0 1px, transparent 1px);
     background-size: 24px 24px;
   }
-  .dark .dot-grid {
-    background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+.dark .dot-grid {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+}
+
+  .panel-surface {
+    @apply bg-card border border-border/80 rounded-2xl;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .panel-surface-strong {
+    @apply bg-card border border-border/90 rounded-2xl;
+    box-shadow: var(--shadow-md);
+  }
+
+  .enterprise-frame {
+    @apply rounded-2xl border border-border/80 bg-card/92 backdrop-blur-sm;
+    box-shadow: var(--shadow-sm);
   }
 
   /* Glowing teal separator */

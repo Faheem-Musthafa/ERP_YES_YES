@@ -3,13 +3,17 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/app/components/ui/alert-dialog';
 import { Plus, Pencil, Tag, Trash2 } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 import {
   PageHeader, SearchBar, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
-  EmptyState, Spinner, StatusBadge, IconBtn,
+  EmptyState, Spinner, StatusBadge, IconBtn, TablePagination,
 } from '@/app/components/ui/primitives';
 
 export const Brands = () => {
@@ -18,8 +22,11 @@ export const Brands = () => {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const fetchBrands = async () => {
     setLoading(true);
@@ -69,13 +76,15 @@ export const Brands = () => {
   };
 
   const deleteBrand = async (b: any) => {
-    if (!window.confirm(`Delete brand "${b.name}" permanently? This cannot be undone.`)) return;
     const { error } = await supabase.from('brands').delete().eq('id', b.id);
     if (error) toast.error('Failed to delete brand');
-    else { toast.success('Brand deleted'); fetchBrands(); }
+    else { toast.success('Brand deleted'); setDeleteTarget(null); fetchBrands(); }
   };
 
   const filtered = brands.filter(b => !search || b.name.toLowerCase().includes(search.toLowerCase()));
+  useEffect(() => { setCurrentPage(1); }, [search, brands.length]);
+  const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
   const totalValue = filtered.reduce((s, b) => s + b.stockValue, 0);
   const totalProducts = filtered.reduce((s, b) => s + b.productCount, 0);
 
@@ -120,49 +129,58 @@ export const Brands = () => {
           filtered.length === 0 ? (
             <EmptyState icon={Tag} message="No brands found" sub="Add a brand to categorize products" />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <StyledThead>
-                  <tr>
-                    <StyledTh>Brand Name</StyledTh>
-                    <StyledTh right>Products</StyledTh>
-                    <StyledTh right>Stock Value</StyledTh>
-                    <StyledTh>Status</StyledTh>
-                    <StyledTh>Added</StyledTh>
-                    <StyledTh right>Actions</StyledTh>
-                  </tr>
-                </StyledThead>
-                <tbody>
-                  {filtered.map(b => (
-                    <StyledTr key={b.id}>
-                      <StyledTd className="font-semibold text-foreground">{b.name}</StyledTd>
-                      <StyledTd right mono className="text-muted-foreground">{b.productCount}</StyledTd>
-                      <StyledTd right mono>
-                        {b.stockValue > 0 ? (
-                          <span className="font-semibold text-primary">₹{b.stockValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                        ) : <span className="text-muted-foreground opacity-50">—</span>}
-                      </StyledTd>
-                      <StyledTd><StatusBadge status={b.is_active ? 'Active' : 'Inactive'} /></StyledTd>
-                      <StyledTd mono className="text-xs text-muted-foreground">
-                        {new Date(b.created_at).toLocaleDateString()}
-                      </StyledTd>
-                      <StyledTd right>
-                        <div className="flex items-center justify-end gap-1">
-                          <IconBtn onClick={() => openEdit(b)} title="Edit"><Pencil size={14} /></IconBtn>
-                          <Button
-                            size="sm" variant="outline" onClick={() => toggleActive(b)}
-                            className={`h-6 text-[10px] px-2 rounded-full mx-1 ${b.is_active ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
-                          >
-                            {b.is_active ? 'Deactivate' : 'Activate'}
-                          </Button>
-                          <IconBtn onClick={() => deleteBrand(b)} title="Delete" danger><Trash2 size={13} /></IconBtn>
-                        </div>
-                      </StyledTd>
-                    </StyledTr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <StyledThead>
+                    <tr>
+                      <StyledTh>Brand Name</StyledTh>
+                      <StyledTh right>Products</StyledTh>
+                      <StyledTh right>Stock Value</StyledTh>
+                      <StyledTh>Status</StyledTh>
+                      <StyledTh>Added</StyledTh>
+                      <StyledTh right>Actions</StyledTh>
+                    </tr>
+                  </StyledThead>
+                  <tbody>
+                    {paginated.map(b => (
+                      <StyledTr key={b.id}>
+                        <StyledTd className="font-semibold text-foreground">{b.name}</StyledTd>
+                        <StyledTd right mono className="text-muted-foreground">{b.productCount}</StyledTd>
+                        <StyledTd right mono>
+                          {b.stockValue > 0 ? (
+                            <span className="font-semibold text-primary">₹{b.stockValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+                          ) : <span className="text-muted-foreground opacity-50">—</span>}
+                        </StyledTd>
+                        <StyledTd><StatusBadge status={b.is_active ? 'Active' : 'Inactive'} /></StyledTd>
+                        <StyledTd mono className="text-xs text-muted-foreground">
+                          {new Date(b.created_at).toLocaleDateString()}
+                        </StyledTd>
+                        <StyledTd right>
+                          <div className="flex items-center justify-end gap-1">
+                            <IconBtn onClick={() => openEdit(b)} title={`Edit brand ${b.name}`}><Pencil size={14} /></IconBtn>
+                            <Button
+                              size="sm" variant="outline" onClick={() => toggleActive(b)}
+                              className={`h-6 text-[10px] px-2 rounded-full mx-1 ${b.is_active ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
+                            >
+                              {b.is_active ? 'Deactivate' : 'Activate'}
+                            </Button>
+                            <IconBtn onClick={() => setDeleteTarget(b)} title={`Delete brand ${b.name}`} danger><Trash2 size={13} /></IconBtn>
+                          </div>
+                        </StyledTd>
+                      </StyledTr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination
+                totalItems={filtered.length}
+                currentPage={page}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                itemLabel="brands"
+              />
+            </>
           )
         }
       </DataCard>
@@ -187,6 +205,25 @@ export const Brands = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete brand permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget ? `Delete brand "${deleteTarget.name}" permanently? This action cannot be undone.` : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && void deleteBrand(deleteTarget)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

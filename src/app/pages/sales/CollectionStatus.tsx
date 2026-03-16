@@ -1,14 +1,18 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Label } from '@/app/components/ui/label';
 import { useNavigate } from 'react-router';
-import { Search, Plus, ClipboardCheck, AlertCircle } from 'lucide-react';
+import { Plus, ClipboardCheck, AlertCircle } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
+import {
+  PageHeader, SearchBar, FilterBar, FilterField, DataCard,
+  StyledThead, StyledTh, StyledTr, StyledTd,
+  EmptyState, Spinner, StatusBadge, TablePagination, ErrorState,
+} from '@/app/components/ui/primitives';
 
 /* ── Payment status options per mode ── */
 const MODE_STATUSES: Record<string, string[]> = {
@@ -19,11 +23,11 @@ const MODE_STATUSES: Record<string, string[]> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  Received: 'bg-emerald-100 text-emerald-700',
-  Credited: 'bg-emerald-100 text-emerald-700',
-  Cleared: 'bg-emerald-100 text-emerald-700',
-  'Not Received': 'bg-red-100 text-red-600',
-  Bounced: 'bg-orange-100 text-orange-700',
+  Received: 'Received',
+  Credited: 'Credited',
+  Cleared: 'Cleared',
+  'Not Received': 'Not Received',
+  Bounced: 'Bounced',
 };
 
 const MODE_COLORS: Record<string, string> = {
@@ -37,9 +41,12 @@ export const CollectionStatus = () => {
   const navigate = useNavigate();
   const [receipts, setReceipts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [modeFilter, setModeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   // Bounce reason dialog state
   const [bounceDialog, setBounceDialog] = useState(false);
@@ -49,11 +56,13 @@ export const CollectionStatus = () => {
 
   const fetchReceipts = async () => {
     setLoading(true);
-    const { data } = await supabase
+    setError('');
+    const { data, error: fetchError } = await supabase
       .from('receipts')
       .select('id, receipt_number, amount, payment_mode, payment_status, bounce_reason, created_at, orders(id, order_number, invoice_number, status, customers(name))')
       .order('created_at', { ascending: false });
-    setReceipts(data ?? []);
+    if (fetchError) setError(fetchError.message);
+    else setReceipts(data ?? []);
     setLoading(false);
   };
 
@@ -69,6 +78,10 @@ export const CollectionStatus = () => {
     const matchStatus = !statusFilter || statusFilter === 'all' || r.payment_status === statusFilter;
     return match && matchMode && matchStatus;
   });
+  useEffect(() => { setCurrentPage(1); }, [search, modeFilter, statusFilter, receipts.length]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const page = Math.min(currentPage, totalPages);
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const updateStatus = async (receiptId: string, status: string, mode: string) => {
     if (status === 'Bounced') {
@@ -96,97 +109,99 @@ export const CollectionStatus = () => {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Collection Status</h1>
-          <p className="text-gray-500 mt-1 text-sm">Monitor all receipts and payment clearance</p>
-        </div>
-        <Button onClick={() => navigate('/sales/receipt')} className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl">
-          <Plus size={16} className="mr-2" />New Receipt
-        </Button>
-      </div>
+      <PageHeader
+        title="Collection Status"
+        subtitle="Monitor all receipts and payment clearance"
+        actions={
+          <Button size="sm" onClick={() => navigate('/sales/receipt')} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+            <Plus size={15} /> New Receipt
+          </Button>
+        }
+      />
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-        <div className="flex gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <Input placeholder="Search by receipt / invoice / customer..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
-          </div>
-          <Select value={modeFilter} onValueChange={setModeFilter}>
-            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Mode" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Modes</SelectItem>
-              <SelectItem value="Cash">Cash</SelectItem>
-              <SelectItem value="Bank Transfer">Bank</SelectItem>
-              <SelectItem value="Cheque">Cheque</SelectItem>
-              <SelectItem value="UPI">UPI</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Payment Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="Received">Received</SelectItem>
-              <SelectItem value="Not Received">Not Received</SelectItem>
-              <SelectItem value="Cleared">Cleared</SelectItem>
-              <SelectItem value="Bounced">Bounced</SelectItem>
-              <SelectItem value="Credited">Credited</SelectItem>
-            </SelectContent>
-          </Select>
+      <FilterBar>
+        <SearchBar
+          placeholder="Search by receipt / invoice / customer..."
+          value={search}
+          onChange={setSearch}
+          className="w-full md:max-w-md"
+        />
+        <div className="flex flex-wrap items-end gap-3">
+          <FilterField label="Mode">
+            <Select value={modeFilter} onValueChange={setModeFilter}>
+              <SelectTrigger className="h-10 w-[150px]"><SelectValue placeholder="All Modes" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Modes</SelectItem>
+                <SelectItem value="Cash">Cash</SelectItem>
+                <SelectItem value="Bank Transfer">Bank</SelectItem>
+                <SelectItem value="Cheque">Cheque</SelectItem>
+                <SelectItem value="UPI">UPI</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
+          <FilterField label="Payment Status">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-10 w-[170px]"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Received">Received</SelectItem>
+                <SelectItem value="Not Received">Not Received</SelectItem>
+                <SelectItem value="Cleared">Cleared</SelectItem>
+                <SelectItem value="Bounced">Bounced</SelectItem>
+                <SelectItem value="Credited">Credited</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
         </div>
-      </div>
+      </FilterBar>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <DataCard>
         {loading ? (
-          <div className="flex items-center justify-center h-40">
-            <div className="w-8 h-8 border-4 border-[#34b0a7] border-t-transparent rounded-full animate-spin" />
-          </div>
+          <Spinner />
+        ) : error ? (
+          <ErrorState message={`Failed to load receipts: ${error}`} onRetry={() => void fetchReceipts()} />
         ) : filtered.length === 0 ? (
-          <div className="text-center py-12">
-            <ClipboardCheck size={40} className="text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-400 text-sm">No collection records found</p>
-            <Button onClick={() => navigate('/sales/receipt')} className="mt-4 bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl">
-              <Plus size={16} className="mr-2" />Add Receipt
-            </Button>
-          </div>
+          <EmptyState
+            icon={ClipboardCheck}
+            message="No collection records found"
+            action={<Button onClick={() => navigate('/sales/receipt')} size="sm" variant="outline">Add Receipt</Button>}
+          />
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
+              <StyledThead>
                 <tr>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Receipt No</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Invoice No</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Customer</th>
-                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Mode</th>
-                  <th className="text-center text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Payment Status</th>
-                  <th className="text-right text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Amount (₹)</th>
-                  <th className="text-left text-xs font-semibold text-gray-600 px-4 py-3 uppercase tracking-wide">Date</th>
+                  <StyledTh>Receipt No</StyledTh>
+                  <StyledTh>Invoice No</StyledTh>
+                  <StyledTh>Customer</StyledTh>
+                  <StyledTh center>Mode</StyledTh>
+                  <StyledTh center>Payment Status</StyledTh>
+                  <StyledTh right>Amount (₹)</StyledTh>
+                  <StyledTh>Date</StyledTh>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map(r => {
+              </StyledThead>
+              <tbody>
+                {paginated.map(r => {
                   const invoiceNo = r.orders?.invoice_number ?? r.orders?.order_number ?? '—';
                   const statusOptions = MODE_STATUSES[r.payment_mode] ?? [];
                   const currentStatus = r.payment_status;
 
                   return (
-                    <tr key={r.id} className="hover:bg-gray-50/70 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-[#34b0a7]">{r.receipt_number}</td>
-                      <td className="px-4 py-3 text-gray-700 font-medium">{invoiceNo}</td>
-                      <td className="px-4 py-3 text-gray-700">{r.orders?.customers?.name ?? '—'}</td>
-                      <td className="px-4 py-3 text-center">
+                    <StyledTr key={r.id}>
+                      <StyledTd className="font-semibold text-primary">{r.receipt_number}</StyledTd>
+                      <StyledTd className="font-medium text-foreground">{invoiceNo}</StyledTd>
+                      <StyledTd className="text-muted-foreground">{r.orders?.customers?.name ?? '—'}</StyledTd>
+                      <StyledTd center>
                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${MODE_COLORS[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>
                           {r.payment_mode}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
+                      </StyledTd>
+                      <StyledTd center>
                         <div className="flex flex-col items-center gap-1">
-                          {/* Status badge + dropdown update */}
                           {currentStatus ? (
                             <div className="flex items-center gap-1.5">
-                              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_COLORS[currentStatus] ?? 'bg-gray-100 text-gray-600'}`}>
-                                {currentStatus}
-                              </span>
+                              <StatusBadge status={STATUS_COLORS[currentStatus] ?? currentStatus} />
                               {currentStatus === 'Bounced' && r.bounce_reason && (
                                 <span title={r.bounce_reason} className="cursor-help">
                                   <AlertCircle size={14} className="text-orange-500" />
@@ -196,7 +211,6 @@ export const CollectionStatus = () => {
                           ) : (
                             <span className="text-xs text-gray-400 italic">Not set</span>
                           )}
-                          {/* Inline status updater */}
                           {statusOptions.length > 0 && (
                             <Select
                               value={currentStatus ?? ''}
@@ -214,17 +228,25 @@ export const CollectionStatus = () => {
                             </Select>
                           )}
                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold">₹ {r.amount?.toLocaleString('en-IN')}</td>
-                      <td className="px-4 py-3 text-xs text-gray-500">{new Date(r.created_at).toLocaleDateString()}</td>
-                    </tr>
+                      </StyledTd>
+                      <StyledTd right mono className="font-bold">₹ {r.amount?.toLocaleString('en-IN')}</StyledTd>
+                      <StyledTd mono className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</StyledTd>
+                    </StyledTr>
                   );
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+            <TablePagination
+              totalItems={filtered.length}
+              currentPage={page}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              itemLabel="receipts"
+            />
+          </>
         )}
-      </div>
+      </DataCard>
 
       {/* Bounce reason dialog */}
       <Dialog open={bounceDialog} onOpenChange={setBounceDialog}>

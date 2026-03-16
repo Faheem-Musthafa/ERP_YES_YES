@@ -10,7 +10,7 @@ import { Link } from 'react-router';
 import { useNavigate } from 'react-router';
 import { Button } from '@/app/components/ui/button';
 import {
-  PageHeader, DataCard, StatusBadge, Spinner
+  PageHeader, DataCard, Spinner, EmptyState, ErrorState
 } from '@/app/components/ui/primitives';
 
 export const AccountsDashboard = () => {
@@ -25,53 +25,60 @@ export const AccountsDashboard = () => {
   });
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [recentReceipts, setRecentReceipts] = useState<any[]>([]);
+  const [error, setError] = useState('');
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
+    setError('');
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 
-    const [
-      { data: orders },
-      { data: receipts },
-      { data: monthReceipts },
-      { data: todayReceiptsData },
-      { data: recentReceiptsData },
-    ] = await Promise.all([
-      supabase.from('orders').select('id, order_number, status, grand_total, created_at, customers(name), users!orders_created_by_fkey(full_name)').order('created_at', { ascending: false }).limit(100),
-      supabase.from('receipts').select('id, amount, payment_mode, created_at, orders(order_number, customers(name))'),
-      supabase.from('receipts').select('id, amount').gte('created_at', monthStart),
-      supabase.from('receipts').select('id, amount').gte('created_at', todayStart),
-      supabase.from('receipts').select('id, amount, payment_mode, created_at, orders(order_number, customers(name))').order('created_at', { ascending: false }).limit(6),
-    ]);
+    try {
+      const [
+        { data: orders, error: ordersError },
+        { data: receipts, error: receiptsError },
+        { data: monthReceipts, error: monthReceiptsError },
+        { data: todayReceiptsData, error: todayReceiptsError },
+        { data: recentReceiptsData, error: recentReceiptsError },
+      ] = await Promise.all([
+        supabase.from('orders').select('id, order_number, status, grand_total, created_at, customers(name), users!orders_created_by_fkey(full_name)').order('created_at', { ascending: false }).limit(100),
+        supabase.from('receipts').select('id, amount, payment_mode, created_at, orders(order_number, customers(name))'),
+        supabase.from('receipts').select('id, amount').gte('created_at', monthStart),
+        supabase.from('receipts').select('id, amount').gte('created_at', todayStart),
+        supabase.from('receipts').select('id, amount, payment_mode, created_at, orders(order_number, customers(name))').order('created_at', { ascending: false }).limit(6),
+      ]);
 
-    const pending = (orders ?? []).filter(o => o.status === 'Pending');
-    const approved = (orders ?? []).filter(o => o.status === 'Approved');
+      const fetchError = ordersError || receiptsError || monthReceiptsError || todayReceiptsError || recentReceiptsError;
+      if (fetchError) throw new Error(fetchError.message);
 
-    setPendingOrders(pending.slice(0, 5));
-    setRecentReceipts(recentReceiptsData ?? []);
+      const pending = (orders ?? []).filter(o => o.status === 'Pending');
+      const approved = (orders ?? []).filter(o => o.status === 'Approved');
 
-    setStats({
-      pendingOrders: pending.length,
-      pendingValue: pending.reduce((s, o) => s + (o.grand_total ?? 0), 0),
-      approvedOrders: approved.length,
-      totalCollected: (receipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
-      monthCollected: (monthReceipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
-      todayCollected: (todayReceiptsData ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
-      totalReceipts: (receipts ?? []).length,
-      monthReceipts: (monthReceipts ?? []).length,
-    });
-    setLoading(false);
+      setPendingOrders(pending.slice(0, 5));
+      setRecentReceipts(recentReceiptsData ?? []);
+
+      setStats({
+        pendingOrders: pending.length,
+        pendingValue: pending.reduce((s, o) => s + (o.grand_total ?? 0), 0),
+        approvedOrders: approved.length,
+        totalCollected: (receipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
+        monthCollected: (monthReceipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
+        todayCollected: (todayReceiptsData ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
+        totalReceipts: (receipts ?? []).length,
+        monthReceipts: (monthReceipts ?? []).length,
+      });
+    } catch (err: any) {
+      setError(err?.message || 'Unable to load accounts overview');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { if (user?.id) fetchAll(); }, [user?.id, fetchAll]);
 
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-[50vh]">
-      <Spinner size={32} />
-    </div>
-  );
+  if (loading) return <Spinner size={32} />;
+  if (error) return <ErrorState message={error} onRetry={() => void fetchAll()} />;
 
   return (
     <div className="space-y-6 pb-12">
@@ -80,10 +87,10 @@ export const AccountsDashboard = () => {
         subtitle="Manage pending approvals and collections"
         actions={
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => navigate('/accounts/sales-records')}>
+            <Button size="sm" variant="outline" onClick={() => navigate('/accounts/sales')}>
               Sales Records
             </Button>
-            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2" onClick={() => navigate('/accounts/order-review')}>
+            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2" onClick={() => navigate('/accounts/pending-orders')}>
               <AlertCircle size={15} /> Pending Approvals ({stats.pendingOrders > 0 ? stats.pendingOrders : '0'})
             </Button>
           </div>
@@ -136,31 +143,34 @@ export const AccountsDashboard = () => {
           </div>
           <div className="p-0">
             {pendingOrders.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                <CheckCircle className="mx-auto mb-2 opacity-20 text-emerald-500" size={32} />
-                <p className="text-sm">No pending approvals</p>
-                <p className="text-[10px] uppercase tracking-widest mt-1">All caught up!</p>
-              </div>
+              <EmptyState icon={CheckCircle} message="No pending approvals" sub="All caught up!" />
             ) : (
-              <div className="divide-y divide-border">
+              <ul className="divide-y divide-border" aria-label="Pending approvals">
                 {pendingOrders.map(o => (
-                  <div key={o.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors cursor-pointer group" onClick={() => navigate('/accounts/order-review')}>
-                    <div className="flex flex-col gap-1.5 w-1/2">
-                      <span className="text-sm font-semibold text-primary leading-none group-hover:underline">{o.order_number}</span>
-                      <span className="text-xs text-muted-foreground truncate">{o.customers?.name ?? '—'}</span>
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5 w-1/2">
-                      <span className="text-sm font-bold font-mono text-foreground leading-none">₹{o.grand_total?.toLocaleString('en-IN') ?? '0'}</span>
-                      <span className="text-[10px] text-muted-foreground uppercase opacity-70">by {o.users?.full_name?.split(' ')[0] ?? 'N/A'}</span>
-                    </div>
-                  </div>
+                  <li key={o.id}>
+                    <button
+                      type="button"
+                      className="w-full p-4 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+                      onClick={() => navigate('/accounts/pending-orders')}
+                      aria-label={`Review pending order ${o.order_number} from ${o.customers?.name ?? 'customer'}`}
+                    >
+                      <div className="flex flex-col gap-1.5 w-1/2">
+                        <span className="text-sm font-semibold text-primary leading-none group-hover:underline">{o.order_number}</span>
+                        <span className="text-xs text-muted-foreground truncate">{o.customers?.name ?? '—'}</span>
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5 w-1/2">
+                        <span className="text-sm font-bold font-mono text-foreground leading-none">₹{o.grand_total?.toLocaleString('en-IN') ?? '0'}</span>
+                        <span className="text-[10px] text-muted-foreground uppercase opacity-70">by {o.users?.full_name?.split(' ')[0] ?? 'N/A'}</span>
+                      </div>
+                    </button>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
           </div>
           {pendingOrders.length > 0 && (
             <div className="p-3 border-t border-border mt-auto">
-              <Button variant="ghost" className="w-full text-xs" onClick={() => navigate('/accounts/order-review')}>View All Approvals</Button>
+              <Button variant="ghost" className="w-full text-xs" onClick={() => navigate('/accounts/pending-orders')}>View All Approvals</Button>
             </div>
           )}
         </DataCard>
@@ -175,16 +185,13 @@ export const AccountsDashboard = () => {
           </div>
           <div className="p-0">
             {recentReceipts.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                <Wallet className="mx-auto mb-2 opacity-20" size={32} />
-                <p className="text-sm">No receipts recorded</p>
-              </div>
+              <EmptyState icon={Wallet} message="No receipts recorded" />
             ) : (
-              <div className="divide-y divide-border">
-                {recentReceipts.map(r => (
-                  <div key={r.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                    <div className="flex flex-col gap-1.5 w-[50%]">
-                      <span className="text-sm font-semibold text-foreground leading-none truncate">{r.orders?.customers?.name ?? '—'}</span>
+                <ul className="divide-y divide-border" aria-label="Recent collections">
+                  {recentReceipts.map(r => (
+                    <li key={r.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                      <div className="flex flex-col gap-1.5 w-[50%]">
+                        <span className="text-sm font-semibold text-foreground leading-none truncate">{r.orders?.customers?.name ?? '—'}</span>
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded leading-none">{r.payment_mode}</span>
                         <span className="text-[10px] text-muted-foreground truncate">{r.orders?.order_number}</span>
@@ -194,11 +201,11 @@ export const AccountsDashboard = () => {
                       <span className="text-sm font-bold font-mono text-primary leading-none">+ ₹{r.amount?.toLocaleString('en-IN') ?? '0'}</span>
                       <span className="text-[10px] text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
         </DataCard>
       </div>
     </div>
