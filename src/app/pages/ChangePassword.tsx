@@ -56,7 +56,13 @@ export const ChangePassword = () => {
             toast.success('Password updated successfully! Welcome aboard.');
             navigate('/');
         } catch (err: any) {
-            toast.error(err.message || 'Failed to update password');
+            const msg = String(err?.message || 'Failed to update password');
+            if (/expired|invalid|jwt|session/i.test(msg)) {
+                toast.error('Reset link is expired or invalid. Please request a new password reset link.');
+                navigate('/login');
+                return;
+            }
+            toast.error(msg);
         } finally {
             setSaving(false);
         }

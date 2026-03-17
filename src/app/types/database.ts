@@ -51,7 +51,9 @@ export interface Database {
                     id: string;
                     name: string;
                     brand_id: string | null;
+                    sub_category_id: string | null;
                     sku: string;
+                    mrp: number;
                     dealer_price: number;
                     stock_qty: number;
                     is_active: boolean;
@@ -95,6 +97,14 @@ export interface Database {
                     created_by: string | null;
                     approved_by: string | null;
                     approved_at: string | null;
+                    billed_by: string | null;
+                    billed_at: string | null;
+                    taxable_amount: number;
+                    cgst_amount: number;
+                    sgst_amount: number;
+                    igst_amount: number;
+                    tax_amount: number;
+                    invoice_pdf_generated_at: string | null;
                     created_at: string;
                     updated_at: string;
                 };
@@ -217,6 +227,11 @@ export interface Database {
                     status: PoStatusEnum;
                     total_amount: number;
                     created_by: string | null;
+                    expected_delivery_date: string | null;
+                    delivered_at: string | null;
+                    approved_by: string | null;
+                    approved_at: string | null;
+                    remarks: string | null;
                     created_at: string;
                     updated_at: string;
                 };
@@ -226,11 +241,13 @@ export interface Database {
             grn_items: {
                 Row: {
                     id: string;
-                    purchase_order_id: string;
+                    grn_id: string;
+                    purchase_order_id: string | null;
                     product_id: string;
                     expected_qty: number;
                     received_qty: number;
-                    status: GrnStatusEnum;
+                    damaged_qty: number;
+                    status: GrnStatusEnum | string;
                     received_date: string | null;
                     created_at: string;
                 };

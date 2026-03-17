@@ -40,6 +40,7 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
         { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={16} /> },
         { label: 'All Orders', path: '/admin/sales', icon: <ShoppingCart size={16} /> },
         { label: 'Back Order', path: '/accounts/pending-orders', icon: <FileCheck size={16} /> },
+        { label: 'Billing', path: '/accounts/billing', icon: <Receipt size={16} /> },
         { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={16} /> },
         { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={16} /> },
         { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={16} /> },
@@ -100,6 +101,7 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
       title: 'Approvals',
       items: [
         { label: 'Pending Orders', path: '/accounts/pending-orders', icon: <FileCheck size={16} /> },
+        { label: 'Billing', path: '/accounts/billing', icon: <Receipt size={16} /> },
         { label: 'Sales Records', path: '/accounts/sales', icon: <TrendingUp size={16} /> },
       ],
     },

@@ -492,8 +492,38 @@ suppliers
 
 **Where transitions happen:**
 - `Pending → Approved/Rejected`: Accounts module (`OrderReview.tsx`)
-- `Approved → Billed`: Not yet implemented in UI (needs billing page)
+- `Approved → Billed`: Accounts Billing page (`/accounts/billing`) with invoice generation
 - `Billed → Delivered`: Implied via Delivery status reaching Delivered
+
+### 6.1 Invoice / Billing Explanation
+
+**Billing Process**
+- **Who creates invoice:** Accounts role (Admin has fallback access).
+- **Where generated:** Accounts → Billing page (`/accounts/billing`).
+- **What happens on billing:**
+  1. User opens an `Approved` order in billing list.
+  2. Clicks `Bill & PDF`.
+  3. System generates invoice number in format `INV-YYYY-#####`.
+  4. Order is updated to `Billed` with `invoice_number` persisted.
+  5. Invoice PDF is generated and downloaded.
+
+**GST Invoice PDF**
+- PDF output includes customer details, invoice type (`GST`/`IGST`/`NGST`), item lines and total.
+- Tax rows are rendered according to invoice type.
+
+### 6.2 Forgot Password Steps
+
+1. Login screen: user enters email and clicks `Forgot password?`.
+2. System sends reset email (generic response to avoid account enumeration).
+3. Cooldown prevents repeated reset-trigger spam.
+4. User opens link and lands on `/change-password` recovery flow.
+5. User updates password after passing password policy checks.
+
+### 6.3 Screenshots Process
+
+- **In-app capture:** Billing page has `Capture Screenshot` action.
+- **Output:** PNG download (`billing-snapshot-YYYY-MM-DD.png`).
+- **Storage convention:** keep curated artifacts in `public/screenshots/` for documentation/release notes.
 
 ---
 
@@ -502,7 +532,7 @@ suppliers
 | # | Gap | Location | Impact |
 |---|-----|----------|--------|
 | 1 | Procurement module not connected to Supabase | `PurchaseOrders.tsx`, `GRN.tsx` | Cannot create real POs or record goods receipts |
-| 2 | Order billing step missing | No page yet | `Approved → Billed` transition has no UI |
+| 2 | Order billing step missing | **Resolved**: `accounts/Billing.tsx` | Approved→Billed transition + invoice number + PDF |
 | 3 | Receipt navigation broken | `ReceiptEntry.tsx` line ~200 | After saving, navigates to `/sales/-` (invalid route) |
 | 4 | `payment_status` not written to DB | `ReceiptEntry.tsx` | MODE_STATUSES defined but never persisted |
 | 5 | Stock Adjustment not transactional | `StockAdjustment.tsx` | Two sequential writes; no rollback if second fails |

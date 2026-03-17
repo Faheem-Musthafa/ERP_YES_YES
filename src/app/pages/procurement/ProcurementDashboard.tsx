@@ -1,35 +1,99 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ShoppingCart, Truck, ClipboardList, Clock, CheckCircle2, Activity } from 'lucide-react';
+import { supabase } from '@/app/supabase';
 import {
-  PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd,
+  PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd, EmptyState, Spinner,
 } from '@/app/components/ui/primitives';
 
+interface DashboardPO {
+  id: string;
+  po_number: string;
+  status: string;
+  total_amount: number;
+  created_at: string;
+  expected_delivery_date: string | null;
+  suppliers: { name: string } | null;
+  purchase_order_items: { quantity: number }[] | null;
+}
+
+interface DashboardGRN {
+  id: string;
+  purchase_order_id: string | null;
+  status: string;
+  received_date: string | null;
+  created_at: string;
+  expected_qty: number;
+  received_qty: number;
+}
+
 export const ProcurementDashboard = () => {
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<DashboardPO[]>([]);
+  const [grnRows, setGrnRows] = useState<DashboardGRN[]>([]);
+  const [activeSuppliers, setActiveSuppliers] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const [{ data: poData }, { data: grnData }, { data: supplierData }] = await Promise.all([
+        supabase
+          .from('purchase_orders')
+          .select('id, po_number, status, total_amount, created_at, expected_delivery_date, suppliers(name), purchase_order_items(quantity)')
+          .order('created_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('grn_items')
+          .select('id, purchase_order_id, status, received_date, created_at, expected_qty, received_qty')
+          .order('created_at', { ascending: false })
+          .limit(100),
+        supabase
+          .from('suppliers')
+          .select('id')
+          .eq('status', 'Active'),
+      ]);
+      setOrders((poData ?? []) as DashboardPO[]);
+      setGrnRows((grnData ?? []) as DashboardGRN[]);
+      setActiveSuppliers((supplierData ?? []).length);
+      setLoading(false);
+    })();
+  }, []);
+
+  const thisMonthKey = new Date().toISOString().slice(0, 7);
+  const activePOs = orders.filter(po => po.status === 'Pending' || po.status === 'Approved').length;
+  const completedPOs = orders.filter(po => po.status === 'Received').length;
+  const completedThisMonth = orders.filter(po => po.status === 'Received' && po.created_at.startsWith(thisMonthKey)).length;
+  const pendingGRNs = grnRows.filter(grn => grn.status !== 'Completed').length;
+
   const kpis = [
-    { label: 'Active POs', value: 18, sub: 'In progress', icon: <ShoppingCart size={20} />, iconBg: 'bg-teal-100 text-teal-600' },
-    { label: 'Completed POs', value: 142, sub: 'This month: 28', icon: <CheckCircle2 size={20} />, iconBg: 'bg-emerald-100 text-emerald-600' },
-    { label: 'Pending GRNs', value: 7, sub: 'Awaiting receipt', icon: <ClipboardList size={20} />, iconBg: 'bg-amber-100 text-amber-600' },
-    { label: 'Active Suppliers', value: 24, sub: 'Verified vendors', icon: <Truck size={20} />, iconBg: 'bg-purple-100 text-purple-600' },
+    { label: 'Active POs', value: activePOs, sub: 'In progress', icon: <ShoppingCart size={20} />, iconBg: 'bg-teal-100 text-teal-600' },
+    { label: 'Completed POs', value: completedPOs, sub: `This month: ${completedThisMonth}`, icon: <CheckCircle2 size={20} />, iconBg: 'bg-emerald-100 text-emerald-600' },
+    { label: 'Pending GRNs', value: pendingGRNs, sub: 'Awaiting receipt', icon: <ClipboardList size={20} />, iconBg: 'bg-amber-100 text-amber-600' },
+    { label: 'Active Suppliers', value: activeSuppliers, sub: 'Verified vendors', icon: <Truck size={20} />, iconBg: 'bg-purple-100 text-purple-600' },
   ];
 
   const statusItems = [
-    { label: 'Back Order', count: '5 POs', icon: <Clock size={18} className="text-amber-600" />, bg: 'bg-amber-50', border: 'border-amber-100' },
-    { label: 'In Transit', count: '13 POs', icon: <Truck size={18} className="text-blue-600" />, bg: 'bg-blue-50', border: 'border-blue-100' },
-    { label: 'Delivered', count: '142 POs', icon: <CheckCircle2 size={18} className="text-emerald-600" />, bg: 'bg-emerald-50', border: 'border-emerald-100' },
+    { label: 'Back Order', count: `${orders.filter(po => po.status === 'Draft' || po.status === 'Pending').length} POs`, icon: <Clock size={18} className="text-amber-600" />, bg: 'bg-amber-50', border: 'border-amber-100' },
+    { label: 'In Transit', count: `${orders.filter(po => po.status === 'Approved').length} POs`, icon: <Truck size={18} className="text-blue-600" />, bg: 'bg-blue-50', border: 'border-blue-100' },
+    { label: 'Delivered', count: `${completedPOs} POs`, icon: <CheckCircle2 size={18} className="text-emerald-600" />, bg: 'bg-emerald-50', border: 'border-emerald-100' },
   ];
 
-  const recentActivity = [
-    { title: 'GRN Completed', desc: 'PO-2024-156 • 500 units received from Supplier A', time: '1 hour ago', dot: 'bg-emerald-500' },
-    { title: 'New Purchase Order', desc: 'PO-2024-178 created for Brand A products', time: '3 hours ago', dot: 'bg-teal-500' },
-    { title: 'Delivery Expected', desc: 'PO-2024-165 scheduled for delivery tomorrow', time: '5 hours ago', dot: 'bg-blue-500' },
-    { title: 'Supplier Confirmed', desc: 'Supplier B confirmed dispatch of PO-2024-177', time: '1 day ago', dot: 'bg-purple-500' },
-  ];
+  const recentActivity = useMemo(() => {
+    const poActivity = orders.slice(0, 4).map(po => ({
+      title: po.status === 'Received' ? 'PO Received' : 'Purchase Order Updated',
+      desc: `${po.po_number} • ${(po.purchase_order_items ?? []).reduce((sum, row) => sum + (row.quantity ?? 0), 0)} units • ${po.suppliers?.name ?? 'Unknown Supplier'}`,
+      time: new Date(po.created_at).toLocaleString(),
+      dot: po.status === 'Received' ? 'bg-emerald-500' : 'bg-teal-500',
+    }));
+    const grnActivity = grnRows.slice(0, 4).map(grn => ({
+      title: grn.status === 'Completed' ? 'GRN Completed' : 'GRN Updated',
+      desc: `${grn.purchase_order_id ?? 'No PO'} • Received ${grn.received_qty}/${grn.expected_qty}`,
+      time: new Date(grn.received_date ?? grn.created_at).toLocaleString(),
+      dot: grn.status === 'Completed' ? 'bg-emerald-500' : 'bg-blue-500',
+    }));
+    return [...grnActivity, ...poActivity].slice(0, 6);
+  }, [orders, grnRows]);
 
-  const pendingPOs = [
-    { po: 'PO-2024-175', supplier: 'Supplier A', items: '15 items', amount: '₹ 2,45,000', expected: 'Feb 25, 2026', status: 'In Transit', statusCls: 'bg-amber-100 text-amber-700' },
-    { po: 'PO-2024-176', supplier: 'Supplier B', items: '8 items', amount: '₹ 1,82,500', expected: 'Feb 26, 2026', status: 'Pending', statusCls: 'bg-teal-100 text-teal-700' },
-    { po: 'PO-2024-177', supplier: 'Supplier C', items: '22 items', amount: '₹ 3,95,000', expected: 'Feb 28, 2026', status: 'In Transit', statusCls: 'bg-amber-100 text-amber-700' },
-  ];
+  const pendingPOs = orders.filter(po => po.status === 'Pending' || po.status === 'Approved').slice(0, 8);
 
   return (
     <div className="space-y-6 pb-12">
@@ -39,7 +103,9 @@ export const ProcurementDashboard = () => {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpis.map((k, i) => (
+        {loading ? Array.from({ length: 4 }).map((_, i) => (
+          <DataCard key={i} className="p-5"><Spinner className="py-5" size={20} /></DataCard>
+        )) : kpis.map((k, i) => (
           <DataCard key={i} className="p-5 transition-colors group cursor-default">
             <div className={`p-2 rounded-xl inline-flex mb-3 ${k.iconBg} transition-transform group-hover:scale-110`}>{k.icon}</div>
             <p className="text-2xl font-bold text-foreground">{k.value}</p>
@@ -71,7 +137,7 @@ export const ProcurementDashboard = () => {
           <h2 className="text-xs font-bold text-muted-foreground mb-4 flex items-center gap-2 uppercase tracking-widest">
             <Activity size={15} className="text-primary" /> Recent Activity
           </h2>
-          <div className="space-y-3">
+          {loading ? <Spinner /> : recentActivity.length === 0 ? <EmptyState icon={Activity} message="No recent activity" /> : <div className="space-y-3">
             {recentActivity.map((a, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${a.dot}`} />
@@ -82,7 +148,7 @@ export const ProcurementDashboard = () => {
                 </div>
               </div>
             ))}
-          </div>
+          </div>}
         </DataCard>
       </div>
 
@@ -103,15 +169,15 @@ export const ProcurementDashboard = () => {
               </tr>
             </StyledThead>
             <tbody>
-              {pendingPOs.map((po, i) => (
-                <StyledTr key={i}>
-                  <StyledTd className="font-semibold text-primary">{po.po}</StyledTd>
-                  <StyledTd>{po.supplier}</StyledTd>
-                  <StyledTd className="text-center text-muted-foreground">{po.items}</StyledTd>
-                  <StyledTd right className="font-bold">{po.amount}</StyledTd>
-                  <StyledTd className="text-muted-foreground">{po.expected}</StyledTd>
+              {pendingPOs.map((po) => (
+                <StyledTr key={po.id}>
+                  <StyledTd className="font-semibold text-primary">{po.po_number}</StyledTd>
+                  <StyledTd>{po.suppliers?.name ?? 'Unknown Supplier'}</StyledTd>
+                  <StyledTd className="text-center text-muted-foreground">{(po.purchase_order_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0)} items</StyledTd>
+                  <StyledTd right className="font-bold">₹ {po.total_amount.toLocaleString('en-IN')}</StyledTd>
+                  <StyledTd className="text-muted-foreground">{po.expected_delivery_date ? new Date(po.expected_delivery_date).toLocaleDateString() : '—'}</StyledTd>
                   <StyledTd className="text-center">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${po.statusCls}`}>{po.status}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${po.status === 'Approved' ? 'bg-amber-100 text-amber-700' : 'bg-teal-100 text-teal-700'}`}>{po.status === 'Approved' ? 'In Transit' : po.status}</span>
                   </StyledTd>
                 </StyledTr>
               ))}

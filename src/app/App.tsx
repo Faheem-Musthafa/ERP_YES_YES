@@ -1,5 +1,5 @@
 ﻿import React, { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router';
 import { AuthProvider, useAuth } from '@/app/contexts/AuthContext';
 import { Layout } from '@/app/components/Layout';
 import { Toaster } from '@/app/components/ui/sonner';
@@ -34,6 +34,7 @@ const AccountsDashboard = lazy(() => import('@/app/pages/accounts/Dashboard').th
 const OrderReview = lazy(() => import('@/app/pages/accounts/OrderReview').then(m => ({ default: m.OrderReview })));
 const SalesRecords = lazy(() => import('@/app/pages/accounts/SalesRecords').then(m => ({ default: m.SalesRecords })));
 const Payments = lazy(() => import('@/app/pages/accounts/Payments').then(m => ({ default: m.Payments })));
+const Billing = lazy(() => import('@/app/pages/accounts/Billing').then(m => ({ default: m.Billing })));
 
 // Shared
 const StockManagement = lazy(() => import('@/app/pages/shared/StockManagement').then(m => ({ default: m.StockManagement })));
@@ -76,10 +77,13 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
 
 const ChangePasswordRoute = () => {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return Loader;
   if (!user) return <Navigate to="/login" replace />;
   if (!user.is_active) return <Navigate to="/login" replace />;
-  if (!user.must_change_password) return <Navigate to="/" replace />;
+  const hash = location.hash || '';
+  const isRecoveryFlow = hash.includes('type=recovery') || hash.includes('access_token=');
+  if (!user.must_change_password && !isRecoveryFlow) return <Navigate to="/" replace />;
   return <ChangePassword />;
 };
 
@@ -135,6 +139,7 @@ const AppRoutes = () => {
         <Route path="/accounts" element={<ProtectedRoute allowedRoles={['accounts']}><AccountsDashboard /></ProtectedRoute>} />
         <Route path="/accounts/collection-status" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><CollectionStatus /></ProtectedRoute>} />
         <Route path="/accounts/pending-orders" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><OrderReview /></ProtectedRoute>} />
+        <Route path="/accounts/billing" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><Billing /></ProtectedRoute>} />
         <Route path="/accounts/sales" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><SalesRecords /></ProtectedRoute>} />
         <Route path="/accounts/payments" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><Payments /></ProtectedRoute>} />
 

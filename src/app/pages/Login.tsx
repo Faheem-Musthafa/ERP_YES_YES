@@ -14,18 +14,30 @@ export const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [resetCooldown, setResetCooldown] = useState(0);
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  React.useEffect(() => {
+    if (resetCooldown <= 0) return;
+    const timer = window.setTimeout(() => setResetCooldown(v => v - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [resetCooldown]);
+
   const handleForgotPassword = async () => {
     if (!email.trim()) { toast.error('Enter your email address first, then click Forgot password.'); return; }
+    if (resetCooldown > 0) {
+      toast.error(`Please wait ${resetCooldown}s before requesting another reset link.`);
+      return;
+    }
     setResetLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/change-password`,
       });
       if (error) throw error;
-      toast.success('Password reset email sent. Check your inbox.');
+      setResetCooldown(45);
+      toast.success('If your account exists, a password reset link has been sent to your inbox.');
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to send reset email.');
     } finally { setResetLoading(false); }
@@ -94,10 +106,10 @@ export const Login = () => {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  disabled={resetLoading}
+                  disabled={resetLoading || resetCooldown > 0}
                   className="text-xs font-medium text-[#34b0a7] hover:text-[#2a9d94] transition-colors underline-offset-2 hover:underline disabled:opacity-50"
                 >
-                  {resetLoading ? 'Sending…' : 'Forgot password?'}
+                  {resetLoading ? 'Sending…' : resetCooldown > 0 ? `Resend in ${resetCooldown}s` : 'Forgot password?'}
                 </button>
               </div>
               <Input

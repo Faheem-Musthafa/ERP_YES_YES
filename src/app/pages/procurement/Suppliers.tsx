@@ -1,23 +1,41 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Plus, Eye, Phone, Mail, Users } from 'lucide-react';
-import { PageHeader, SearchBar, DataCard, EmptyState } from '@/app/components/ui/primitives';
+import { supabase } from '@/app/supabase';
+import { PageHeader, SearchBar, DataCard, EmptyState, Spinner } from '@/app/components/ui/primitives';
+
+interface SupplierRow {
+  id: string;
+  name: string;
+  contact_person: string | null;
+  phone: string | null;
+  email: string | null;
+  status: string;
+  purchase_orders: { id: string }[] | null;
+}
 
 export const Suppliers = () => {
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
 
-  const suppliers = [
-    { id: 1, name: 'Supplier A', contact: 'Rajesh Kumar', phone: '+91 98765 43210', email: 'rajesh@suppliera.com', totalPOs: 45, status: 'Active' },
-    { id: 2, name: 'Supplier B', contact: 'Priya Sharma', phone: '+91 98765 43211', email: 'priya@supplierb.com', totalPOs: 32, status: 'Active' },
-    { id: 3, name: 'Supplier C', contact: 'Amit Patel', phone: '+91 98765 43212', email: 'amit@supplierc.com', totalPOs: 28, status: 'Active' },
-    { id: 4, name: 'Supplier D', contact: 'Neha Gupta', phone: '+91 98765 43213', email: 'neha@supplierd.com', totalPOs: 19, status: 'Active' },
-  ];
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('suppliers')
+        .select('id, name, contact_person, phone, email, status, purchase_orders(id)')
+        .order('name', { ascending: true });
+      setSuppliers((data ?? []) as SupplierRow[]);
+      setLoading(false);
+    })();
+  }, []);
 
-  const filtered = suppliers.filter(s => {
+  const filtered = useMemo(() => suppliers.filter(s => {
     if (!search) return true;
     const q = search.toLowerCase();
-    return s.name.toLowerCase().includes(q) || s.contact.toLowerCase().includes(q) || s.phone.includes(q);
-  });
+    return s.name.toLowerCase().includes(q) || (s.contact_person ?? '').toLowerCase().includes(q) || (s.phone ?? '').includes(q);
+  }), [suppliers, search]);
 
   return (
     <div className="space-y-5">
@@ -37,7 +55,7 @@ export const Suppliers = () => {
         className="max-w-sm"
       />
 
-      {filtered.length === 0 ? (
+      {loading ? <Spinner /> : filtered.length === 0 ? (
         <DataCard>
           <EmptyState icon={Users} message="No suppliers found" sub="Add your first supplier to begin" />
         </DataCard>
@@ -48,7 +66,7 @@ export const Suppliers = () => {
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h3 className="font-bold text-foreground group-hover:text-primary transition-colors">{s.name}</h3>
-                  <span className="inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className={`inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${s.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
                     {s.status}
                   </span>
                 </div>
@@ -67,23 +85,23 @@ export const Suppliers = () => {
               <div className="space-y-3 flex-1">
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Contact Person</p>
-                  <p className="text-sm font-semibold text-foreground">{s.contact}</p>
+                  <p className="text-sm font-semibold text-foreground">{s.contact_person ?? '—'}</p>
                 </div>
 
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Phone size={13} className="text-primary/70 shrink-0" />
-                  <span className="truncate">{s.phone}</span>
+                  <span className="truncate">{s.phone ?? '—'}</span>
                 </div>
 
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Mail size={13} className="text-primary/70 shrink-0" />
-                  <span className="truncate">{s.email}</span>
+                  <span className="truncate">{s.email ?? '—'}</span>
                 </div>
               </div>
 
               <div className="pt-3 border-t border-border mt-4 flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Orders</span>
-                <span className="text-sm font-bold font-mono text-foreground">{s.totalPOs}</span>
+                <span className="text-sm font-bold font-mono text-foreground">{(s.purchase_orders ?? []).length}</span>
               </div>
             </DataCard>
           ))}
