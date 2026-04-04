@@ -7,6 +7,27 @@ import { Search, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-
 import { Input } from '@/app/components/ui/input';
 import { cn } from '@/app/components/ui/utils';
 import { Button } from '@/app/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/app/components/ui/tooltip';
+
+// ── Universal Tooltip ─────────────────────────────────────────────────────────────
+interface TooltipProps {
+    children: React.ReactNode;
+    content: string | React.ReactNode;
+    side?: 'top' | 'bottom' | 'left' | 'right';
+    className?: string;
+}
+export const CustomTooltip = ({ children, content, side = 'top', className }: TooltipProps) => (
+    <TooltipProvider>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                {children}
+            </TooltipTrigger>
+            <TooltipContent side={side} className={cn('bg-slate-900 text-white text-xs px-2 py-1.5 rounded-md', className)}>
+                {content}
+            </TooltipContent>
+        </Tooltip>
+    </TooltipProvider>
+);
 
 // ── PageHeader ────────────────────────────────────────────────────────────────
 interface PageHeaderProps {
@@ -219,24 +240,26 @@ export const StatusBadge = ({ status, className }: { status: string; className?:
 // ── ActionButton ──────────────────────────────────────────────────────────────
 // Ghost icon-only buttons for table rows
 export const IconBtn = ({
-    onClick, title, children, danger, className
+    onClick, title, children, danger, className, disabled
 }: {
     onClick?: () => void;
     title?: string;
     children: React.ReactNode;
     danger?: boolean;
     className?: string;
+    disabled?: boolean;
 }) => (
     <button
         type="button"
         onClick={onClick}
         title={title}
         aria-label={title}
+        disabled={disabled}
         className={cn(
             'w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
             danger
-                ? 'text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40'
-                : 'text-muted-foreground hover:text-primary hover:bg-primary/8',
+                ? 'text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-50 disabled:hover:text-muted-foreground disabled:hover:bg-transparent'
+                : 'text-muted-foreground hover:text-primary hover:bg-primary/8 disabled:opacity-50 disabled:hover:text-muted-foreground disabled:hover:bg-transparent',
             className
         )}
     >

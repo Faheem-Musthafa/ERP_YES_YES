@@ -1,5 +1,6 @@
 import React, { ReactNode, useState } from 'react';
 import { Sidebar } from '@/app/components/Sidebar';
+import { GlobalSearch } from '@/app/components/GlobalSearch';
 import { Menu, Bell, Search, Command } from 'lucide-react';
 import { useAuth } from '@/app/contexts/AuthContext';
 
@@ -10,6 +11,7 @@ interface LayoutProps {
 export const Layout = ({ children }: LayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { user } = useAuth();
   const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -21,6 +23,7 @@ export const Layout = ({ children }: LayoutProps) => {
       >
         Skip to main content
       </a>
+      <GlobalSearch isOpen={searchOpen} onOpenChange={setSearchOpen} />
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -72,6 +75,7 @@ export const Layout = ({ children }: LayoutProps) => {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setSearchOpen(true)}
               className="h-9 px-3 rounded-xl border border-border/80 bg-background/80 text-muted-foreground text-xs font-medium inline-flex items-center gap-2 hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               <Search size={13} /> Quick Search

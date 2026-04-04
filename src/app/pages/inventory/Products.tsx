@@ -15,6 +15,7 @@ import {
   PageHeader, SearchBar, DataCard, FilterBar, FilterField,
   StyledThead, StyledTh, StyledTr, StyledTd,
   EmptyState, Spinner, StatusBadge, IconBtn, TablePagination,
+  CustomTooltip,
 } from '@/app/components/ui/primitives';
 
 export const Products = () => {
@@ -83,9 +84,11 @@ export const Products = () => {
         title="Products"
         subtitle="Manage product catalog"
         actions={
-          <Button size="sm" onClick={openAdd} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-            <Plus size={15} /> Add Product
-          </Button>
+          <CustomTooltip content="Add a new product to inventory" side="bottom">
+            <Button size="sm" onClick={openAdd} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+              <Plus size={15} /> Add Product
+            </Button>
+          </CustomTooltip>
         }
       />
 
@@ -145,8 +148,12 @@ export const Products = () => {
                         <StyledTd><StatusBadge status={p.is_active ? 'Active' : 'Inactive'} /></StyledTd>
                         <StyledTd right>
                           <div className="flex items-center justify-end gap-1">
-                            <IconBtn onClick={() => openEdit(p)} title={`Edit product ${p.name}`}><Pencil size={14} /></IconBtn>
-                            <IconBtn onClick={() => setDeleteTarget(p)} title={`Delete product ${p.name}`} danger><Trash2 size={13} /></IconBtn>
+                            <CustomTooltip content={`Edit ${p.name}`} side="top">
+                              <IconBtn onClick={() => openEdit(p)}><Pencil size={14} /></IconBtn>
+                            </CustomTooltip>
+                            <CustomTooltip content={`Delete ${p.name}`} side="top">
+                              <IconBtn onClick={() => setDeleteTarget(p)} danger><Trash2 size={13} /></IconBtn>
+                            </CustomTooltip>
                           </div>
                         </StyledTd>
                       </StyledTr>
@@ -209,10 +216,14 @@ export const Products = () => {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Product'}
-            </Button>
+            <CustomTooltip content="Close without saving" side="top">
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            </CustomTooltip>
+            <CustomTooltip content={editing ? 'Update product' : 'Create new product'} side="top">
+              <Button onClick={handleSave} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={saving}>
+                {saving ? 'Saving...' : 'Save Product'}
+              </Button>
+            </CustomTooltip>
           </DialogFooter>
         </DialogContent>
       </Dialog>

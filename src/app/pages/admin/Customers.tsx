@@ -6,13 +6,19 @@ import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
-import { Plus, Phone, MapPin, Edit2, ToggleLeft, ToggleRight, UserCircle, Trash2 } from 'lucide-react';
+import { Plus, Phone, MapPin, Edit2, ToggleLeft, ToggleRight, UserCircle, Trash2, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
+import { Label } from '@/app/components/ui/label';
 import {
     PageHeader, SearchBar, DataCard,
     StyledThead, StyledTh, StyledTr, StyledTd,
     EmptyState, Spinner, StatusBadge, IconBtn, TablePagination,
+    CustomTooltip,
 } from '@/app/components/ui/primitives';
+import {
+    Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/app/components/ui/dialog';
 
 interface Customer {
     id: string;
@@ -22,6 +28,9 @@ interface Customer {
     phone: string;
     pincode: string | null;
     gst_pan: string | null;
+    location: string | null;
+    assigned_to: string | null;
+    users: { full_name: string } | null;
     is_active: boolean;
     created_at: string;
 }
@@ -31,6 +40,9 @@ export const Customers = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+    const [assignTarget, setAssignTarget] = useState<{ id: string; name: string; assigned_to: string | null } | null>(null);
+    const [salesReps, setSalesReps] = useState<any[]>([]);
+    const [selectedRep, setSelectedRep] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
 
@@ -38,14 +50,35 @@ export const Customers = () => {
         setLoading(true);
         const { data, error } = await supabase
             .from('customers')
-            .select('id, name, place, address, phone, pincode, gst_pan, is_active, created_at')
+            .select('id, name, place, address, phone, pincode, gst_pan, location, assigned_to, users(full_name), is_active, created_at')
             .order('name');
         if (error) toast.error('Failed to load customers');
         else setCustomers(data ?? []);
         setLoading(false);
     };
 
-    useEffect(() => { fetchCustomers(); }, []);
+    useEffect(() => {
+        void fetchCustomers();
+        // Fetch sales reps
+        (async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('id, full_name')
+                    .eq('role', 'sales')
+                    .eq('is_active', true)
+                    .order('full_name');
+                if (error) {
+                    console.error('Failed to fetch sales reps:', error);
+                    toast.error('Could not load sales representatives');
+                } else {
+                    setSalesReps(data ?? []);
+                }
+            } catch (err) {
+                console.error('Sales reps fetch error:', err);
+            }
+        })();
+    }, []);
 
     const toggleActive = async (id: string, current: boolean) => {
         const { error } = await supabase.from('customers').update({ is_active: !current }).eq('id', id);
@@ -59,6 +92,17 @@ export const Customers = () => {
         else {
             toast.success('Customer deactivated');
             setDeleteTarget(null);
+            fetchCustomers();
+        }
+    };
+
+    const assignSalesRep = async (id: string, repId: string) => {
+        const { error } = await supabase.from('customers').update({ assigned_to: repId || null }).eq('id', id);
+        if (error) toast.error('Failed to assign customer');
+        else {
+            toast.success('Customer assigned successfully!');
+            setAssignTarget(null);
+            setSelectedRep('');
             fetchCustomers();
         }
     };
@@ -78,11 +122,13 @@ export const Customers = () => {
                 title="Customers"
                 subtitle={`${customers.length} total customers`}
                 actions={
-                    <Link to="/admin/customers/new">
-                        <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-                            <Plus size={15} /> Add Customer
-                        </Button>
-                    </Link>
+                    <CustomTooltip content="Create a new customer record" side="bottom">
+                        <Link to="/admin/customers/new">
+                            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+                                <Plus size={15} /> Add Customer
+                            </Button>
+                        </Link>
+                    </CustomTooltip>
                 }
             />
 
@@ -114,9 +160,11 @@ export const Customers = () => {
                                         <tr>
                                             <StyledTh>Name</StyledTh>
                                             <StyledTh>Place</StyledTh>
+                                            <StyledTh>Location</StyledTh>
                                             <StyledTh>Phone</StyledTh>
                                             <StyledTh>Pincode</StyledTh>
                                             <StyledTh>GSTIN/PAN</StyledTh>
+                                            <StyledTh>Assigned To</StyledTh>
                                             <StyledTh>Status</StyledTh>
                                             <StyledTh right>Actions</StyledTh>
                                         </tr>
@@ -138,33 +186,62 @@ export const Customers = () => {
                                                     ) : '—'}
                                                 </StyledTd>
                                                 <StyledTd>
+                                                    {c.location ? (
+                                                        <span className="px-2 py-1 rounded text-xs font-medium bg-violet-100 text-violet-900">{c.location}</span>
+                                                    ) : '—'}
+                                                </StyledTd>
+                                                <StyledTd>
                                                     <span className="flex items-center gap-1 text-muted-foreground">
                                                         <Phone size={11} className="text-primary" />{c.phone}
                                                     </span>
                                                 </StyledTd>
                                                 <StyledTd mono className="text-muted-foreground">{c.pincode || '—'}</StyledTd>
                                                 <StyledTd mono className="text-xs text-muted-foreground">{c.gst_pan || '—'}</StyledTd>
+                                                <StyledTd className="text-sm">
+                                                    {c.users?.full_name ? (
+                                                        <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-900">{c.users.full_name}</span>
+                                                    ) : (
+                                                        <span className="text-muted-foreground text-xs">Unassigned</span>
+                                                    )}
+                                                </StyledTd>
                                                 <StyledTd>
                                                     <StatusBadge status={c.is_active ? 'Active' : 'Inactive'} />
                                                 </StyledTd>
                                                 <StyledTd right>
-                                                    <div className="flex items-center justify-end gap-1">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <CustomTooltip content={`Assign sales rep to ${c.name}`} side="top">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setAssignTarget({ id: c.id, name: c.name, assigned_to: c.assigned_to });
+                                                                    setSelectedRep(c.assigned_to || '');
+                                                                }}
+                                                                className="inline-flex items-center justify-center w-7 h-7 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
+                                                            >
+                                                                <UserCheck size={14} />
+                                                            </button>
+                                                        </CustomTooltip>
+
                                                         <Link to={`/admin/customers/${c.id}/edit`}>
-                                                            <IconBtn title={`Edit customer ${c.name}`}><Edit2 size={14} /></IconBtn>
+                                                            <CustomTooltip content={`Edit ${c.name}`} side="top">
+                                                                <IconBtn><Edit2 size={14} /></IconBtn>
+                                                            </CustomTooltip>
                                                         </Link>
-                                                        <IconBtn
-                                                            onClick={() => toggleActive(c.id, c.is_active)}
-                                                            title={c.is_active ? `Deactivate customer ${c.name}` : `Activate customer ${c.name}`}
-                                                        >
-                                                            {c.is_active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                                                        </IconBtn>
-                                                        <IconBtn
-                                                            onClick={() => setDeleteTarget({ id: c.id, name: c.name })}
-                                                            title={`Delete customer ${c.name}`}
-                                                            danger
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </IconBtn>
+                                                        <CustomTooltip content={c.is_active ? 'Deactivate customer' : 'Activate customer'} side="top">
+                                                            <IconBtn
+                                                                onClick={() => toggleActive(c.id, c.is_active)}
+                                                            >
+                                                                {c.is_active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                                            </IconBtn>
+                                                        </CustomTooltip>
+                                                        <CustomTooltip content="Delete customer" side="top">
+                                                            <IconBtn
+                                                                onClick={() => setDeleteTarget({ id: c.id, name: c.name })}
+                                                                danger
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </IconBtn>
+                                                        </CustomTooltip>
                                                     </div>
                                                 </StyledTd>
                                             </StyledTr>
@@ -202,6 +279,46 @@ export const Customers = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <Dialog open={Boolean(assignTarget)} onOpenChange={open => !open && setAssignTarget(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Assign Sales Representative</DialogTitle>
+                        <DialogDescription>Select a sales rep to assign to {assignTarget?.name}</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label>Sales Representative</Label>
+                            <Select value={selectedRep} onValueChange={setSelectedRep}>
+                                <SelectTrigger><SelectValue placeholder="Select sales rep" /></SelectTrigger>
+                                <SelectContent>
+                                    {salesReps.map(rep => (
+                                        <SelectItem key={rep.id} value={rep.id}>{rep.full_name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex gap-3 justify-end">
+                            <Button variant="outline" onClick={() => setAssignTarget(null)}>Cancel</Button>
+                            {selectedRep && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => assignTarget && void assignSalesRep(assignTarget.id, '')}
+                                >
+                                    Unassign
+                                </Button>
+                            )}
+                            <Button
+                                onClick={() => assignTarget && void assignSalesRep(assignTarget.id, selectedRep)}
+                                disabled={!selectedRep}
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                            >
+                                Assign
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

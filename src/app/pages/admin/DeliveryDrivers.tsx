@@ -11,6 +11,7 @@ import {
   PageHeader, SearchBar, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
   EmptyState, Spinner, StatusBadge, IconBtn, TablePagination,
+  CustomTooltip,
 } from '@/app/components/ui/primitives';
 
 interface Agent {
@@ -116,9 +117,11 @@ export const DeliveryDrivers = () => {
         title="Delivery Drivers"
         subtitle="Manage drivers and vehicle number plates used in deliveries"
         actions={
-          <Button onClick={openCreate} className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-9 text-sm">
-            <Plus size={16} className="mr-2" />Add Driver
-          </Button>
+          <CustomTooltip content="Register a new delivery driver" side="bottom">
+            <Button onClick={openCreate} className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-9 text-sm">
+              <Plus size={16} className="mr-2" />Add Driver
+            </Button>
+          </CustomTooltip>
         }
       />
 
@@ -184,20 +187,20 @@ export const DeliveryDrivers = () => {
                     </StyledTd>
                     <StyledTd className="text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <IconBtn
-                          onClick={() => openEdit(agent)}
-                          title="Edit"
-                        >
-                          <Pencil size={14} />
-                        </IconBtn>
-                        <IconBtn
-                          onClick={() => toggleActive(agent)}
-                          className={!agent.is_active ? 'hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30' : ''}
-                          danger={agent.is_active}
-                          title={agent.is_active ? 'Deactivate' : 'Activate'}
-                        >
-                          {agent.is_active ? <PowerOff size={14} /> : <Power size={14} />}
-                        </IconBtn>
+                        <CustomTooltip content={`Edit ${agent.name}`} side="top">
+                          <IconBtn onClick={() => openEdit(agent)}>
+                            <Pencil size={14} />
+                          </IconBtn>
+                        </CustomTooltip>
+                        <CustomTooltip content={agent.is_active ? 'Deactivate driver' : 'Activate driver'} side="top">
+                          <IconBtn
+                            onClick={() => toggleActive(agent)}
+                            className={!agent.is_active ? 'hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30' : ''}
+                            danger={agent.is_active}
+                          >
+                            {agent.is_active ? <PowerOff size={14} /> : <Power size={14} />}
+                          </IconBtn>
+                        </CustomTooltip>
                       </div>
                     </StyledTd>
                   </StyledTr>
@@ -253,10 +256,14 @@ export const DeliveryDrivers = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl">
-              {saving ? 'Saving...' : editTarget ? 'Update Driver' : 'Add Driver'}
-            </Button>
+            <CustomTooltip content="Close without saving" side="top">
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            </CustomTooltip>
+            <CustomTooltip content={editTarget ? 'Update driver details' : 'Add new driver'} side="top">
+              <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl">
+                {saving ? 'Saving...' : editTarget ? 'Update Driver' : 'Add Driver'}
+              </Button>
+            </CustomTooltip>
           </DialogFooter>
         </DialogContent>
       </Dialog>

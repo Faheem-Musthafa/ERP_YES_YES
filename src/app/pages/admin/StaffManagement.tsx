@@ -15,10 +15,12 @@ import {
 import { Plus, Copy, Check, UserPlus, Eye, EyeOff, Shield, Trash2, Pencil, KeyRound } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
+import { isValidEmail } from '@/app/utils';
 import {
     PageHeader, SearchBar, DataCard,
     StyledThead, StyledTh, StyledTr, StyledTd,
     EmptyState, Spinner, StatusBadge, IconBtn, TablePagination,
+    CustomTooltip,
 } from '@/app/components/ui/primitives';
 import type { UserRole } from '@/app/types/database';
 
@@ -78,6 +80,7 @@ export const StaffManagement = () => {
     const [editSaving, setEditSaving] = useState(false);
     const [resetting, setResetting] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
     const pageSize = 10;
 
     const fetchUsers = async () => {
@@ -96,6 +99,9 @@ export const StaffManagement = () => {
     const handleCreate = async () => {
         if (!form.full_name.trim() || !form.email.trim() || !form.role) {
             toast.error('Please fill in all required fields'); return;
+        }
+        if (!isValidEmail(form.email)) {
+            toast.error('Please enter a valid email address'); return;
         }
         setCreating(true);
         const generatedPassword = generatePassword(12);
@@ -206,13 +212,15 @@ export const StaffManagement = () => {
                 title="Team Management"
                 subtitle="Create and manage staff accounts"
                 actions={
-                    <Button
-                        size="sm"
-                        onClick={() => { setCreateOpen(true); setForm({ full_name: '', email: '', role: '', employee_id: '' }); }}
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
-                    >
-                        <UserPlus size={15} /> Create Staff Account
-                    </Button>
+                    <CustomTooltip content="Set up a new staff member account" side="bottom">
+                        <Button
+                            size="sm"
+                            onClick={() => { setCreateOpen(true); setForm({ full_name: '', email: '', role: '', employee_id: '' }); }}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
+                        >
+                            <UserPlus size={15} /> Create Staff Account
+                        </Button>
+                    </CustomTooltip>
                 }
             />
 
@@ -271,10 +279,20 @@ export const StaffManagement = () => {
                                                         <Select
                                                             value={u.role}
                                                             onValueChange={async (newRole) => {
-                                                                const { error } = await supabase.from('users').update({ role: newRole }).eq('id', u.id);
-                                                                if (error) toast.error('Failed to update role');
-                                                                else { toast.success('Role updated'); fetchUsers(); }
+                                                                setUpdatingRoleId(u.id);
+                                                                try {
+                                                                    const { error } = await supabase.from('users').update({ role: newRole }).eq('id', u.id);
+                                                                    if (error) {
+                                                                        toast.error('Failed to update role');
+                                                                    } else {
+                                                                        toast.success('Role updated');
+                                                                        await fetchUsers();
+                                                                    }
+                                                                } finally {
+                                                                    setUpdatingRoleId(null);
+                                                                }
                                                             }}
+                                                            disabled={updatingRoleId !== null && updatingRoleId !== u.id}
                                                         >
                                                             <SelectTrigger className={`h-7 w-28 text-[10px] font-semibold rounded-full px-2.5 border ${ROLE_STYLES[u.role] ?? ''}`}>
                                                                 <SelectValue />
@@ -294,30 +312,33 @@ export const StaffManagement = () => {
                                                 </StyledTd>
                                                 <StyledTd right>
                                                     <div className="flex items-center justify-end gap-1">
-                                                        <IconBtn
-                                                            onClick={() => openEdit(u)}
-                                                            title={`Edit ${u.full_name}`}
-                                                        >
-                                                            <Pencil size={13} />
-                                                        </IconBtn>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => handleToggleActive(u)}
-                                                            disabled={u.role === 'admin'}
-                                                            className={`h-6 text-[10px] px-2 rounded-full ${u.is_active
-                                                                ? 'text-red-600 border-red-200 hover:bg-red-50'
-                                                                : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
-                                                        >
-                                                            {u.is_active ? 'Deactivate' : 'Activate'}
-                                                        </Button>
-                                                        <IconBtn
-                                                            onClick={() => u.role !== 'admin' && setDeleteTarget(u)}
-                                                            title={u.role === 'admin' ? `Cannot delete admin account ${u.name}` : `Delete staff account ${u.name}`}
-                                                            danger
-                                                        >
-                                                            <Trash2 size={13} />
-                                                        </IconBtn>
+                                                        <CustomTooltip content={`Edit ${u.full_name}`} side="top">
+                                                            <IconBtn onClick={() => openEdit(u)}>
+                                                                <Pencil size={13} />
+                                                            </IconBtn>
+                                                        </CustomTooltip>
+                                                        <CustomTooltip content={u.is_active ? 'Deactivate staff member' : 'Activate staff member'} side="top">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() => handleToggleActive(u)}
+                                                                disabled={u.role === 'admin'}
+                                                                className={`h-6 text-[10px] px-2 rounded-full ${u.is_active
+                                                                    ? 'text-red-600 border-red-200 hover:bg-red-50'
+                                                                    : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
+                                                            >
+                                                                {u.is_active ? 'Deactivate' : 'Activate'}
+                                                            </Button>
+                                                        </CustomTooltip>
+                                                        <CustomTooltip content={u.role === 'admin' ? 'Cannot delete admin accounts' : `Delete ${u.full_name}`} side="top">
+                                                            <IconBtn
+                                                                onClick={() => u.role !== 'admin' && setDeleteTarget(u)}
+                                                                danger
+                                                                disabled={u.role === 'admin'}
+                                                            >
+                                                                <Trash2 size={13} />
+                                                            </IconBtn>
+                                                        </CustomTooltip>
                                                     </div>
                                                 </StyledTd>
                                             </StyledTr>

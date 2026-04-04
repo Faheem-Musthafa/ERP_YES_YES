@@ -44,6 +44,7 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
         { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={16} /> },
         { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={16} /> },
         { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={16} /> },
+        { label: 'Customer Analysis', path: '/admin/customer-analysis', icon: <BarChart3 size={16} /> },
         { label: 'Reports', path: '/admin/reports', icon: <FileText size={16} /> },
       ],
     },
@@ -69,6 +70,12 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
     {
       title: 'My Performance',
       items: [{ label: 'Dashboard', path: '/sales', icon: <LayoutDashboard size={16} /> }],
+    },
+    {
+      title: 'Customers',
+      items: [
+        { label: 'My Customers', path: '/sales/my-customers', icon: <UserCircle size={16} /> },
+      ],
     },
     {
       title: 'Orders',
@@ -157,6 +164,12 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
       items: [
         { label: 'Suppliers', path: '/procurement/suppliers', icon: <Truck size={16} /> },
         { label: 'Reports', path: '/procurement/reports', icon: <BarChart3 size={16} /> },
+      ],
+    },
+    {
+      title: 'Inventory',
+      items: [
+        { label: 'Stock View', path: '/stock', icon: <Package size={16} /> },
       ],
     },
   ];

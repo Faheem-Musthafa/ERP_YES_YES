@@ -14,6 +14,7 @@ import {
   PageHeader, SearchBar, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
   EmptyState, Spinner, StatusBadge, IconBtn, TablePagination,
+  CustomTooltip,
 } from '@/app/components/ui/primitives';
 
 export const Brands = () => {
@@ -71,8 +72,18 @@ export const Brands = () => {
   };
 
   const toggleActive = async (b: any) => {
-    await supabase.from('brands').update({ is_active: !b.is_active }).eq('id', b.id);
-    fetchBrands();
+    try {
+      const { error } = await supabase.from('brands').update({ is_active: !b.is_active }).eq('id', b.id);
+      if (error) {
+        toast.error('Failed to update brand status');
+      } else {
+        toast.success(b.is_active ? 'Brand deactivated' : 'Brand activated');
+        await fetchBrands();
+      }
+    } catch (err) {
+      console.error('Toggle active error:', err);
+      toast.error('Failed to update brand status');
+    }
   };
 
   const deleteBrand = async (b: any) => {
@@ -94,9 +105,11 @@ export const Brands = () => {
         title="Brands"
         subtitle="Manage product brands"
         actions={
-          <Button size="sm" onClick={openAdd} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-            <Plus size={15} /> Add Brand
-          </Button>
+          <CustomTooltip content="Add a new product brand" side="bottom">
+            <Button size="sm" onClick={openAdd} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+              <Plus size={15} /> Add Brand
+            </Button>
+          </CustomTooltip>
         }
       />
 
@@ -158,14 +171,20 @@ export const Brands = () => {
                         </StyledTd>
                         <StyledTd right>
                           <div className="flex items-center justify-end gap-1">
-                            <IconBtn onClick={() => openEdit(b)} title={`Edit brand ${b.name}`}><Pencil size={14} /></IconBtn>
-                            <Button
-                              size="sm" variant="outline" onClick={() => toggleActive(b)}
-                              className={`h-6 text-[10px] px-2 rounded-full mx-1 ${b.is_active ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
-                            >
-                              {b.is_active ? 'Deactivate' : 'Activate'}
-                            </Button>
-                            <IconBtn onClick={() => setDeleteTarget(b)} title={`Delete brand ${b.name}`} danger><Trash2 size={13} /></IconBtn>
+                            <CustomTooltip content={`Edit ${b.name}`} side="top">
+                              <IconBtn onClick={() => openEdit(b)}><Pencil size={14} /></IconBtn>
+                            </CustomTooltip>
+                            <CustomTooltip content={b.is_active ? 'Deactivate brand' : 'Activate brand'} side="top">
+                              <Button
+                                size="sm" variant="outline" onClick={() => toggleActive(b)}
+                                className={`h-6 text-[10px] px-2 rounded-full mx-1 ${b.is_active ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
+                              >
+                                {b.is_active ? 'Deactivate' : 'Activate'}
+                              </Button>
+                            </CustomTooltip>
+                            <CustomTooltip content={`Delete ${b.name}`} side="top">
+                              <IconBtn onClick={() => setDeleteTarget(b)} danger><Trash2 size={13} /></IconBtn>
+                            </CustomTooltip>
                           </div>
                         </StyledTd>
                       </StyledTr>
@@ -198,10 +217,14 @@ export const Brands = () => {
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Sony, Samsung" className="mt-1.5" />
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={saving}>
-              {saving ? 'Saving...' : 'Save Brand'}
-            </Button>
+            <CustomTooltip content="Close without saving" side="top">
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            </CustomTooltip>
+            <CustomTooltip content={editing ? 'Update brand name' : 'Create new brand'} side="top">
+              <Button onClick={handleSave} className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={saving}>
+                {saving ? 'Saving...' : 'Save Brand'}
+              </Button>
+            </CustomTooltip>
           </DialogFooter>
         </DialogContent>
       </Dialog>

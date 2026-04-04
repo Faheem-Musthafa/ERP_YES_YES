@@ -27,6 +27,20 @@ export const STATUS_COLOR: Record<string, string> = {
     Delivered: 'bg-purple-100 text-purple-700',
 };
 
+// ── Email validation ────────────────────────────────────────────────────
+
+/** Validates email format using RFC 5322 simplified regex */
+export const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.trim());
+};
+
+// ── Location constants ──────────────────────────────────────────────────
+
+/** Available warehouse/store locations */
+export const LOCATIONS = ['Calicut', 'Chenakkal'] as const;
+export type Location = typeof LOCATIONS[number];
+
 // ── CSV Export ──────────────────────────────────────────────────────────────
 
 /** Downloads an array of rows as a CSV file. */

@@ -16,6 +16,7 @@ export const StockManagement = () => {
   const [search, setSearch] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
   const [stockFilter, setStockFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
@@ -23,7 +24,7 @@ export const StockManagement = () => {
     setLoading(true);
     setError('');
     const [{ data: prod, error: prodError }, { data: br, error: brandError }] = await Promise.all([
-      supabase.from('products').select('id, name, sku, stock_qty, dealer_price, brands(id, name)').eq('is_active', true).order('name'),
+      supabase.from('products').select('id, name, sku, stock_qty, dealer_price, location, brands(id, name)').eq('is_active', true).order('name'),
       supabase.from('brands').select('id, name').eq('is_active', true).order('name'),
     ]);
     if (prodError || brandError) {
@@ -44,9 +45,10 @@ export const StockManagement = () => {
       (stockFilter === 'out' && p.stock_qty === 0) ||
       (stockFilter === 'low' && p.stock_qty > 0 && p.stock_qty <= 5) ||
       (stockFilter === 'ok' && p.stock_qty > 5);
-    return matchSearch && matchBrand && matchStock;
+    const matchLocation = locationFilter === 'all' || p.location === locationFilter;
+    return matchSearch && matchBrand && matchStock && matchLocation;
   });
-  useEffect(() => { setCurrentPage(1); }, [search, brandFilter, stockFilter, products.length]);
+  useEffect(() => { setCurrentPage(1); }, [search, brandFilter, stockFilter, locationFilter, products.length]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const page = Math.min(currentPage, totalPages);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -101,6 +103,16 @@ export const StockManagement = () => {
               </SelectContent>
             </Select>
           </FilterField>
+          <FilterField label="Location">
+            <Select value={locationFilter} onValueChange={setLocationFilter}>
+              <SelectTrigger className="h-10 w-[170px]"><SelectValue placeholder="All" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Locations</SelectItem>
+                <SelectItem value="Calicut">Calicut</SelectItem>
+                <SelectItem value="Chenakkal">Chenakkal</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterField>
         </div>
       </FilterBar>
 
@@ -120,6 +132,7 @@ export const StockManagement = () => {
                 <tr>
                   <StyledTh>Product</StyledTh>
                   <StyledTh>Brand</StyledTh>
+                  <StyledTh>Location</StyledTh>
                   <StyledTh>SKU</StyledTh>
                   <StyledTh right>DP (₹)</StyledTh>
                   <StyledTh right>Stock Qty</StyledTh>
@@ -133,6 +146,11 @@ export const StockManagement = () => {
                     <StyledTr key={p.id}>
                       <StyledTd className="font-medium">{p.name}</StyledTd>
                       <StyledTd className="text-muted-foreground">{p.brands?.name ?? '-'}</StyledTd>
+                      <StyledTd>
+                        {p.location ? (
+                          <span className="px-2 py-1 rounded text-xs font-medium bg-violet-100 text-violet-900">{p.location}</span>
+                        ) : '—'}
+                      </StyledTd>
                       <StyledTd mono className="text-xs text-muted-foreground">{p.sku}</StyledTd>
                       <StyledTd right mono>₹ {p.dealer_price?.toLocaleString('en-IN')}</StyledTd>
                       <StyledTd right mono className="font-bold">{p.stock_qty}</StyledTd>

@@ -2,6 +2,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router';
 import { AuthProvider, useAuth } from '@/app/contexts/AuthContext';
 import { Layout } from '@/app/components/Layout';
+import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { Toaster } from '@/app/components/ui/sonner';
 
 // ── Eagerly loaded (tiny, always needed) ──────────────────────────────────
@@ -17,6 +18,7 @@ const AdminDashboard = lazy(() => import('@/app/pages/admin/Dashboard').then(m =
 const StaffManagement = lazy(() => import('@/app/pages/admin/StaffManagement').then(m => ({ default: m.StaffManagement })));
 const Customers = lazy(() => import('@/app/pages/admin/Customers').then(m => ({ default: m.Customers })));
 const CustomerForm = lazy(() => import('@/app/pages/admin/CustomerForm').then(m => ({ default: m.CustomerForm })));
+const CustomerAnalysisReport = lazy(() => import('@/app/pages/admin/CustomerAnalysisReport').then(m => ({ default: m.CustomerAnalysisReport })));
 const AdminReports = lazy(() => import('@/app/pages/admin/AdminReports').then(m => ({ default: m.AdminReports })));
 const DeliveryDrivers = lazy(() => import('@/app/pages/admin/DeliveryDrivers').then(m => ({ default: m.DeliveryDrivers })));
 const ActivityLog = lazy(() => import('@/app/pages/admin/ActivityLog').then(m => ({ default: m.ActivityLog })));
@@ -25,6 +27,7 @@ const ActivityLog = lazy(() => import('@/app/pages/admin/ActivityLog').then(m =>
 const SalesDashboard = lazy(() => import('@/app/pages/sales/Dashboard').then(m => ({ default: m.SalesDashboard })));
 const CreateOrder = lazy(() => import('@/app/pages/sales/CreateOrder').then(m => ({ default: m.CreateOrder })));
 const MyOrders = lazy(() => import('@/app/pages/sales/MyOrders').then(m => ({ default: m.MyOrders })));
+const MyCustomers = lazy(() => import('@/app/pages/sales/MyCustomers').then(m => ({ default: m.MyCustomers })));
 const ReceiptEntry = lazy(() => import('@/app/pages/sales/ReceiptEntry').then(m => ({ default: m.ReceiptEntry })));
 const MyCollection = lazy(() => import('@/app/pages/sales/MyCollection').then(m => ({ default: m.MyCollection })));
 const CollectionStatus = lazy(() => import('@/app/pages/sales/CollectionStatus').then(m => ({ default: m.CollectionStatus })));
@@ -120,6 +123,7 @@ const AppRoutes = () => {
         <Route path="/admin/customers" element={<ProtectedRoute allowedRoles={['admin']}><Customers /></ProtectedRoute>} />
         <Route path="/admin/customers/new" element={<ProtectedRoute allowedRoles={['admin']}><CustomerForm /></ProtectedRoute>} />
         <Route path="/admin/customers/:id/edit" element={<ProtectedRoute allowedRoles={['admin']}><CustomerForm /></ProtectedRoute>} />
+        <Route path="/admin/customer-analysis" element={<ProtectedRoute allowedRoles={['admin']}><CustomerAnalysisReport /></ProtectedRoute>} />
         <Route path="/admin/brands" element={<ProtectedRoute allowedRoles={['admin']}><Brands /></ProtectedRoute>} />
         <Route path="/admin/products" element={<ProtectedRoute allowedRoles={['admin']}><Products /></ProtectedRoute>} />
         <Route path="/admin/sales" element={<ProtectedRoute allowedRoles={['admin']}><SalesRecords /></ProtectedRoute>} />
@@ -131,6 +135,7 @@ const AppRoutes = () => {
         <Route path="/sales" element={<ProtectedRoute allowedRoles={['sales']}><SalesDashboard /></ProtectedRoute>} />
         <Route path="/sales/create-order" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><CreateOrder /></ProtectedRoute>} />
         <Route path="/sales/my-orders" element={<ProtectedRoute allowedRoles={['sales']}><MyOrders /></ProtectedRoute>} />
+        <Route path="/sales/my-customers" element={<ProtectedRoute allowedRoles={['sales']}><MyCustomers /></ProtectedRoute>} />
         <Route path="/sales/receipt" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><ReceiptEntry /></ProtectedRoute>} />
         <Route path="/sales/my-collection" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><MyCollection /></ProtectedRoute>} />
         <Route path="/sales/collection-status" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><CollectionStatus /></ProtectedRoute>} />
@@ -144,7 +149,7 @@ const AppRoutes = () => {
         <Route path="/accounts/payments" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><Payments /></ProtectedRoute>} />
 
         {/* Shared Routes */}
-        <Route path="/stock" element={<ProtectedRoute allowedRoles={['admin', 'accounts', 'sales', 'inventory']}><StockManagement /></ProtectedRoute>} />
+        <Route path="/stock" element={<ProtectedRoute allowedRoles={['admin', 'accounts', 'sales', 'inventory', 'procurement']}><StockManagement /></ProtectedRoute>} />
 
         {/* Inventory Routes */}
         <Route path="/inventory" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><InventoryDashboard /></ProtectedRoute>} />
@@ -172,11 +177,13 @@ const AppRoutes = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-        <Toaster />
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+          <Toaster />
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

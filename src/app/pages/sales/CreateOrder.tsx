@@ -49,14 +49,29 @@ export const CreateOrder = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [{ data: custData }, { data: prodData }] = await Promise.all([
-        supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
-        supabase.from('products').select('id, name, sku, dealer_price, mrp, stock_qty, brands(name)').eq('is_active', true).order('name'),
-      ]);
-      if (custData) setCustomers(custData);
-      if (prodData) setProducts(prodData.map((p: any) => ({ id: p.id, name: p.name, sku: p.sku, dealer_price: p.dealer_price, mrp: p.mrp ?? 0, stock_qty: p.stock_qty, brand_name: p.brands?.name ?? '' })));
+      try {
+        const [{ data: custData, error: custError }, { data: prodData, error: prodError }] = await Promise.all([
+          supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
+          supabase.from('products').select('id, name, sku, dealer_price, mrp, stock_qty, brands(name)').eq('is_active', true).order('name'),
+        ]);
+        if (custError) {
+          console.error('Failed to fetch customers:', custError);
+          toast.error('Could not load customers');
+        } else if (custData) {
+          setCustomers(custData);
+        }
+        if (prodError) {
+          console.error('Failed to fetch products:', prodError);
+          toast.error('Could not load products');
+        } else if (prodData) {
+          setProducts(prodData.map((p: any) => ({ id: p.id, name: p.name, sku: p.sku, dealer_price: p.dealer_price, mrp: p.mrp ?? 0, stock_qty: p.stock_qty, brand_name: p.brands?.name ?? '' })));
+        }
+      } catch (err) {
+        console.error('Data fetch error:', err);
+        toast.error('Failed to load order data');
+      }
     };
-    fetchData();
+    void fetchData();
   }, []);
 
   const handleCustomerSelect = (custId: string) => {

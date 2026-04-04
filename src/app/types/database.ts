@@ -56,6 +56,7 @@ export interface Database {
                     mrp: number;
                     dealer_price: number;
                     stock_qty: number;
+                    location: string | null;
                     is_active: boolean;
                     created_at: string;
                     updated_at: string;
@@ -70,8 +71,10 @@ export interface Database {
                     phone: string;
                     address: string;
                     place: string | null;
+                    location: string | null;
                     pincode: string | null;
                     gst_pan: string | null;
+                    assigned_to: string | null;
                     is_active: boolean;
                     created_at: string;
                     updated_at: string;
