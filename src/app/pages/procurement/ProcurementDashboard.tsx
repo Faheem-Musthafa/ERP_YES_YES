@@ -35,26 +35,36 @@ export const ProcurementDashboard = () => {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [{ data: poData }, { data: grnData }, { data: supplierData }] = await Promise.all([
-        supabase
-          .from('purchase_orders')
-          .select('id, po_number, status, total_amount, created_at, expected_delivery_date, suppliers(name), purchase_order_items(quantity)')
-          .order('created_at', { ascending: false })
-          .limit(100),
-        supabase
-          .from('grn_items')
-          .select('id, purchase_order_id, status, received_date, created_at, expected_qty, received_qty')
-          .order('created_at', { ascending: false })
-          .limit(100),
-        supabase
-          .from('suppliers')
-          .select('id')
-          .eq('status', 'Active'),
-      ]);
-      setOrders((poData ?? []) as DashboardPO[]);
-      setGrnRows((grnData ?? []) as DashboardGRN[]);
-      setActiveSuppliers((supplierData ?? []).length);
-      setLoading(false);
+      try {
+        const [{ data: poData, error: poError }, { data: grnData, error: grnError }, { data: supplierData, error: supplierError }] = await Promise.all([
+          supabase
+            .from('purchase_orders')
+            .select('id, po_number, status, total_amount, created_at, expected_delivery_date, suppliers(name), purchase_order_items(quantity)')
+            .order('created_at', { ascending: false })
+            .limit(100),
+          supabase
+            .from('grn_items')
+            .select('id, purchase_order_id, status, received_date, created_at, expected_qty, received_qty')
+            .order('created_at', { ascending: false })
+            .limit(100),
+          supabase
+            .from('suppliers')
+            .select('id')
+            .eq('status', 'Active'),
+        ]);
+
+        if (poError) throw poError;
+        if (grnError) throw grnError;
+        if (supplierError) throw supplierError;
+
+        setOrders((poData ?? []) as DashboardPO[]);
+        setGrnRows((grnData ?? []) as DashboardGRN[]);
+        setActiveSuppliers((supplierData ?? []).length);
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 

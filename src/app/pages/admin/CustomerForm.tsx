@@ -17,7 +17,7 @@ export const CustomerForm = () => {
     const isEdit = Boolean(id);
 
     const [form, setForm] = useState({
-        name: '', place: '', address: '', phone: '', pincode: '', gst_pan: '', location: null as string | null, assigned_to: null as string | null,
+        name: '', place: '', address: '', phone: '', pincode: '', gst_pan: '', location: null as string | null, assigned_to: null as string | null, opening_balance: 0,
     });
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(isEdit);
@@ -30,14 +30,14 @@ export const CustomerForm = () => {
         (async () => {
             const { data, error } = await supabase
                 .from('customers')
-                .select('name, place, address, phone, pincode, gst_pan, location, assigned_to')
+                .select('name, place, address, phone, pincode, gst_pan, location, assigned_to, opening_balance')
                 .eq('id', id)
                 .single();
             if (error) { toast.error('Failed to load customer'); navigate('/admin/customers'); return; }
             setForm({
                 name: data.name ?? '', place: data.place ?? '', address: data.address ?? '',
                 phone: data.phone ?? '', pincode: data.pincode ?? '', gst_pan: data.gst_pan ?? '',
-                location: data.location ?? '', assigned_to: data.assigned_to ?? '',
+                location: data.location ?? '', assigned_to: data.assigned_to ?? '', opening_balance: data.opening_balance ?? 0,
             });
             setFetching(false);
         })();
@@ -71,6 +71,7 @@ export const CustomerForm = () => {
                 pincode: form.pincode.trim() || null, gst_pan: form.gst_pan.trim() || null,
                 location: form.location.trim() || null,
                 assigned_to: form.assigned_to.trim() || null,
+                opening_balance: parseFloat(form.opening_balance?.toString() || '0') || 0,
             };
             if (isEdit) {
                 const { error } = await supabase.from('customers').update(payload).eq('id', id);
@@ -209,12 +210,24 @@ export const CustomerForm = () => {
                                 <Input value={form.place} onChange={field('place')} placeholder="e.g. Kochi, Chennai" />
                             </div>
                             <div className="space-y-1.5">
-                                <Label>Location</Label>
+                                <Label>Location (District)</Label>
                                 <Select value={form.location ?? ''} onValueChange={(v) => setForm(f => ({ ...f, location: v || null }))}>
-                                    <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
+                                    <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="Calicut">Calicut</SelectItem>
-                                        <SelectItem value="Chenakkal">Chenakkal</SelectItem>
+                                        <SelectItem value="Kasaragod">Kasaragod</SelectItem>
+                                        <SelectItem value="Kannur">Kannur</SelectItem>
+                                        <SelectItem value="Wayanad">Wayanad</SelectItem>
+                                        <SelectItem value="Kozhikode">Kozhikode</SelectItem>
+                                        <SelectItem value="Malappuram">Malappuram</SelectItem>
+                                        <SelectItem value="Palakkad">Palakkad</SelectItem>
+                                        <SelectItem value="Thrissur">Thrissur</SelectItem>
+                                        <SelectItem value="Ernakulam">Ernakulam</SelectItem>
+                                        <SelectItem value="Idukki">Idukki</SelectItem>
+                                        <SelectItem value="Kottayam">Kottayam</SelectItem>
+                                        <SelectItem value="Alappuzha">Alappuzha</SelectItem>
+                                        <SelectItem value="Pathanamthitta">Pathanamthitta</SelectItem>
+                                        <SelectItem value="Kollam">Kollam</SelectItem>
+                                        <SelectItem value="Thiruvananthapuram">Thiruvananthapuram</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -250,9 +263,15 @@ export const CustomerForm = () => {
                     </FormSection>
 
                     <FormSection title="Tax Information" subtitle="Optional — leave blank if not applicable">
-                        <div className="space-y-1.5">
-                            <Label>GSTIN / PAN</Label>
-                            <Input value={form.gst_pan} onChange={field('gst_pan')} placeholder="e.g. 22AAAAA0000A1Z5" className="uppercase" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label>GSTIN / PAN</Label>
+                                <Input value={form.gst_pan} onChange={field('gst_pan')} placeholder="e.g. 22AAAAA0000A1Z5" className="uppercase" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>Opening Balance</Label>
+                                <Input type="number" value={form.opening_balance} onChange={(e) => setForm(f => ({ ...f, opening_balance: parseFloat(e.target.value) || 0 }))} placeholder="0.00" step="0.01" min="0" />
+                            </div>
                         </div>
                     </FormSection>
 

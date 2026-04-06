@@ -34,11 +34,22 @@ export const Products = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const [{ data: prod }, { data: br }] = await Promise.all([
-      supabase.from('products').select('id, name, sku, dealer_price, stock_qty, is_active, brands(id, name)').order('name'),
-      supabase.from('brands').select('id, name').eq('is_active', true).order('name'),
-    ]);
-    setProducts(prod ?? []); setBrands(br ?? []); setLoading(false);
+    try {
+      const [{ data: prod, error: prodError }, { data: br, error: brError }] = await Promise.all([
+        supabase.from('products').select('id, name, sku, dealer_price, stock_qty, is_active, brands(id, name)').order('name'),
+        supabase.from('brands').select('id, name').eq('is_active', true).order('name'),
+      ]);
+
+      if (prodError) throw prodError;
+      if (brError) throw brError;
+
+      setProducts(prod ?? []);
+      setBrands(br ?? []);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load products');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); }, []);

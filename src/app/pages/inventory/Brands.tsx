@@ -31,21 +31,30 @@ export const Brands = () => {
 
   const fetchBrands = async () => {
     setLoading(true);
-    const [{ data: brandData }, { data: productData }] = await Promise.all([
-      supabase.from('brands').select('id, name, is_active, created_at').order('name'),
-      supabase.from('products').select('brand_id, dealer_price, stock_qty').eq('is_active', true),
-    ]);
-    const products = productData ?? [];
-    const enriched = (brandData ?? []).map((b: any) => {
-      const brandProducts = products.filter((p: any) => p.brand_id === b.id);
-      return {
-        ...b,
-        productCount: brandProducts.length,
-        stockValue: brandProducts.reduce((sum: number, p: any) => sum + ((p.dealer_price ?? 0) * (p.stock_qty ?? 0)), 0),
-      };
-    });
-    setBrands(enriched);
-    setLoading(false);
+    try {
+      const [{ data: brandData, error: brandError }, { data: productData, error: productError }] = await Promise.all([
+        supabase.from('brands').select('id, name, is_active, created_at').order('name'),
+        supabase.from('products').select('brand_id, dealer_price, stock_qty').eq('is_active', true),
+      ]);
+
+      if (brandError) throw brandError;
+      if (productError) throw productError;
+
+      const products = productData ?? [];
+      const enriched = (brandData ?? []).map((b: any) => {
+        const brandProducts = products.filter((p: any) => p.brand_id === b.id);
+        return {
+          ...b,
+          productCount: brandProducts.length,
+          stockValue: brandProducts.reduce((sum: number, p: any) => sum + ((p.dealer_price ?? 0) * (p.stock_qty ?? 0)), 0),
+        };
+      });
+      setBrands(enriched);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load brands');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchBrands(); }, []);

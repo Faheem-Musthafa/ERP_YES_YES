@@ -84,7 +84,7 @@ export const Payments = () => {
                     existing.totalPaid += orderPaid;
                     existing.outstanding = existing.totalBilled - existing.totalPaid;
                 } else {
-                    const customer = o.customers as any;
+                    const customer = o.customers as { name: string } | null;
                     customerMap.set(cid, {
                         customerId: cid,
                         customerName: customer?.name ?? 'Unknown',

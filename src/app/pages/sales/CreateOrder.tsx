@@ -9,7 +9,7 @@ import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import { PageHeader } from '@/app/components/ui/primitives';
-import type { CompanyEnum, InvoiceTypeEnum } from '@/app/types/database';
+import type { CompanyEnum, InvoiceTypeEnum, GodownEnum } from '@/app/types/database';
 
 interface OrderItem {
   id: string; productId: string; product: string; brand: string; sku: string;
@@ -29,6 +29,7 @@ export const CreateOrder = () => {
 
   const [company, setCompany] = useState<CompanyEnum | ''>('');
   const [invoiceType, setInvoiceType] = useState<InvoiceTypeEnum | ''>('');
+  const [godown, setGodown] = useState<GodownEnum | ''>('');
   const [customerType, setCustomerType] = useState('existing');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -154,7 +155,7 @@ export const CreateOrder = () => {
 
       const { data: order, error: orderErr } = await supabase.from('orders').insert({
         order_number: orderNumber, company: company as CompanyEnum, invoice_type: invoiceType as InvoiceTypeEnum,
-        customer_id: customerId, site_address: siteAddress, remarks: remarks || null,
+        customer_id: customerId, godown: godown || null, site_address: siteAddress, remarks: remarks || null,
         delivery_date: getDeliveryDate(), subtotal, total_discount: totalDiscount, grand_total: grandTotal,
         status: 'Pending', created_by: user?.id ?? null,
       }).select('id').single();
@@ -190,7 +191,7 @@ export const CreateOrder = () => {
   );
 
   const hasUnsavedInput = Boolean(
-    company || invoiceType || selectedCustomerId || customerName || customerPhone || customerAddress || customerGst ||
+    company || invoiceType || godown || selectedCustomerId || customerName || customerPhone || customerAddress || customerGst ||
     siteAddress || remarks || customDate || orderItems.some(i => i.productId || i.quantity || i.discount || i.amount)
   );
 
@@ -253,6 +254,15 @@ export const CreateOrder = () => {
                   </Select>
                 </FL>
               </div>
+              <FL label="Godown / Location" htmlFor="godown">
+                <Select value={godown} onValueChange={setGodown}>
+                  <SelectTrigger id="godown" className="h-9 rounded-lg text-sm"><SelectValue placeholder="Select godown (optional)…" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Kottakkal">Kottakkal</SelectItem>
+                    <SelectItem value="Chenakkal">Chenakkal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FL>
             </div>
 
             {/* ── Customer ── */}

@@ -511,6 +511,7 @@ export const StaffManagement = () => {
                         </div>
                     )}
                     <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => { setEditForm({ full_name: editTarget?.full_name ?? '', employee_id: editTarget?.employee_id ?? '' }); }}>Reset</Button>
                         <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
                         <Button onClick={handleEditSave} disabled={editSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                             {editSaving ? 'Saving...' : 'Save Changes'}

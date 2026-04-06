@@ -22,12 +22,20 @@ export const StockAdjustment = () => {
   const [search, setSearch] = useState('');
 
   const fetchData = async () => {
-    const [{ data: prod }, { data: adj }] = await Promise.all([
-      supabase.from('products').select('id, name, sku, stock_qty, brands(name)').eq('is_active', true).order('name'),
-      supabase.from('stock_adjustments').select('id, quantity, type, reason, created_at, products(name, sku)').order('created_at', { ascending: false }).limit(20),
-    ]);
-    setProducts(prod ?? []);
-    setRecentAdjustments(adj ?? []);
+    try {
+      const [{ data: prod, error: prodError }, { data: adj, error: adjError }] = await Promise.all([
+        supabase.from('products').select('id, name, sku, stock_qty, brands(name)').eq('is_active', true).order('name'),
+        supabase.from('stock_adjustments').select('id, quantity, type, reason, created_at, products(name, sku)').order('created_at', { ascending: false }).limit(20),
+      ]);
+
+      if (prodError) throw prodError;
+      if (adjError) throw adjError;
+
+      setProducts(prod ?? []);
+      setRecentAdjustments(adj ?? []);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load data');
+    }
   };
   useEffect(() => { fetchData(); }, []);
 
@@ -39,14 +47,24 @@ export const StockAdjustment = () => {
     const qty = Number(quantity);
     if (!Number.isFinite(qty) || qty <= 0) { toast.error('Quantity must be greater than zero'); return; }
     if (!selectedProduct) return;
-    const newStock = type === 'Addition' ? selectedProduct.stock_qty + qty : selectedProduct.stock_qty - qty;
-    if (newStock < 0) { toast.error('Stock cannot go below 0'); return; }
     if (type === 'Subtraction') {
       const confirmSubtraction = window.confirm(`You are reducing stock by ${qty} for ${selectedProduct.name}. Continue?`);
       if (!confirmSubtraction) return;
     }
     setSaving(true);
     try {
+      // Fetch current stock from DB to prevent race condition
+      const { data: currentProduct, error: fetchErr } = await supabase
+        .from('products')
+        .select('stock_qty')
+        .eq('id', selectedProductId)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      const currentStock = currentProduct?.stock_qty ?? 0;
+      const newStock = type === 'Addition' ? currentStock + qty : currentStock - qty;
+      if (newStock < 0) { toast.error('Stock cannot go below 0'); setSaving(false); return; }
+
       const { data: adjData, error: adjErr } = await supabase.from('stock_adjustments').insert({ product_id: selectedProductId, quantity: qty, type, reason, adjusted_by: user?.id ?? null }).select('id').single();
       if (adjErr) throw adjErr;
       const { error: stockErr } = await supabase.from('products').update({ stock_qty: newStock }).eq('id', selectedProductId);
@@ -171,7 +189,7 @@ export const StockAdjustment = () => {
                     {filtered.map(p => (
                       <tr key={p.id} className="hover:bg-gray-50/70 transition-colors">
                         <td className="px-3 py-2 font-medium text-xs">{p.name}</td>
-                        <td className="px-3 py-2 text-gray-500 text-xs">{(p.brands as any)?.name}</td>
+                        <td className="px-3 py-2 text-gray-500 text-xs">{(p.brands as { name: string } | null)?.name}</td>
                         <td className={`px-3 py-2 text-right font-bold text-xs ${p.stock_qty <= 5 ? 'text-amber-600' : ''}`}>{p.stock_qty}</td>
                       </tr>
                     ))}
@@ -206,7 +224,7 @@ export const StockAdjustment = () => {
               <tbody className="divide-y divide-gray-50">
                 {recentAdjustments.map(a => (
                   <tr key={a.id} className="hover:bg-gray-50/70 transition-colors">
-                    <td className="px-4 py-3 font-semibold">{(a.products as any)?.name}</td>
+                    <td className="px-4 py-3 font-semibold">{(a.products as { name: string } | null)?.name}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${a.type === 'Addition' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{a.type}</span>
                     </td>

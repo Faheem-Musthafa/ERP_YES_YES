@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
 import { Plus, Pencil, Power, PowerOff, Car, Phone } from 'lucide-react';
 import { supabase } from '@/app/supabase';
@@ -18,12 +19,14 @@ interface Agent {
   id: string;
   name: string;
   vehicle_number: string | null;
+  vehicle_type: string | null;
+  vehicle_type_other: string | null;
   phone: string | null;
   is_active: boolean;
   created_at: string;
 }
 
-const emptyForm = { name: '', vehicle_number: '', phone: '' };
+const emptyForm = { name: '', vehicle_number: '', vehicle_type: '', vehicle_type_other: '', phone: '' };
 
 export const DeliveryDrivers = () => {
   const { user } = useAuth();
@@ -42,7 +45,7 @@ export const DeliveryDrivers = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('delivery_agents')
-      .select('id, name, vehicle_number, phone, is_active, created_at')
+      .select('id, name, vehicle_number, vehicle_type, vehicle_type_other, phone, is_active, created_at')
       .order('name');
     if (error) toast.error(error.message);
     setAgents(data ?? []);
@@ -55,7 +58,7 @@ export const DeliveryDrivers = () => {
 
   const openEdit = (agent: Agent) => {
     setEditTarget(agent);
-    setForm({ name: agent.name, vehicle_number: agent.vehicle_number ?? '', phone: agent.phone ?? '' });
+    setForm({ name: agent.name, vehicle_number: agent.vehicle_number ?? '', vehicle_type: agent.vehicle_type ?? '', vehicle_type_other: agent.vehicle_type_other ?? '', phone: agent.phone ?? '' });
     setOpen(true);
   };
 
@@ -69,6 +72,8 @@ export const DeliveryDrivers = () => {
           .update({
             name: form.name.trim(),
             vehicle_number: form.vehicle_number.trim().toUpperCase() || null,
+            vehicle_type: form.vehicle_type || null,
+            vehicle_type_other: form.vehicle_type === 'Others' ? form.vehicle_type_other.trim() || null : null,
             phone: form.phone.trim() || null,
           })
           .eq('id', editTarget.id);
@@ -78,6 +83,8 @@ export const DeliveryDrivers = () => {
         const { error } = await supabase.from('delivery_agents').insert({
           name: form.name.trim(),
           vehicle_number: form.vehicle_number.trim().toUpperCase() || null,
+          vehicle_type: form.vehicle_type || null,
+          vehicle_type_other: form.vehicle_type === 'Others' ? form.vehicle_type_other.trim() || null : null,
           phone: form.phone.trim() || null,
           is_active: true,
           created_by: user?.id ?? null,
@@ -235,6 +242,29 @@ export const DeliveryDrivers = () => {
                 placeholder="e.g. Ravi Kumar"
               />
             </div>
+            <div className="space-y-2">
+              <Label>Vehicle Type</Label>
+              <Select value={form.vehicle_type} onValueChange={(v) => setForm(f => ({ ...f, vehicle_type: v, vehicle_type_other: '' }))}>
+                <SelectTrigger><SelectValue placeholder="Select vehicle type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2-Wheeler">2-Wheeler</SelectItem>
+                  <SelectItem value="3-Wheeler">3-Wheeler</SelectItem>
+                  <SelectItem value="4-Wheeler">4-Wheeler</SelectItem>
+                  <SelectItem value="Truck">Truck</SelectItem>
+                  <SelectItem value="Others">Others</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {form.vehicle_type === 'Others' && (
+              <div className="space-y-2">
+                <Label>Specify Vehicle Type</Label>
+                <Input
+                  value={form.vehicle_type_other}
+                  onChange={e => setForm(f => ({ ...f, vehicle_type_other: e.target.value }))}
+                  placeholder="e.g. Van, Auto, etc."
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Vehicle Number Plate</Label>
               <Input

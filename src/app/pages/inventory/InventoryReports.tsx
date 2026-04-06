@@ -86,7 +86,7 @@ export const InventoryReports = () => {
                   <tbody>
                     {adjustmentHistory.map(a => (
                       <StyledTr key={a.id}>
-                        <StyledTd className="font-semibold">{(a.products as any)?.name}</StyledTd>
+                        <StyledTd className="font-semibold">{(a.products as { name: string } | null)?.name}</StyledTd>
                         <StyledTd center>
                           <StatusBadge status={a.type === 'Addition' ? 'Approved' : 'Rejected'} className="capitalize" />
                         </StyledTd>

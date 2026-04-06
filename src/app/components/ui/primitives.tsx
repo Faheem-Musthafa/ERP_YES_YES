@@ -239,17 +239,18 @@ export const StatusBadge = ({ status, className }: { status: string; className?:
 
 // ── ActionButton ──────────────────────────────────────────────────────────────
 // Ghost icon-only buttons for table rows
-export const IconBtn = ({
-    onClick, title, children, danger, className, disabled
-}: {
+export const IconBtn = React.forwardRef<HTMLButtonElement, {
     onClick?: () => void;
     title?: string;
     children: React.ReactNode;
     danger?: boolean;
     className?: string;
     disabled?: boolean;
-}) => (
+}>(({
+    onClick, title, children, danger, className, disabled
+}, ref) => (
     <button
+        ref={ref}
         type="button"
         onClick={onClick}
         title={title}
@@ -265,7 +266,8 @@ export const IconBtn = ({
     >
         {children}
     </button>
-);
+));
+IconBtn.displayName = 'IconBtn';
 
 interface TablePaginationProps {
     totalItems: number;

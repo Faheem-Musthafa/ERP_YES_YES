@@ -93,7 +93,7 @@ export const CustomerAnalysisReport = () => {
     const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
     const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-    const locations = ['Calicut', 'Chenakkal'];
+    const locations = ['Kottakkal', 'Chenakkal'];
     const locationData = locations.map(loc => ({
         name: loc,
         customers: data.filter(c => c.location === loc).length,

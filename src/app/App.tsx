@@ -22,6 +22,7 @@ const CustomerAnalysisReport = lazy(() => import('@/app/pages/admin/CustomerAnal
 const AdminReports = lazy(() => import('@/app/pages/admin/AdminReports').then(m => ({ default: m.AdminReports })));
 const DeliveryDrivers = lazy(() => import('@/app/pages/admin/DeliveryDrivers').then(m => ({ default: m.DeliveryDrivers })));
 const ActivityLog = lazy(() => import('@/app/pages/admin/ActivityLog').then(m => ({ default: m.ActivityLog })));
+const AdminSettings = lazy(() => import('@/app/pages/admin/Settings').then(m => ({ default: m.AdminSettings })));
 
 // Sales
 const SalesDashboard = lazy(() => import('@/app/pages/sales/Dashboard').then(m => ({ default: m.SalesDashboard })));
@@ -130,6 +131,7 @@ const AppRoutes = () => {
         <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={['admin']}><AdminReports /></ProtectedRoute>} />
         <Route path="/admin/drivers" element={<ProtectedRoute allowedRoles={['admin']}><DeliveryDrivers /></ProtectedRoute>} />
         <Route path="/admin/activity" element={<ProtectedRoute allowedRoles={['admin']}><ActivityLog /></ProtectedRoute>} />
+        <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
 
         {/* Sales Routes */}
         <Route path="/sales" element={<ProtectedRoute allowedRoles={['sales']}><SalesDashboard /></ProtectedRoute>} />

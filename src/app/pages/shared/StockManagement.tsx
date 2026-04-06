@@ -108,7 +108,7 @@ export const StockManagement = () => {
               <SelectTrigger className="h-10 w-[170px]"><SelectValue placeholder="All" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
-                <SelectItem value="Calicut">Calicut</SelectItem>
+                <SelectItem value="Kottakkal">Kottakkal</SelectItem>
                 <SelectItem value="Chenakkal">Chenakkal</SelectItem>
               </SelectContent>
             </Select>

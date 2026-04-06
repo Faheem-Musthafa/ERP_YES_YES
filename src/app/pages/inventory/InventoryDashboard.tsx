@@ -101,7 +101,7 @@ export const InventoryDashboard = () => {
                 {lowStockItems.map(p => (
                   <StyledTr key={p.id}>
                     <StyledTd className="font-semibold text-foreground">{p.name}</StyledTd>
-                    <StyledTd className="text-muted-foreground">{(p.brands as any)?.name ?? '-'}</StyledTd>
+                    <StyledTd className="text-muted-foreground">{(p.brands as { name: string } | null)?.name ?? '-'}</StyledTd>
                     <StyledTd right className="font-bold">
                       {p.stock_qty}
                       <span className="text-muted-foreground font-normal text-xs ml-1">units</span>

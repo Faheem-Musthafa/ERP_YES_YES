@@ -6,7 +6,7 @@ import {
   BarChart3, FileText, LogOut, DollarSign, FileCheck, Boxes,
   Plus, Receipt, Wallet, ClipboardCheck, Truck, Car,
   UserCircle, ChevronRight, ChevronDown, X, PanelLeftClose, PanelLeftOpen,
-  ClipboardList, Activity,
+  ClipboardList, Activity, Settings,
 } from 'lucide-react';
 
 interface NavItem { label: string; path: string; icon: React.ReactNode; }
@@ -62,6 +62,7 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
       title: 'System',
       items: [
         { label: 'Activity Log', path: '/admin/activity', icon: <Activity size={16} /> },
+        { label: 'Settings', path: '/admin/settings', icon: <Settings size={16} /> },
       ],
     },
   ];

@@ -52,14 +52,23 @@ export const ReceiptEntry = () => {
 
   useEffect(() => {
     (async () => {
-      const [{ data: custData }, { data: ordData }, { data: brandData }] = await Promise.all([
-        supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
-        supabase.from('orders').select('id, order_number, invoice_number, grand_total, created_at, customer_id, customers(name)').eq('status', 'Approved').order('created_at', { ascending: false }),
-        supabase.from('brands').select('name').eq('is_active', true).order('name'),
-      ]);
-      if (custData) setCustomers(custData);
-      if (ordData) setApprovedOrders(ordData);
-      if (brandData) setBrands([...brandData.map((b: any) => b.name), 'Other']);
+      try {
+        const [{ data: custData, error: custError }, { data: ordData, error: ordError }, { data: brandData, error: brandError }] = await Promise.all([
+          supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
+          supabase.from('orders').select('id, order_number, invoice_number, grand_total, created_at, customer_id, customers(name)').eq('status', 'Approved').order('created_at', { ascending: false }),
+          supabase.from('brands').select('name').eq('is_active', true).order('name'),
+        ]);
+
+        if (custError) throw custError;
+        if (ordError) throw ordError;
+        if (brandError) throw brandError;
+
+        if (custData) setCustomers(custData);
+        if (ordData) setApprovedOrders(ordData);
+        if (brandData) setBrands([...brandData.map((b: any) => b.name), 'Other']);
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to load data');
+      }
     })();
   }, []);
 
@@ -250,7 +259,7 @@ export const ReceiptEntry = () => {
               </div>
 
               <div className="space-y-1.5 md:col-span-2"><Label>On Account Of <span className="text-destructive">*</span></Label>
-                <Select value={onAccountOf} onValueChange={v => { setOnAccountOf(v as any); setSelectedOrderId(''); }}>
+                <Select value={onAccountOf} onValueChange={v => { setOnAccountOf(v as 'Invoice' | 'Advance'); setSelectedOrderId(''); }}>
                   <SelectTrigger><SelectValue placeholder="Invoice or Advance?" /></SelectTrigger>
                   <SelectContent><SelectItem value="Invoice">Against Invoice/Order</SelectItem><SelectItem value="Advance">Advance Payment</SelectItem></SelectContent>
                 </Select>

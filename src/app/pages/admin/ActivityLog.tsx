@@ -91,7 +91,7 @@ export const ActivityLog = () => {
 
             // -- Orders --
             for (const o of ordersRes.data ?? []) {
-                const customerName = (o.customers as any)?.name ?? 'Unknown';
+                const customerName = (o.customers as { name: string } | null)?.name ?? 'Unknown';
                 allEvents.push({
                     id: `order-created-${o.id}`,
                     timestamp: o.created_at,
@@ -116,7 +116,7 @@ export const ActivityLog = () => {
 
             // -- Stock Adjustments --
             for (const s of stockRes.data ?? []) {
-                const productName = (s.products as any)?.name ?? 'Unknown Product';
+                const productName = (s.products as { name: string } | null)?.name ?? 'Unknown Product';
                 allEvents.push({
                     id: `stock-${s.id}`,
                     timestamp: s.created_at,

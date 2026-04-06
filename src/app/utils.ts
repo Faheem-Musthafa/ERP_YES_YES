@@ -38,7 +38,7 @@ export const isValidEmail = (email: string): boolean => {
 // ── Location constants ──────────────────────────────────────────────────
 
 /** Available warehouse/store locations */
-export const LOCATIONS = ['Calicut', 'Chenakkal'] as const;
+export const LOCATIONS = ['Kottakkal', 'Chenakkal'] as const;
 export type Location = typeof LOCATIONS[number];
 
 // ── CSV Export ──────────────────────────────────────────────────────────────

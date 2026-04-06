@@ -16,6 +16,9 @@ export type StockAdjustmentTypeEnum = 'Addition' | 'Subtraction';
 export type SupplierStatusEnum = 'Active' | 'Inactive';
 export type PoStatusEnum = 'Draft' | 'Pending' | 'Approved' | 'Received' | 'Cancelled';
 export type GrnStatusEnum = 'Pending' | 'Verified' | 'Completed';
+export type DistrictEnum = 'Kasaragod' | 'Kannur' | 'Wayanad' | 'Kozhikode' | 'Malappuram' | 'Palakkad' | 'Thrissur' | 'Ernakulam' | 'Idukki' | 'Kottayam' | 'Alappuzha' | 'Pathanamthitta' | 'Kollam' | 'Thiruvananthapuram';
+export type VehicleTypeEnum = '2-Wheeler' | '3-Wheeler' | '4-Wheeler' | 'Truck' | 'Others';
+export type GodownEnum = 'Kottakkal' | 'Chenakkal';
 
 export interface Database {
     public: {
@@ -71,9 +74,10 @@ export interface Database {
                     phone: string;
                     address: string;
                     place: string | null;
-                    location: string | null;
+                    location: DistrictEnum | null;
                     pincode: string | null;
                     gst_pan: string | null;
+                    opening_balance: number;
                     assigned_to: string | null;
                     is_active: boolean;
                     created_at: string;
@@ -90,6 +94,7 @@ export interface Database {
                     invoice_type: InvoiceTypeEnum;
                     invoice_number: string | null;
                     customer_id: string | null;
+                    godown: GodownEnum | null;
                     site_address: string;
                     remarks: string | null;
                     delivery_date: string | null;
@@ -185,6 +190,8 @@ export interface Database {
                     id: string;
                     name: string;
                     vehicle_number: string | null;
+                    vehicle_type: VehicleTypeEnum | null;
+                    vehicle_type_other: string | null;
                     phone: string | null;
                     is_active: boolean;
                     created_by: string | null;

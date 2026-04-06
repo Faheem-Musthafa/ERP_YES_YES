@@ -32,15 +32,110 @@ export const GRN = () => {
   const [pendingDeliveries, setPendingDeliveries] = useState<PendingDelivery[]>([]);
   const [recentGRNs, setRecentGRNs] = useState<RecentGrn[]>([]);
   const [selectedPOId, setSelectedPOId] = useState('');
+  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [challanNumber, setChallanNumber] = useState('');
+  const [remarks, setRemarks] = useState('');
+  const [receivedQty, setReceivedQty] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleCreateGRN = (e: React.FormEvent) => {
+  const handleCreateGRN = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success('GRN created successfully - Stock updated');
+
+    if (!selectedPO) {
+      toast.error('Please select a purchase order');
+      return;
+    }
+
+    if (!receivedDate) {
+      toast.error('Please enter received date');
+      return;
+    }
+
+    if (!receivedQty || Number(receivedQty) <= 0) {
+      toast.error('Please enter received quantity');
+      return;
+    }
+
+    const expectedQty = (selectedPO.purchase_order_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0);
+    if (Number(receivedQty) > expectedQty) {
+      toast.error(`Received quantity cannot exceed expected quantity (${expectedQty})`);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Create GRN record
+      const { data: grnData, error: grnError } = await supabase
+        .from('grn_items')
+        .insert({
+          purchase_order_id: selectedPOId,
+          expected_qty: expectedQty,
+          received_qty: Number(receivedQty),
+          damaged_qty: 0,
+          status: 'Completed',
+          received_date: receivedDate,
+        })
+        .select('id')
+        .single();
+
+      if (grnError) throw grnError;
+
+      // Update purchase order status to 'Received'
+      const { error: poUpdateError } = await supabase
+        .from('purchase_orders')
+        .update({ status: 'Received' })
+        .eq('id', selectedPOId);
+
+      if (poUpdateError) throw poUpdateError;
+
+      // Update product stock levels
+      const { data: poItems, error: poItemsError } = await supabase
+        .from('purchase_order_items')
+        .select('product_id, quantity')
+        .eq('purchase_order_id', selectedPOId);
+
+      if (poItemsError) throw poItemsError;
+
+      // Update stock for each product
+      if (poItems && poItems.length > 0) {
+        for (const item of poItems) {
+          const adjustedQty = item.quantity * (Number(receivedQty) / expectedQty);
+          const { data: product, error: prodError } = await supabase
+            .from('products')
+            .select('stock_qty')
+            .eq('id', item.product_id)
+            .single();
+
+          if (prodError) throw prodError;
+
+          const { error: stockError } = await supabase
+            .from('products')
+            .update({ stock_qty: (product?.stock_qty ?? 0) + adjustedQty })
+            .eq('id', item.product_id);
+
+          if (stockError) throw stockError;
+        }
+      }
+
+      toast.success('GRN created successfully and stock updated!');
+      setReceivedDate(new Date().toISOString().split('T')[0]);
+      setChallanNumber('');
+      setRemarks('');
+      setReceivedQty('');
+      setSelectedPOId('');
+
+      // Refresh GRN list
+      await loadGRNData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create GRN');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  useEffect(() => {
-    (async () => {
-      const [{ data: pendingData }, { data: grnData }] = await Promise.all([
+  const loadGRNData = async () => {
+    try {
+      const [{ data: pendingData, error: pendingError }, { data: grnData, error: grnError }] = await Promise.all([
         supabase
           .from('purchase_orders')
           .select('id, po_number, status, expected_delivery_date, suppliers(name), purchase_order_items(quantity)')
@@ -52,9 +147,48 @@ export const GRN = () => {
           .order('created_at', { ascending: false })
           .limit(20),
       ]);
-      setPendingDeliveries((pendingData ?? []) as PendingDelivery[]);
-      setRecentGRNs((grnData ?? []) as RecentGrn[]);
-    })();
+
+      if (pendingError) {
+        console.error('Failed to fetch pending POs:', pendingError);
+        toast.error('Failed to load pending deliveries');
+      } else {
+        setPendingDeliveries((pendingData ?? []) as PendingDelivery[]);
+      }
+
+      if (grnError) {
+        console.error('Failed to fetch GRNs:', grnError);
+        toast.error('Failed to load recent GRNs');
+      } else {
+        setRecentGRNs((grnData ?? []) as RecentGrn[]);
+      }
+    } catch (err) {
+      console.error('Error loading GRN data:', err);
+      toast.error('Failed to load GRN data');
+    }
+  };
+
+  useEffect(() => {
+    loadGRNData();
+
+    // Subscribe to real-time updates
+    const purchaseOrdersSubscription = supabase
+      .channel('purchase_orders')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_orders' }, () => {
+        loadGRNData();
+      })
+      .subscribe();
+
+    const grnItemsSubscription = supabase
+      .channel('grn_items')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'grn_items' }, () => {
+        loadGRNData();
+      })
+      .subscribe();
+
+    return () => {
+      purchaseOrdersSubscription.unsubscribe();
+      grnItemsSubscription.unsubscribe();
+    };
   }, []);
 
   const selectedPO = useMemo(
@@ -93,7 +227,7 @@ export const GRN = () => {
 
                 <div>
                   <Label>Received Date</Label>
-                  <Input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
+                  <Input type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} required />
                 </div>
 
                 <div>
@@ -102,18 +236,23 @@ export const GRN = () => {
                 </div>
 
                 <div>
+                  <Label>Received Quantity</Label>
+                  <Input type="number" value={receivedQty} onChange={(e) => setReceivedQty(e.target.value)} placeholder="Enter quantity received" min="1" required />
+                </div>
+
+                <div>
                   <Label>Delivery Challan Number</Label>
-                  <Input placeholder="Enter challan number" />
+                  <Input value={challanNumber} onChange={(e) => setChallanNumber(e.target.value)} placeholder="Enter challan number" />
                 </div>
 
                 <div>
                   <Label>Remarks</Label>
-                  <Input placeholder="Any additional notes" />
+                  <Input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Any additional notes" />
                 </div>
 
-                <Button type="submit" disabled className="w-full bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl" title="GRN posting flow will be enabled in next iteration">
+                <Button type="submit" disabled={submitting || !selectedPO} className="w-full bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl">
                   <Plus size={16} className="mr-2" />
-                  Create GRN & Update Stock
+                  {submitting ? 'Creating GRN...' : 'Create GRN & Update Stock'}
                 </Button>
               </div>
             </FormSection>

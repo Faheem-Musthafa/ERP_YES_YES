@@ -162,8 +162,8 @@ export const GlobalSearch = ({
         try {
           const { data: suppliers, error: suppliersError } = await supabase
             .from('suppliers')
-            .select('id, company_name, contact_person')
-            .ilike('company_name', `%${query_lower}%`)
+            .select('id, name, contact_person')
+            .ilike('name', `%${query_lower}%`)
             .limit(5);
 
           if (suppliersError) {
@@ -172,7 +172,7 @@ export const GlobalSearch = ({
             suppliers.forEach(s => {
               results_list.push({
                 id: s.id,
-                title: s.company_name,
+                title: s.name,
                 subtitle: s.contact_person || undefined,
                 type: 'supplier',
                 path: `/procurement/suppliers`,
