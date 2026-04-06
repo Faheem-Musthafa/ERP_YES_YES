@@ -277,28 +277,38 @@ export const DeliveryManagement = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const [{ data: del }, { data: ord }, { data: staff }] = await Promise.all([
-      supabase
-        .from('deliveries')
-        .select(`
-          id, delivery_number, status, driver_name, vehicle_number,
-          initiated_by, initiated_by_name, delivery_agent_id,
-          dispatched_at, delivered_at, failure_reason,
-          orders(id, order_number, invoice_number, site_address, customers(name, address)),
-          delivery_agents(id, name, vehicle_number),
-          initiator:users!initiated_by(id, full_name)
-        `)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('orders')
-        .select('id, order_number, invoice_number, customers(name)')
-        .in('status', ['Approved', 'Billed']),
-      supabase.from('users').select('id, full_name, role').eq('is_active', true).order('full_name'),
-    ]);
-    setDeliveries(del ?? []);
-    setOrders(ord ?? []);
-    setStaffList(staff ?? []);
-    setLoading(false);
+    try {
+      const [{ data: del, error: delError }, { data: ord, error: ordError }, { data: staff, error: staffError }] = await Promise.all([
+        supabase
+          .from('deliveries')
+          .select(`
+            id, delivery_number, status, driver_name, vehicle_number,
+            initiated_by, initiated_by_name, delivery_agent_id,
+            dispatched_at, delivered_at, failure_reason,
+            orders(id, order_number, invoice_number, site_address, customers(name, address)),
+            delivery_agents(id, name, vehicle_number),
+            initiator:users!initiated_by(id, full_name)
+          `)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('orders')
+          .select('id, order_number, invoice_number, customers(name)')
+          .in('status', ['Approved', 'Billed']),
+        supabase.from('users').select('id, full_name, role').eq('is_active', true).order('full_name'),
+      ]);
+
+      if (delError) throw delError;
+      if (ordError) throw ordError;
+      if (staffError) throw staffError;
+
+      setDeliveries(del ?? []);
+      setOrders(ord ?? []);
+      setStaffList(staff ?? []);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to load delivery data');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); fetchAgents(); }, []);
