@@ -109,17 +109,10 @@ export const ReceiptEntry = () => {
       const paymentStatus = MODE_STATUSES[modeOfReceipt]?.[0] ?? null;
       const { error } = await supabase.from('receipts').insert({
         receipt_number: receiptNumber,
-        customer_id: finalCustomerId,
         order_id: onAccountOf === 'Invoice' ? selectedOrderId : null,
         amount: Number(receivedAmount),
         payment_mode: mapMode(modeOfReceipt),
         payment_status: paymentStatus,
-        company: company || null,
-        brand: brand === 'Other' ? otherBrand : brand || null,
-        received_date: receivedDate || null,
-        cheque_number: chequeNumber || null,
-        cheque_date: chequeDate || null,
-        on_account_of: onAccountOf || null,
         recorded_by: user?.id ?? null,
       });
       if (error) throw error;
