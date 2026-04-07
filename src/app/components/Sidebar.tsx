@@ -6,7 +6,7 @@ import {
   BarChart3, FileText, LogOut, DollarSign, FileCheck, Boxes,
   Plus, Receipt, Wallet, ClipboardCheck, Truck, Car,
   UserCircle, ChevronRight, ChevronDown, X, PanelLeftClose, PanelLeftOpen,
-  ClipboardList, Activity, Settings,
+  ClipboardList, Activity, Settings, ArrowRightLeft,
 } from 'lucide-react';
 
 interface NavItem { label: string; path: string; icon: React.ReactNode; }
@@ -28,8 +28,8 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
         { label: 'Brands', path: '/admin/brands', icon: <Package size={16} /> },
         { label: 'Products', path: '/admin/products', icon: <Boxes size={16} /> },
         { label: 'Stock View', path: '/stock', icon: <BarChart3 size={16} /> },
-        { label: 'Inv. Management', path: '/inventory/stock', icon: <Boxes size={16} /> },
         { label: 'Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={16} /> },
+        { label: 'Transfer', path: '/inventory/transfer', icon: <ArrowRightLeft size={16} /> },
         { label: 'Delivery', path: '/inventory/delivery', icon: <Truck size={16} /> },
         { label: 'Delivery Drivers', path: '/admin/drivers', icon: <Car size={16} /> },
       ],
@@ -132,8 +132,8 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
       title: 'Stock',
       items: [
         { label: 'Stock View', path: '/stock', icon: <BarChart3 size={16} /> },
-        { label: 'Inventory Stock', path: '/inventory/stock', icon: <Boxes size={16} /> },
         { label: 'Stock Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={16} /> },
+        { label: 'Stock Transfer', path: '/inventory/transfer', icon: <ArrowRightLeft size={16} /> },
         { label: 'Delivery', path: '/inventory/delivery', icon: <Truck size={16} /> },
       ],
     },

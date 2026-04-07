@@ -49,6 +49,7 @@ const InventoryStock = lazy(() => import('@/app/pages/inventory/InventoryStock')
 const Brands = lazy(() => import('@/app/pages/inventory/Brands').then(m => ({ default: m.Brands })));
 const Products = lazy(() => import('@/app/pages/inventory/Products').then(m => ({ default: m.Products })));
 const StockAdjustment = lazy(() => import('@/app/pages/inventory/StockAdjustment').then(m => ({ default: m.StockAdjustment })));
+const StockTransfer = lazy(() => import('@/app/pages/inventory/StockTransfer').then(m => ({ default: m.StockTransfer })));
 const InventoryReports = lazy(() => import('@/app/pages/inventory/InventoryReports').then(m => ({ default: m.InventoryReports })));
 const DeliveryManagement = lazy(() => import('@/app/pages/inventory/DeliveryManagement').then(m => ({ default: m.DeliveryManagement })));
 
@@ -159,6 +160,7 @@ const AppRoutes = () => {
         <Route path="/inventory/brands" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><Brands /></ProtectedRoute>} />
         <Route path="/inventory/products" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><Products /></ProtectedRoute>} />
         <Route path="/inventory/adjustment" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><StockAdjustment /></ProtectedRoute>} />
+        <Route path="/inventory/transfer" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><StockTransfer /></ProtectedRoute>} />
         <Route path="/inventory/reports" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><InventoryReports /></ProtectedRoute>} />
         <Route path="/inventory/delivery" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><DeliveryManagement /></ProtectedRoute>} />
 

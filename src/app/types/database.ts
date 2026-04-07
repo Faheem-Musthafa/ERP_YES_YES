@@ -272,11 +272,38 @@ export interface Database {
                     movement_type: string;
                     reference_type: string | null;
                     reference_id: string | null;
+                    location: GodownEnum | null;
                     created_by: string | null;
                     created_at: string;
                 };
                 Insert: Omit<Database['public']['Tables']['stock_movements']['Row'], 'id' | 'created_at'>;
                 Update: Partial<Database['public']['Tables']['stock_movements']['Insert']>;
+            };
+            product_stock_locations: {
+                Row: {
+                    id: string;
+                    product_id: string;
+                    location: GodownEnum;
+                    stock_qty: number;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: Omit<Database['public']['Tables']['product_stock_locations']['Row'], 'id' | 'created_at' | 'updated_at'>;
+                Update: Partial<Database['public']['Tables']['product_stock_locations']['Insert']>;
+            };
+            stock_transfers: {
+                Row: {
+                    id: string;
+                    product_id: string;
+                    from_location: GodownEnum;
+                    to_location: GodownEnum;
+                    quantity: number;
+                    reason: string | null;
+                    transferred_by: string | null;
+                    created_at: string;
+                };
+                Insert: Omit<Database['public']['Tables']['stock_transfers']['Row'], 'id' | 'created_at'>;
+                Update: Partial<Database['public']['Tables']['stock_transfers']['Insert']>;
             };
         };
     };

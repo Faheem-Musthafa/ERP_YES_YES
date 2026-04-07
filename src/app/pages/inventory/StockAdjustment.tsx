@@ -10,11 +10,22 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import { DataCard, EmptyState, FormSection, PageHeader, SearchBar } from '@/app/components/ui/primitives';
 
+interface ProductWithStock {
+  id: string;
+  name: string;
+  sku: string;
+  brands: { name: string } | null;
+  kottakkal_stock: number;
+  chenakkal_stock: number;
+  total_stock: number;
+}
+
 export const StockAdjustment = () => {
   const { user } = useAuth();
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<ProductWithStock[]>([]);
   const [recentAdjustments, setRecentAdjustments] = useState<any[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<'Kottakkal' | 'Chenakkal'>('Kottakkal');
   const [quantity, setQuantity] = useState('');
   const [type, setType] = useState<'Addition' | 'Subtraction'>('Addition');
   const [reason, setReason] = useState('');
@@ -24,14 +35,36 @@ export const StockAdjustment = () => {
   const fetchData = async () => {
     try {
       const [{ data: prod, error: prodError }, { data: adj, error: adjError }] = await Promise.all([
-        supabase.from('products').select('id, name, sku, stock_qty, brands(name)').eq('is_active', true).order('name'),
+        supabase.from('products').select('id, name, sku, brands(name)').eq('is_active', true).order('name'),
         supabase.from('stock_adjustments').select('id, quantity, type, reason, created_at, products(name, sku)').order('created_at', { ascending: false }).limit(20),
       ]);
 
       if (prodError) throw prodError;
       if (adjError) throw adjError;
 
-      setProducts(prod ?? []);
+      const productIds = (prod ?? []).map(p => p.id);
+      const { data: stockData, error: stockError } = await supabase
+        .from('product_stock_locations')
+        .select('product_id, location, stock_qty')
+        .in('product_id', productIds);
+
+      if (stockError) throw stockError;
+
+      const productsWithStock: ProductWithStock[] = (prod ?? []).map(p => {
+        const kottakkalStock = stockData?.find(s => s.product_id === p.id && s.location === 'Kottakkal');
+        const chenakkalStock = stockData?.find(s => s.product_id === p.id && s.location === 'Chenakkal');
+        const kottakkal_stock = kottakkalStock?.stock_qty ?? 0;
+        const chenakkal_stock = chenakkalStock?.stock_qty ?? 0;
+        
+        return {
+          ...p,
+          kottakkal_stock,
+          chenakkal_stock,
+          total_stock: kottakkal_stock + chenakkal_stock,
+        };
+      });
+
+      setProducts(productsWithStock);
       setRecentAdjustments(adj ?? []);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load data');
@@ -40,41 +73,87 @@ export const StockAdjustment = () => {
   useEffect(() => { fetchData(); }, []);
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
+  const currentLocationStock = selectedProduct 
+    ? (selectedLocation === 'Kottakkal' ? selectedProduct.kottakkal_stock : selectedProduct.chenakkal_stock)
+    : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProductId || !quantity || !reason) { toast.error('All fields required'); return; }
+    if (!selectedProductId || !quantity || !reason || !selectedLocation) { 
+      toast.error('All fields required'); 
+      return; 
+    }
     const qty = Number(quantity);
     if (!Number.isFinite(qty) || qty <= 0) { toast.error('Quantity must be greater than zero'); return; }
     if (!selectedProduct) return;
     if (type === 'Subtraction') {
-      const confirmSubtraction = window.confirm(`You are reducing stock by ${qty} for ${selectedProduct.name}. Continue?`);
+      const confirmSubtraction = window.confirm(`You are reducing stock by ${qty} for ${selectedProduct.name} at ${selectedLocation}. Continue?`);
       if (!confirmSubtraction) return;
     }
     setSaving(true);
     try {
       // Fetch current stock from DB to prevent race condition
-      const { data: currentProduct, error: fetchErr } = await supabase
-        .from('products')
+      const { data: currentStock, error: fetchErr } = await supabase
+        .from('product_stock_locations')
         .select('stock_qty')
-        .eq('id', selectedProductId)
-        .single();
+        .eq('product_id', selectedProductId)
+        .eq('location', selectedLocation)
+        .maybeSingle();
+      
       if (fetchErr) throw fetchErr;
 
-      const currentStock = currentProduct?.stock_qty ?? 0;
-      const newStock = type === 'Addition' ? currentStock + qty : currentStock - qty;
+      const currentQty = currentStock?.stock_qty ?? 0;
+      const newStock = type === 'Addition' ? currentQty + qty : currentQty - qty;
       if (newStock < 0) { toast.error('Stock cannot go below 0'); setSaving(false); return; }
 
-      const { data: adjData, error: adjErr } = await supabase.from('stock_adjustments').insert({ product_id: selectedProductId, quantity: qty, type, reason, adjusted_by: user?.id ?? null }).select('id').single();
+      // Insert adjustment record
+      const { data: adjData, error: adjErr } = await supabase
+        .from('stock_adjustments')
+        .insert({ 
+          product_id: selectedProductId, 
+          quantity: qty, 
+          type, 
+          reason, 
+          adjusted_by: user?.id ?? null 
+        })
+        .select('id')
+        .single();
+      
       if (adjErr) throw adjErr;
-      const { error: stockErr } = await supabase.from('products').update({ stock_qty: newStock }).eq('id', selectedProductId);
+
+      // Update stock at location (use upsert in case entry doesn't exist)
+      const { error: stockErr } = await supabase
+        .from('product_stock_locations')
+        .upsert({ 
+          product_id: selectedProductId, 
+          location: selectedLocation, 
+          stock_qty: newStock 
+        }, { 
+          onConflict: 'product_id,location' 
+        });
+      
       if (stockErr) {
         // Rollback: delete the adjustment record if stock update failed
         await supabase.from('stock_adjustments').delete().eq('id', adjData.id);
         throw stockErr;
       }
-      toast.success(`Stock ${type === 'Addition' ? 'increased' : 'decreased'} by ${qty}. New stock: ${newStock}`);
-      setSelectedProductId(''); setQuantity(''); setReason('');
+
+      // Log stock movement
+      await supabase.from('stock_movements').insert({
+        product_id: selectedProductId,
+        quantity: type === 'Addition' ? qty : -qty,
+        movement_type: 'adjustment',
+        reference_type: 'stock_adjustment',
+        reference_id: adjData.id,
+        location: selectedLocation,
+        created_by: user?.id ?? null,
+      });
+
+      toast.success(`Stock ${type === 'Addition' ? 'increased' : 'decreased'} by ${qty} at ${selectedLocation}. New stock: ${newStock}`);
+      setSelectedProductId(''); 
+      setQuantity(''); 
+      setReason('');
+      setSelectedLocation('Kottakkal');
       fetchData();
     } catch (err: any) {
       toast.error(err.message || 'Adjustment failed');
@@ -103,10 +182,31 @@ export const StockAdjustment = () => {
                   <Label>Product *</Label>
                   <Select value={selectedProductId} onValueChange={setSelectedProductId}>
                     <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
-                    <SelectContent>{products.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.sku}) — Stock: {p.stock_qty}</SelectItem>)}</SelectContent>
+                    <SelectContent>{products.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.sku}) — K: {p.kottakkal_stock} | C: {p.chenakkal_stock}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                {selectedProduct && <p className="text-sm text-teal-700 bg-teal-50 p-3 rounded">Current stock: <strong>{selectedProduct.stock_qty} units</strong></p>}
+                {selectedProduct && (
+                  <div className="text-sm bg-teal-50 p-3 rounded border border-teal-200">
+                    <p className="font-semibold text-teal-900 mb-1">Current Stock Levels:</p>
+                    <div className="grid grid-cols-2 gap-2 text-teal-700">
+                      <div>Kottakkal: <strong>{selectedProduct.kottakkal_stock} units</strong></div>
+                      <div>Chenakkal: <strong>{selectedProduct.chenakkal_stock} units</strong></div>
+                    </div>
+                    <div className="mt-1 pt-1 border-t border-teal-200">
+                      Total: <strong>{selectedProduct.total_stock} units</strong>
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label>Location *</Label>
+                  <Select value={selectedLocation} onValueChange={(v: any) => setSelectedLocation(v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Kottakkal">Kottakkal {selectedProduct && `(Current: ${selectedProduct.kottakkal_stock})`}</SelectItem>
+                      <SelectItem value="Chenakkal">Chenakkal {selectedProduct && `(Current: ${selectedProduct.chenakkal_stock})`}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2">
                   <Label>Adjustment Type *</Label>
                   <Select value={type} onValueChange={v => setType(v as 'Addition' | 'Subtraction')}>
@@ -127,7 +227,9 @@ export const StockAdjustment = () => {
                   <Label>Quantity *</Label>
                   <Input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="Enter quantity" required />
                   {selectedProduct && quantity && (
-                    <p className="text-xs text-gray-600">New stock: {type === 'Addition' ? selectedProduct.stock_qty + Number(quantity) : Math.max(0, selectedProduct.stock_qty - Number(quantity))} units</p>
+                    <p className="text-xs text-gray-600">
+                      New stock at {selectedLocation}: {type === 'Addition' ? currentLocationStock + Number(quantity) : Math.max(0, currentLocationStock - Number(quantity))} units
+                    </p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -147,6 +249,7 @@ export const StockAdjustment = () => {
                       setQuantity('');
                       setReason('');
                       setType('Addition');
+                      setSelectedLocation('Kottakkal');
                     }}
                   >
                     Reset Form
@@ -182,15 +285,19 @@ export const StockAdjustment = () => {
                     <tr>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Product</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Brand</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Stock</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Kottakkal</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Chenakkal</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {filtered.map(p => (
                       <tr key={p.id} className="hover:bg-gray-50/70 transition-colors">
                         <td className="px-3 py-2 font-medium text-xs">{p.name}</td>
-                        <td className="px-3 py-2 text-gray-500 text-xs">{(p.brands as { name: string } | null)?.name}</td>
-                        <td className={`px-3 py-2 text-right font-bold text-xs ${p.stock_qty <= 5 ? 'text-amber-600' : ''}`}>{p.stock_qty}</td>
+                        <td className="px-3 py-2 text-gray-500 text-xs">{p.brands?.name}</td>
+                        <td className={`px-3 py-2 text-right font-bold text-xs ${p.kottakkal_stock <= 5 ? 'text-amber-600' : ''}`}>{p.kottakkal_stock}</td>
+                        <td className={`px-3 py-2 text-right font-bold text-xs ${p.chenakkal_stock <= 5 ? 'text-amber-600' : ''}`}>{p.chenakkal_stock}</td>
+                        <td className={`px-3 py-2 text-right font-bold text-xs ${p.total_stock <= 5 ? 'text-amber-600' : 'text-emerald-700'}`}>{p.total_stock}</td>
                       </tr>
                     ))}
                   </tbody>

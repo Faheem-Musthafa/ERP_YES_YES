@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -31,196 +32,11 @@ interface StaffUser {
   role: string;
 }
 
-// ── Manage Agents Dialog (admin-only) ────────────────────────────────────────
-
-interface ManageAgentsDialogProps {
-  open: boolean;
-  onClose: () => void;
-  agents: DeliveryAgent[];
-  onRefresh: () => void;
-  currentUserId: string;
-}
-
-const ManageAgentsDialog = ({ open, onClose, agents, onRefresh, currentUserId }: ManageAgentsDialogProps) => {
-  const [form, setForm] = useState({ name: '', vehicle_number: '', phone: '' });
-  const [saving, setSaving] = useState(false);
-  const [editAgent, setEditAgent] = useState<DeliveryAgent | null>(null);
-
-  const resetForm = () => setForm({ name: '', vehicle_number: '', phone: '' });
-
-  const handleSave = async () => {
-    if (!form.name.trim()) { toast.error('Driver name is required'); return; }
-    setSaving(true);
-    try {
-      if (editAgent) {
-        const { error } = await supabase
-          .from('delivery_agents')
-          .update({ name: form.name.trim(), vehicle_number: form.vehicle_number.trim() || null, phone: form.phone.trim() || null })
-          .eq('id', editAgent.id);
-        if (error) throw error;
-        toast.success('Driver updated');
-      } else {
-        const { error } = await supabase.from('delivery_agents').insert({
-          name: form.name.trim(),
-          vehicle_number: form.vehicle_number.trim() || null,
-          phone: form.phone.trim() || null,
-          is_active: true,
-          created_by: currentUserId,
-        });
-        if (error) throw error;
-        toast.success('Driver added');
-      }
-      resetForm();
-      setEditAgent(null);
-      onRefresh();
-    } catch (err: any) { toast.error(err.message); } finally { setSaving(false); }
-  };
-
-  const toggleActive = async (agent: DeliveryAgent) => {
-    const confirmed = window.confirm(`Are you sure you want to ${agent.is_active ? 'deactivate' : 'activate'} driver "${agent.name}"?`);
-    if (!confirmed) return;
-    const { error } = await supabase
-      .from('delivery_agents')
-      .update({ is_active: !agent.is_active })
-      .eq('id', agent.id);
-    if (error) toast.error(error.message); else { toast.success(`Driver ${agent.is_active ? 'deactivated' : 'activated'}`); onRefresh(); }
-  };
-
-  const startEdit = (agent: DeliveryAgent) => {
-    setEditAgent(agent);
-    setForm({ name: agent.name, vehicle_number: agent.vehicle_number ?? '', phone: agent.phone ?? '' });
-  };
-
-  const cancelEdit = () => { setEditAgent(null); resetForm(); };
-
-  return (
-    <Dialog open={open} onOpenChange={v => { if (!v) { cancelEdit(); onClose(); } }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings2 size={18} className="text-[#34b0a7]" />
-            Manage Delivery Drivers
-          </DialogTitle>
-        </DialogHeader>
-
-        {/* Add / Edit Form */}
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            {editAgent ? 'Edit Driver' : 'Add New Driver'}
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Driver Name *</Label>
-              <Input
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Ravi Kumar"
-                className="h-9 text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Vehicle / Number Plate</Label>
-              <Input
-                value={form.vehicle_number}
-                onChange={e => setForm(f => ({ ...f, vehicle_number: e.target.value.toUpperCase() }))}
-                placeholder="e.g. MH12AB1234"
-                className="h-9 text-sm font-mono"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Phone (optional)</Label>
-              <Input
-                value={form.phone}
-                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                placeholder="e.g. 9876543210"
-                className="h-9 text-sm"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-lg h-8 text-xs px-4"
-            >
-              {saving ? 'Saving...' : editAgent ? 'Update Driver' : 'Add Driver'}
-            </Button>
-            {editAgent && (
-              <Button variant="outline" onClick={cancelEdit} className="h-8 text-xs px-4 rounded-lg">
-                Cancel
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Agents List */}
-        <div className="space-y-2">
-          {agents.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 text-sm">
-              <Truck size={32} className="mx-auto mb-2 text-gray-200" />
-              No drivers added yet
-            </div>
-          ) : (
-            agents.map(agent => (
-              <div
-                key={agent.id}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${agent.is_active ? 'bg-white border-gray-100' : 'bg-gray-50 border-gray-100 opacity-60'}`}
-              >
-                <div className="w-8 h-8 rounded-full bg-[#34b0a7]/10 flex items-center justify-center shrink-0">
-                  <Car size={14} className="text-[#34b0a7]" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-800 truncate">{agent.name}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {agent.vehicle_number && (
-                      <span className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                        {agent.vehicle_number}
-                      </span>
-                    )}
-                    {agent.phone && <span className="text-xs text-gray-400">{agent.phone}</span>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] px-1.5 py-0.5 ${agent.is_active ? 'border-green-200 text-green-700 bg-green-50' : 'border-gray-200 text-gray-500'}`}
-                  >
-                    {agent.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                  <button
-                    onClick={() => startEdit(agent)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-[#34b0a7] hover:bg-[#34b0a7]/10 transition-colors"
-                    title="Edit"
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    onClick={() => toggleActive(agent)}
-                    className={`p-1.5 rounded-lg transition-colors ${agent.is_active ? 'text-gray-400 hover:text-red-500 hover:bg-red-50' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}
-                    title={agent.is_active ? 'Deactivate' : 'Activate'}
-                  >
-                    {agent.is_active ? <PowerOff size={13} /> : <Power size={13} />}
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => { cancelEdit(); onClose(); }} className="rounded-xl">
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export const DeliveryManagement = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = user?.role === 'admin';
 
   const [deliveries, setDeliveries] = useState<any[]>([]);
@@ -241,9 +57,6 @@ export const DeliveryManagement = () => {
     driver_other: '',          // free-text when '__other__'
     vehicle_number: '',
   });
-
-  // Manage agents dialog
-  const [manageOpen, setManageOpen] = useState(false);
 
   // Failure reason dialog
   const [failOpen, setFailOpen] = useState(false);
@@ -356,11 +169,88 @@ export const DeliveryManagement = () => {
       setFailOpen(true);
       return;
     }
-    const updateData: any = { status };
-    if (status === 'In Transit') updateData.dispatched_at = new Date().toISOString();
-    if (status === 'Delivered') updateData.delivered_at = new Date().toISOString();
-    const { error } = await supabase.from('deliveries').update(updateData).eq('id', id);
-    if (error) toast.error(error.message); else { toast.success('Status updated'); fetchData(); }
+    
+    try {
+      const updateData: any = { status };
+      if (status === 'In Transit') updateData.dispatched_at = new Date().toISOString();
+      if (status === 'Delivered') {
+        updateData.delivered_at = new Date().toISOString();
+        
+        // Get delivery with order details including status
+        const { data: delivery, error: deliveryError } = await supabase
+          .from('deliveries')
+          .select('order_id, orders(status, godown, order_items(product_id, quantity))')
+          .eq('id', id)
+          .single();
+        
+        if (deliveryError) throw deliveryError;
+        
+        const order = delivery?.orders as any;
+        const orderStatus = order?.status;
+        const godown = order?.godown || 'Kottakkal';
+        const orderItems = order?.order_items || [];
+        
+        // Only deduct stock if order was NOT already billed (stock deducted at billing)
+        const stockAlreadyDeducted = orderStatus === 'Billed';
+        
+        if (!stockAlreadyDeducted && orderItems.length > 0) {
+          for (const item of orderItems) {
+            // Get current stock at location
+            const { data: stockData, error: stockFetchError } = await supabase
+              .from('product_stock_locations')
+              .select('stock_qty')
+              .eq('product_id', item.product_id)
+              .eq('location', godown)
+              .maybeSingle();
+            
+            if (stockFetchError) throw stockFetchError;
+            
+            const currentStock = stockData?.stock_qty ?? 0;
+            const newStock = Math.max(0, currentStock - item.quantity);
+            
+            // Update stock at location
+            const { error: stockError } = await supabase
+              .from('product_stock_locations')
+              .upsert({
+                product_id: item.product_id,
+                location: godown,
+                stock_qty: newStock,
+              }, {
+                onConflict: 'product_id,location'
+              });
+            
+            if (stockError) throw stockError;
+            
+            // Log stock movement
+            await supabase.from('stock_movements').insert({
+              product_id: item.product_id,
+              quantity: -item.quantity,
+              movement_type: 'order_delivery',
+              reference_type: 'delivery',
+              reference_id: id,
+              location: godown,
+              created_by: null,
+            });
+          }
+        }
+        
+        // Update order status to Delivered
+        const { error: orderError } = await supabase
+          .from('orders')
+          .update({ status: 'Delivered' })
+          .eq('id', delivery.order_id);
+        
+        if (orderError) throw orderError;
+      }
+      
+      const { error } = await supabase.from('deliveries').update(updateData).eq('id', id);
+      if (error) throw error;
+      
+      toast.success(status === 'Delivered' ? 'Delivered & stock updated!' : 'Status updated');
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update status');
+    }
   };
 
   const handleFailSubmit = async () => {
@@ -413,7 +303,7 @@ export const DeliveryManagement = () => {
             {isAdmin && (
               <Button
                 variant="outline"
-                onClick={() => setManageOpen(true)}
+                onClick={() => navigate('/admin/drivers')}
                 className="rounded-xl border-gray-200 text-gray-600 hover:border-[#34b0a7] hover:text-[#34b0a7]"
               >
                 <Settings2 size={15} className="mr-2" />
@@ -655,17 +545,6 @@ export const DeliveryManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* ── Manage Agents Dialog ────────────────────────────────────────────── */}
-      {isAdmin && (
-        <ManageAgentsDialog
-          open={manageOpen}
-          onClose={() => setManageOpen(false)}
-          agents={agents}
-          onRefresh={fetchAgents}
-          currentUserId={user?.id ?? ''}
-        />
-      )}
 
       {/* ── Failure Reason Dialog ───────────────────────────────────────────── */}
       <Dialog open={failOpen} onOpenChange={v => { if (!v) { setFailOpen(false); setFailTargetId(null); } }}>

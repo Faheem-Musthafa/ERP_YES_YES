@@ -247,10 +247,11 @@ export const DeliveryDrivers = () => {
               <Select value={form.vehicle_type} onValueChange={(v) => setForm(f => ({ ...f, vehicle_type: v, vehicle_type_other: '' }))}>
                 <SelectTrigger><SelectValue placeholder="Select vehicle type" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2-Wheeler">2-Wheeler</SelectItem>
-                  <SelectItem value="3-Wheeler">3-Wheeler</SelectItem>
-                  <SelectItem value="4-Wheeler">4-Wheeler</SelectItem>
+                  <SelectItem value="Bike">Bike</SelectItem>
+                  <SelectItem value="Auto">Auto</SelectItem>
+                  <SelectItem value="Car">Car</SelectItem>
                   <SelectItem value="Truck">Truck</SelectItem>
+                  <SelectItem value="Van">Van</SelectItem>
                   <SelectItem value="Others">Others</SelectItem>
                 </SelectContent>
               </Select>

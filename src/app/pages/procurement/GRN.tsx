@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Plus, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/app/supabase';
@@ -32,6 +33,7 @@ export const GRN = () => {
   const [pendingDeliveries, setPendingDeliveries] = useState<PendingDelivery[]>([]);
   const [recentGRNs, setRecentGRNs] = useState<RecentGrn[]>([]);
   const [selectedPOId, setSelectedPOId] = useState('');
+  const [receivingLocation, setReceivingLocation] = useState<'Kottakkal' | 'Chenakkal'>('Kottakkal');
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
   const [challanNumber, setChallanNumber] = useState('');
   const [remarks, setRemarks] = useState('');
@@ -64,7 +66,7 @@ export const GRN = () => {
 
     setSubmitting(true);
     try {
-      // Create GRN record
+      // Create GRN record with location
       const { data: grnData, error: grnError } = await supabase
         .from('grn_items')
         .insert({
@@ -74,6 +76,7 @@ export const GRN = () => {
           damaged_qty: 0,
           status: 'Completed',
           received_date: receivedDate,
+          location: receivingLocation,
         })
         .select('id')
         .single();
@@ -88,7 +91,7 @@ export const GRN = () => {
 
       if (poUpdateError) throw poUpdateError;
 
-      // Update product stock levels
+      // Update product stock levels at receiving location
       const { data: poItems, error: poItemsError } = await supabase
         .from('purchase_order_items')
         .select('product_id, quantity')
@@ -96,33 +99,57 @@ export const GRN = () => {
 
       if (poItemsError) throw poItemsError;
 
-      // Update stock for each product
+      // Update stock for each product at the receiving location
       if (poItems && poItems.length > 0) {
         for (const item of poItems) {
-          const adjustedQty = item.quantity * (Number(receivedQty) / expectedQty);
-          const { data: product, error: prodError } = await supabase
-            .from('products')
+          const adjustedQty = Math.floor(item.quantity * (Number(receivedQty) / expectedQty));
+          
+          // Get current stock at location
+          const { data: stockData, error: stockFetchError } = await supabase
+            .from('product_stock_locations')
             .select('stock_qty')
-            .eq('id', item.product_id)
-            .single();
+            .eq('product_id', item.product_id)
+            .eq('location', receivingLocation)
+            .maybeSingle();
 
-          if (prodError) throw prodError;
+          if (stockFetchError) throw stockFetchError;
 
+          const currentStock = stockData?.stock_qty ?? 0;
+          const newStock = currentStock + adjustedQty;
+
+          // Update stock at location (or insert if not exists)
           const { error: stockError } = await supabase
-            .from('products')
-            .update({ stock_qty: (product?.stock_qty ?? 0) + adjustedQty })
-            .eq('id', item.product_id);
+            .from('product_stock_locations')
+            .upsert({
+              product_id: item.product_id,
+              location: receivingLocation,
+              stock_qty: newStock,
+            }, {
+              onConflict: 'product_id,location'
+            });
 
           if (stockError) throw stockError;
+
+          // Log stock movement
+          await supabase.from('stock_movements').insert({
+            product_id: item.product_id,
+            quantity: adjustedQty,
+            movement_type: 'grn_receipt',
+            reference_type: 'grn_item',
+            reference_id: grnData.id,
+            location: receivingLocation,
+            created_by: null,
+          });
         }
       }
 
-      toast.success('GRN created successfully and stock updated!');
+      toast.success(`GRN created successfully! Stock updated at ${receivingLocation}`);
       setReceivedDate(new Date().toISOString().split('T')[0]);
       setChallanNumber('');
       setRemarks('');
       setReceivedQty('');
       setSelectedPOId('');
+      setReceivingLocation('Kottakkal');
 
       // Refresh GRN list
       await loadGRNData();
@@ -228,6 +255,20 @@ export const GRN = () => {
                 <div>
                   <Label>Received Date</Label>
                   <Input type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} required />
+                </div>
+
+                <div>
+                  <Label>Receiving Location *</Label>
+                  <Select value={receivingLocation} onValueChange={(v: any) => setReceivingLocation(v)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Kottakkal">Kottakkal</SelectItem>
+                      <SelectItem value="Chenakkal">Chenakkal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Stock will be added to this location</p>
                 </div>
 
                 <div>

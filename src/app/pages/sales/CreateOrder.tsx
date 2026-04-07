@@ -17,7 +17,7 @@ interface OrderItem {
   lastEdited?: 'discount' | 'amount' | 'quantity' | 'dp';
 }
 interface Customer { id: string; name: string; phone: string; address: string; gst_pan: string | null; }
-interface Product { id: string; name: string; sku: string; dealer_price: number; mrp: number; stock_qty: number; brand_name: string; }
+interface Product { id: string; name: string; sku: string; dealer_price: number; mrp: number; brand_name: string; kottakkal_stock: number; chenakkal_stock: number; }
 
 export const CreateOrder = () => {
   const navigate = useNavigate();
@@ -51,9 +51,10 @@ export const CreateOrder = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [{ data: custData, error: custError }, { data: prodData, error: prodError }] = await Promise.all([
+        const [{ data: custData, error: custError }, { data: prodData, error: prodError }, { data: stockData, error: stockError }] = await Promise.all([
           supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
-          supabase.from('products').select('id, name, sku, dealer_price, mrp, stock_qty, brands(name)').eq('is_active', true).order('name'),
+          supabase.from('products').select('id, name, sku, dealer_price, mrp, brands(name)').eq('is_active', true).order('name'),
+          supabase.from('product_stock_locations').select('product_id, location, stock_qty'),
         ]);
         if (custError) {
           console.error('Failed to fetch customers:', custError);
@@ -61,11 +62,25 @@ export const CreateOrder = () => {
         } else if (custData) {
           setCustomers(custData);
         }
-        if (prodError) {
-          console.error('Failed to fetch products:', prodError);
+        if (prodError || stockError) {
+          console.error('Failed to fetch products:', prodError || stockError);
           toast.error('Could not load products');
         } else if (prodData) {
-          setProducts(prodData.map((p: any) => ({ id: p.id, name: p.name, sku: p.sku, dealer_price: p.dealer_price, mrp: p.mrp ?? 0, stock_qty: p.stock_qty, brand_name: p.brands?.name ?? '' })));
+          // Map stock by location for each product
+          const stockMap = new Map<string, { kottakkal: number; chenakkal: number }>();
+          (stockData ?? []).forEach((s: any) => {
+            const existing = stockMap.get(s.product_id) || { kottakkal: 0, chenakkal: 0 };
+            if (s.location === 'Kottakkal') existing.kottakkal = s.stock_qty ?? 0;
+            if (s.location === 'Chenakkal') existing.chenakkal = s.stock_qty ?? 0;
+            stockMap.set(s.product_id, existing);
+          });
+          
+          setProducts(prodData.map((p: any) => ({
+            id: p.id, name: p.name, sku: p.sku, dealer_price: p.dealer_price, mrp: p.mrp ?? 0,
+            brand_name: p.brands?.name ?? '',
+            kottakkal_stock: stockMap.get(p.id)?.kottakkal ?? 0,
+            chenakkal_stock: stockMap.get(p.id)?.chenakkal ?? 0,
+          })));
         }
       } catch (err) {
         console.error('Data fetch error:', err);
@@ -92,8 +107,10 @@ export const CreateOrder = () => {
 
   const handleProductChange = (id: string, productId: string) => {
     const p = products.find(pr => pr.id === productId);
+    // Get stock based on selected godown (default to Kottakkal if not selected)
+    const stock = godown === 'Chenakkal' ? (p?.chenakkal_stock ?? 0) : (p?.kottakkal_stock ?? 0);
     setOrderItems(items => items.map(item =>
-      item.id === id ? { ...item, productId, product: p?.name ?? '', brand: p?.brand_name ?? '', sku: p?.sku ?? '', stock: p?.stock_qty ?? 0, dp: p?.dealer_price ?? 0, mrp: p?.mrp ?? 0, amount: '', discount: '' } : item
+      item.id === id ? { ...item, productId, product: p?.name ?? '', brand: p?.brand_name ?? '', sku: p?.sku ?? '', stock, dp: p?.dealer_price ?? 0, mrp: p?.mrp ?? 0, amount: '', discount: '' } : item
     ));
   };
 
@@ -103,6 +120,16 @@ export const CreateOrder = () => {
       setOrderItems(prev => prev.filter(i => i.id !== id));
     }
   };
+
+  // Update stock values when godown changes
+  useEffect(() => {
+    setOrderItems(prev => prev.map(item => {
+      if (!item.productId) return item;
+      const p = products.find(pr => pr.id === item.productId);
+      const stock = godown === 'Chenakkal' ? (p?.chenakkal_stock ?? 0) : (p?.kottakkal_stock ?? 0);
+      return { ...item, stock };
+    }));
+  }, [godown, products]);
 
   const clampDiscountInput = (value: string): string => {
     if (value === '') return '';
@@ -254,15 +281,7 @@ export const CreateOrder = () => {
                   </Select>
                 </FL>
               </div>
-              <FL label="Godown / Location" htmlFor="godown">
-                <Select value={godown} onValueChange={setGodown}>
-                  <SelectTrigger id="godown" className="h-9 rounded-lg text-sm"><SelectValue placeholder="Select godown (optional)…" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Kottakkal">Kottakkal</SelectItem>
-                    <SelectItem value="Chenakkal">Chenakkal</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FL>
+              
             </div>
 
             {/* ── Customer ── */}
@@ -410,7 +429,17 @@ export const CreateOrder = () => {
 
             {/* ── Delivery ── */}
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Delivery</p>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Delivery</p>
+
+              <FL label="Godown / Location" htmlFor="godown" required>
+                <Select value={godown} onValueChange={setGodown}>
+                  <SelectTrigger id="godown" className="h-9 rounded-lg text-sm"><SelectValue placeholder="Select godown " /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Kottakkal">Kottakkal</SelectItem>
+                    <SelectItem value="Chenakkal">Chenakkal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FL>
 
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-gray-500 font-medium">Date:</span>

@@ -69,8 +69,8 @@ export const CustomerForm = () => {
                 name: form.name.trim(), place: form.place.trim() || null,
                 address: form.address.trim(), phone: form.phone.trim(),
                 pincode: form.pincode.trim() || null, gst_pan: form.gst_pan.trim() || null,
-                location: form.location.trim() || null,
-                assigned_to: form.assigned_to.trim() || null,
+                location: form.location?.trim() || null,
+                assigned_to: form.assigned_to?.trim() || null,
                 opening_balance: parseFloat(form.opening_balance?.toString() || '0') || 0,
             };
             if (isEdit) {
