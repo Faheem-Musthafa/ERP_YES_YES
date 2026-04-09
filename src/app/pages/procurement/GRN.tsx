@@ -7,25 +7,25 @@ import { Plus, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/app/supabase';
 import { DataCard, EmptyState, FormSection, PageHeader, SearchBar, StyledThead, StyledTh, StyledTr, StyledTd, StatusBadge } from '@/app/components/ui/primitives';
+import type { GodownEnum } from '@/app/types/database';
 
 interface PendingDelivery {
   id: string;
   po_number: string;
+  supplier_id: string | null;
   status: string;
   expected_delivery_date: string | null;
   suppliers: { name: string } | null;
-  purchase_order_items: { quantity: number }[] | null;
+  po_items: { product_id: string; quantity: number }[] | null;
 }
 
 interface RecentGrn {
   id: string;
-  purchase_order_id: string | null;
-  expected_qty: number;
-  received_qty: number;
-  received_date: string | null;
-  status: string;
+  grn_number: string;
+  received_date: string;
   created_at: string;
   purchase_orders: { po_number: string; suppliers: { name: string } | null } | null;
+  grn_items: { received_qty: number; status: string }[] | null;
 }
 
 export const GRN = () => {
@@ -33,7 +33,7 @@ export const GRN = () => {
   const [pendingDeliveries, setPendingDeliveries] = useState<PendingDelivery[]>([]);
   const [recentGRNs, setRecentGRNs] = useState<RecentGrn[]>([]);
   const [selectedPOId, setSelectedPOId] = useState('');
-  const [receivingLocation, setReceivingLocation] = useState<'Kottakkal' | 'Chenakkal'>('Kottakkal');
+  const [receivingLocation, setReceivingLocation] = useState<GodownEnum>('Kottakkal');
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
   const [challanNumber, setChallanNumber] = useState('');
   const [remarks, setRemarks] = useState('');
@@ -58,89 +58,58 @@ export const GRN = () => {
       return;
     }
 
-    const expectedQty = (selectedPO.purchase_order_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0);
+    const poItems = selectedPO.po_items ?? [];
+    const expectedQty = poItems.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
     if (Number(receivedQty) > expectedQty) {
       toast.error(`Received quantity cannot exceed expected quantity (${expectedQty})`);
+      return;
+    }
+    if (poItems.length === 0) {
+      toast.error('Selected purchase order has no items');
       return;
     }
 
     setSubmitting(true);
     try {
-      // Create GRN record with location
-      const { data: grnData, error: grnError } = await supabase
-        .from('grn_items')
-        .insert({
-          purchase_order_id: selectedPOId,
-          expected_qty: expectedQty,
-          received_qty: Number(receivedQty),
-          damaged_qty: 0,
-          status: 'Completed',
-          received_date: receivedDate,
-          location: receivingLocation,
-        })
-        .select('id')
-        .single();
+      const requestedQty = Number(receivedQty);
+      const proportionalItems = poItems.map((item) => ({
+        product_id: item.product_id,
+        expected_qty: item.quantity,
+        received_qty: expectedQty === 0 ? 0 : Math.floor((item.quantity / expectedQty) * requestedQty),
+        damaged_qty: 0,
+        location: receivingLocation,
+      }));
+      let assignedQty = proportionalItems.reduce((sum, item) => sum + item.received_qty, 0);
+      for (const item of proportionalItems) {
+        while (assignedQty < requestedQty && item.received_qty < item.expected_qty) {
+          item.received_qty += 1;
+          assignedQty += 1;
+        }
+      }
+      const grnItems = proportionalItems.filter((item) => item.received_qty > 0);
+      const remarksText = [
+        challanNumber.trim() ? `Challan: ${challanNumber.trim()}` : null,
+        remarks.trim() || null,
+        receivedDate ? `Received Date: ${receivedDate}` : null,
+      ].filter(Boolean).join(' | ');
+
+      const { data: grnId, error: grnError } = await supabase.rpc('create_grn', {
+        p_items: grnItems,
+        p_po_id: selectedPOId,
+        p_supplier_id: selectedPO.supplier_id,
+        p_received_by: null,
+        p_remarks: remarksText || null,
+      });
 
       if (grnError) throw grnError;
 
-      // Update purchase order status to 'Received'
-      const { error: poUpdateError } = await supabase
-        .from('purchase_orders')
-        .update({ status: 'Received' })
-        .eq('id', selectedPOId);
+      if (grnId) {
+        const { error: headerUpdateError } = await supabase
+          .from('grn')
+          .update({ received_date: receivedDate })
+          .eq('id', grnId);
 
-      if (poUpdateError) throw poUpdateError;
-
-      // Update product stock levels at receiving location
-      const { data: poItems, error: poItemsError } = await supabase
-        .from('purchase_order_items')
-        .select('product_id, quantity')
-        .eq('purchase_order_id', selectedPOId);
-
-      if (poItemsError) throw poItemsError;
-
-      // Update stock for each product at the receiving location
-      if (poItems && poItems.length > 0) {
-        for (const item of poItems) {
-          const adjustedQty = Math.floor(item.quantity * (Number(receivedQty) / expectedQty));
-          
-          // Get current stock at location
-          const { data: stockData, error: stockFetchError } = await supabase
-            .from('product_stock_locations')
-            .select('stock_qty')
-            .eq('product_id', item.product_id)
-            .eq('location', receivingLocation)
-            .maybeSingle();
-
-          if (stockFetchError) throw stockFetchError;
-
-          const currentStock = stockData?.stock_qty ?? 0;
-          const newStock = currentStock + adjustedQty;
-
-          // Update stock at location (or insert if not exists)
-          const { error: stockError } = await supabase
-            .from('product_stock_locations')
-            .upsert({
-              product_id: item.product_id,
-              location: receivingLocation,
-              stock_qty: newStock,
-            }, {
-              onConflict: 'product_id,location'
-            });
-
-          if (stockError) throw stockError;
-
-          // Log stock movement
-          await supabase.from('stock_movements').insert({
-            product_id: item.product_id,
-            quantity: adjustedQty,
-            movement_type: 'grn_receipt',
-            reference_type: 'grn_item',
-            reference_id: grnData.id,
-            location: receivingLocation,
-            created_by: null,
-          });
-        }
+        if (headerUpdateError) throw headerUpdateError;
       }
 
       toast.success(`GRN created successfully! Stock updated at ${receivingLocation}`);
@@ -165,12 +134,12 @@ export const GRN = () => {
       const [{ data: pendingData, error: pendingError }, { data: grnData, error: grnError }] = await Promise.all([
         supabase
           .from('purchase_orders')
-          .select('id, po_number, status, expected_delivery_date, suppliers(name), purchase_order_items(quantity)')
+          .select('id, po_number, supplier_id, status, expected_delivery_date, suppliers(name), po_items(product_id, quantity)')
           .in('status', ['Pending', 'Approved'])
           .order('expected_delivery_date', { ascending: true }),
         supabase
-          .from('grn_items')
-          .select('id, purchase_order_id, expected_qty, received_qty, received_date, status, created_at, purchase_orders(po_number, suppliers(name))')
+          .from('grn')
+          .select('id, grn_number, received_date, created_at, purchase_orders:purchase_orders!grn_po_id_fkey(po_number, suppliers(name)), grn_items(received_qty, status)')
           .order('created_at', { ascending: false })
           .limit(20),
       ]);
@@ -206,8 +175,8 @@ export const GRN = () => {
       .subscribe();
 
     const grnItemsSubscription = supabase
-      .channel('grn_items')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'grn_items' }, () => {
+      .channel('grn')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'grn' }, () => {
         loadGRNData();
       })
       .subscribe();
@@ -259,7 +228,7 @@ export const GRN = () => {
 
                 <div>
                   <Label>Receiving Location *</Label>
-                  <Select value={receivingLocation} onValueChange={(v: any) => setReceivingLocation(v)}>
+                  <Select value={receivingLocation} onValueChange={(v) => setReceivingLocation(v as GodownEnum)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -273,7 +242,7 @@ export const GRN = () => {
 
                 <div>
                   <Label>Total Items</Label>
-                  <Input type="number" value={selectedPO ? (selectedPO.purchase_order_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0) : ''} placeholder="0" disabled />
+                  <Input type="number" value={selectedPO ? (selectedPO.po_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0) : ''} placeholder="0" disabled />
                 </div>
 
                 <div>
@@ -316,7 +285,7 @@ export const GRN = () => {
                       <span className="text-sm font-semibold text-[#34b0a7]">{delivery.po_number}</span>
                       <span className="text-xs px-2.5 py-1 rounded-full font-semibold bg-amber-100 text-amber-700">{delivery.status === 'Approved' ? 'In Transit' : delivery.status}</span>
                     </div>
-                    <p className="text-xs text-gray-600">{delivery.suppliers?.name ?? 'Unknown Supplier'} - {(delivery.purchase_order_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0)} items</p>
+                    <p className="text-xs text-gray-600">{delivery.suppliers?.name ?? 'Unknown Supplier'} - {(delivery.po_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0)} items</p>
                     <p className="text-xs text-gray-500 mt-1">Expected: {delivery.expected_delivery_date ? new Date(delivery.expected_delivery_date).toLocaleDateString() : '—'}</p>
                   </button>
                 ))}
@@ -350,12 +319,12 @@ export const GRN = () => {
                 <tbody>
                   {recentGRNs.map((grn) => (
                     <StyledTr key={grn.id}>
-                      <StyledTd className="font-semibold">{`GRN-${grn.id.slice(0, 8).toUpperCase()}`}</StyledTd>
+                      <StyledTd className="font-semibold">{grn.grn_number}</StyledTd>
                       <StyledTd className="text-primary font-medium">{grn.purchase_orders?.po_number ?? '—'}</StyledTd>
                       <StyledTd>{grn.purchase_orders?.suppliers?.name ?? 'Unknown Supplier'}</StyledTd>
-                      <StyledTd center mono>{grn.received_qty}</StyledTd>
+                      <StyledTd center mono>{(grn.grn_items ?? []).reduce((sum, item) => sum + (item.received_qty ?? 0), 0)}</StyledTd>
                       <StyledTd mono className="text-xs text-muted-foreground">{new Date(grn.received_date ?? grn.created_at).toLocaleDateString()}</StyledTd>
-                      <StyledTd center><StatusBadge status={grn.status === 'Completed' ? 'Completed' : 'Pending'} /></StyledTd>
+                      <StyledTd center><StatusBadge status={(grn.grn_items ?? []).every((item) => item.status === 'Completed') ? 'Completed' : 'Pending'} /></StyledTd>
                     </StyledTr>
                   ))}
                 </tbody>

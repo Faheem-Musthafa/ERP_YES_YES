@@ -14,6 +14,13 @@ ALTER TABLE receipts
   ADD COLUMN IF NOT EXISTS cheque_date DATE,
   ADD COLUMN IF NOT EXISTS on_account_of TEXT;
 
+ALTER TABLE receipts
+ALTER COLUMN payment_status SET DEFAULT 'Not Collected';
+
+UPDATE receipts
+SET payment_status = 'Not Collected'
+WHERE payment_status IS NULL;
+
 -- Verify changes
 SELECT column_name, is_nullable, data_type 
 FROM information_schema.columns 

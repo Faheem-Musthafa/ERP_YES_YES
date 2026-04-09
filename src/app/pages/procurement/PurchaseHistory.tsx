@@ -18,7 +18,7 @@ interface HistoryRow {
   created_at: string;
   delivered_at: string | null;
   suppliers: { name: string } | null;
-  purchase_order_items: { quantity: number }[] | null;
+  po_items: { quantity: number }[] | null;
 }
 
 export const PurchaseHistory = () => {
@@ -35,7 +35,7 @@ export const PurchaseHistory = () => {
       setLoading(true);
       const { data } = await supabase
         .from('purchase_orders')
-        .select('id, po_number, status, total_amount, created_at, delivered_at, suppliers(name), purchase_order_items(quantity)')
+        .select('id, po_number, status, total_amount, created_at, delivered_at, suppliers(name), po_items(quantity)')
         .eq('status', 'Received')
         .order('delivered_at', { ascending: false });
       setHistory((data ?? []) as HistoryRow[]);
@@ -55,7 +55,7 @@ export const PurchaseHistory = () => {
   const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
   const thisMonth = new Date().toISOString().slice(0, 7);
-  const monthly = history.filter(r => r.created_at.startsWith(thisMonth));
+  const monthly = history.filter(r => (r.delivered_at ?? r.created_at).startsWith(thisMonth));
   const monthlyValue = monthly.reduce((sum, row) => sum + (row.total_amount ?? 0), 0);
   const avgDeliveryDays = monthly.length === 0 ? 0 : monthly.reduce((sum, row) => {
     const end = row.delivered_at ? new Date(row.delivered_at).getTime() : new Date(row.created_at).getTime();
@@ -70,7 +70,7 @@ export const PurchaseHistory = () => {
       filtered.map(row => [
         row.po_number,
         row.suppliers?.name ?? 'Unknown Supplier',
-        (row.purchase_order_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0),
+        (row.po_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0),
         row.total_amount,
         new Date(row.created_at).toLocaleDateString('en-IN'),
         row.delivered_at ? new Date(row.delivered_at).toLocaleDateString('en-IN') : '—',
@@ -137,7 +137,7 @@ export const PurchaseHistory = () => {
                 <StyledTr key={record.id}>
                   <StyledTd className="font-semibold text-primary">{record.po_number}</StyledTd>
                   <StyledTd>{record.suppliers?.name ?? 'Unknown Supplier'}</StyledTd>
-                  <StyledTd center mono>{(record.purchase_order_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0)}</StyledTd>
+                  <StyledTd center mono>{(record.po_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0)}</StyledTd>
                   <StyledTd right mono className="font-bold">₹ {record.total_amount.toLocaleString('en-IN')}</StyledTd>
                   <StyledTd mono className="text-xs text-muted-foreground">{new Date(record.created_at).toLocaleDateString()}</StyledTd>
                   <StyledTd mono className="text-xs text-muted-foreground">{record.delivered_at ? new Date(record.delivered_at).toLocaleDateString() : '—'}</StyledTd>

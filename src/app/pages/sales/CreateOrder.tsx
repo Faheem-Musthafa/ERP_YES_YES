@@ -432,7 +432,7 @@ export const CreateOrder = () => {
                             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Delivery</p>
 
               <FL label="Godown / Location" htmlFor="godown" required>
-                <Select value={godown} onValueChange={setGodown}>
+                <Select value={godown} onValueChange={(value) => setGodown(value as '' | GodownEnum)}>
                   <SelectTrigger id="godown" className="h-9 rounded-lg text-sm"><SelectValue placeholder="Select godown " /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Kottakkal">Kottakkal</SelectItem>

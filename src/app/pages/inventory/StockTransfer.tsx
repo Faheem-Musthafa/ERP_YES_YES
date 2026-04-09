@@ -9,6 +9,7 @@ import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import { DataCard, EmptyState, FormSection, PageHeader, SearchBar } from '@/app/components/ui/primitives';
+import type { GodownEnum } from '@/app/types/database';
 
 interface ProductWithStock {
   id: string;
@@ -20,13 +21,23 @@ interface ProductWithStock {
   total_stock: number;
 }
 
+interface TransferRow {
+  id: string;
+  quantity: number;
+  from_location: GodownEnum;
+  to_location: GodownEnum;
+  reason: string | null;
+  created_at: string;
+  products: { name: string; sku: string } | null;
+}
+
 export const StockTransfer = () => {
   const { user } = useAuth();
   const [products, setProducts] = useState<ProductWithStock[]>([]);
-  const [recentTransfers, setRecentTransfers] = useState<any[]>([]);
+  const [recentTransfers, setRecentTransfers] = useState<TransferRow[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
-  const [fromLocation, setFromLocation] = useState<'Kottakkal' | 'Chenakkal'>('Kottakkal');
-  const [toLocation, setToLocation] = useState<'Kottakkal' | 'Chenakkal'>('Chenakkal');
+  const [fromLocation, setFromLocation] = useState<GodownEnum>('Kottakkal');
+  const [toLocation, setToLocation] = useState<GodownEnum>('Chenakkal');
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
@@ -69,7 +80,7 @@ export const StockTransfer = () => {
       });
 
       setProducts(productsWithStock);
-      setRecentTransfers(transfers ?? []);
+      setRecentTransfers((transfers ?? []) as TransferRow[]);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load data');
     }
@@ -114,97 +125,16 @@ export const StockTransfer = () => {
 
     setSaving(true);
     try {
-      // Fetch current stock from both locations
-      const { data: stockLocations, error: fetchErr } = await supabase
-        .from('product_stock_locations')
-        .select('location, stock_qty')
-        .eq('product_id', selectedProductId)
-        .in('location', [fromLocation, toLocation]);
-
-      if (fetchErr) throw fetchErr;
-
-      const fromStockData = stockLocations?.find(s => s.location === fromLocation);
-      const toStockData = stockLocations?.find(s => s.location === toLocation);
-
-      const currentFromStock = fromStockData?.stock_qty ?? 0;
-      const currentToStock = toStockData?.stock_qty ?? 0;
-
-      if (currentFromStock < qty) {
-        toast.error(`Insufficient stock at ${fromLocation}. Available: ${currentFromStock}`);
-        setSaving(false);
-        return;
-      }
-
-      const newFromStock = currentFromStock - qty;
-      const newToStock = currentToStock + qty;
-
-      // Insert transfer record
-      const { data: transferData, error: transferErr } = await supabase
-        .from('stock_transfers')
-        .insert({
-          product_id: selectedProductId,
-          from_location: fromLocation,
-          to_location: toLocation,
-          quantity: qty,
-          reason: reason || null,
-          transferred_by: user?.id ?? null,
-        })
-        .select('id')
-        .single();
+      const { error: transferErr } = await supabase.rpc('transfer_stock', {
+        p_product_id: selectedProductId,
+        p_from_location: fromLocation,
+        p_to_location: toLocation,
+        p_quantity: qty,
+        p_reason: reason || null,
+        p_user_id: user?.id ?? null,
+      });
 
       if (transferErr) throw transferErr;
-
-      // Update stock at from location
-      const { error: fromErr } = await supabase
-        .from('product_stock_locations')
-        .update({ stock_qty: newFromStock })
-        .eq('product_id', selectedProductId)
-        .eq('location', fromLocation);
-
-      if (fromErr) {
-        await supabase.from('stock_transfers').delete().eq('id', transferData.id);
-        throw fromErr;
-      }
-
-      // Update stock at to location
-      const { error: toErr } = await supabase
-        .from('product_stock_locations')
-        .update({ stock_qty: newToStock })
-        .eq('product_id', selectedProductId)
-        .eq('location', toLocation);
-
-      if (toErr) {
-        // Rollback: revert from location and delete transfer
-        await supabase
-          .from('product_stock_locations')
-          .update({ stock_qty: currentFromStock })
-          .eq('product_id', selectedProductId)
-          .eq('location', fromLocation);
-        await supabase.from('stock_transfers').delete().eq('id', transferData.id);
-        throw toErr;
-      }
-
-      // Log stock movements
-      await Promise.all([
-        supabase.from('stock_movements').insert({
-          product_id: selectedProductId,
-          quantity: -qty,
-          movement_type: 'transfer_out',
-          reference_type: 'stock_transfer',
-          reference_id: transferData.id,
-          location: fromLocation,
-          created_by: user?.id ?? null,
-        }),
-        supabase.from('stock_movements').insert({
-          product_id: selectedProductId,
-          quantity: qty,
-          movement_type: 'transfer_in',
-          reference_type: 'stock_transfer',
-          reference_id: transferData.id,
-          location: toLocation,
-          created_by: user?.id ?? null,
-        }),
-      ]);
 
       toast.success(
         `Successfully transferred ${qty} units from ${fromLocation} to ${toLocation}`
@@ -282,7 +212,7 @@ export const StockTransfer = () => {
                     <Label>From Location *</Label>
                     <Select
                       value={fromLocation}
-                      onValueChange={(v: any) => setFromLocation(v)}
+                      onValueChange={(v) => setFromLocation(v as GodownEnum)}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -312,7 +242,7 @@ export const StockTransfer = () => {
                     <Label>To Location *</Label>
                     <Select
                       value={toLocation}
-                      onValueChange={(v: any) => setToLocation(v)}
+                      onValueChange={(v) => setToLocation(v as GodownEnum)}
                     >
                       <SelectTrigger>
                         <SelectValue />

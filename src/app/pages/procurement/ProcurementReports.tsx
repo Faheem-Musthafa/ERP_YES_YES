@@ -35,11 +35,8 @@ type PoRow = {
 
 type GrnRow = {
   id: string;
-  purchase_order_id: string;
-  expected_qty: number;
-  received_qty: number;
-  status: 'Pending' | 'Verified' | 'Completed';
-  received_date: string | null;
+  grn_number: string;
+  received_date: string;
 };
 
 export const ProcurementReports = () => {
@@ -61,8 +58,8 @@ export const ProcurementReports = () => {
         .select('id, po_number, status, total_amount, created_at, suppliers(name)')
         .order('created_at', { ascending: false }),
       supabase
-        .from('grn_items')
-        .select('id, purchase_order_id, expected_qty, received_qty, status, received_date')
+        .from('grn')
+        .select('id, grn_number, received_date')
         .order('created_at', { ascending: false }),
     ]);
 

@@ -18,17 +18,41 @@ import {
   CustomTooltip,
 } from '@/app/components/ui/primitives';
 
+interface ProductRow {
+  id: string;
+  name: string;
+  sku: string;
+  dealer_price: number;
+  stock_qty: number;
+  is_active: boolean;
+  brands: { id: string; name: string } | null;
+}
+
+interface BrandRow {
+  id: string;
+  name: string;
+}
+
+interface ProductStockRow extends ProductRow {
+  live_stock_qty: number;
+}
+
+interface StockLocationRow {
+  product_id: string;
+  stock_qty: number;
+}
+
 export const Products = () => {
-  const [products, setProducts] = useState<any[]>([]);
-  const [brands, setBrands] = useState<any[]>([]);
+  const [products, setProducts] = useState<ProductStockRow[]>([]);
+  const [brands, setBrands] = useState<BrandRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
+  const [editing, setEditing] = useState<ProductStockRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', brand_id: '', sku: '', dealer_price: '', stock_qty: '0' });
-  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProductStockRow | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
@@ -43,8 +67,27 @@ export const Products = () => {
       if (prodError) throw prodError;
       if (brError) throw brError;
 
-      setProducts(prod ?? []);
-      setBrands(br ?? []);
+      const productRows = (prod ?? []) as ProductRow[];
+      const productIds = productRows.map((product) => product.id);
+      const { data: stockRows, error: stockError } = productIds.length === 0
+        ? { data: [] as StockLocationRow[], error: null }
+        : await supabase
+            .from('product_stock_locations')
+            .select('product_id, stock_qty')
+            .in('product_id', productIds);
+
+      if (stockError) throw stockError;
+
+      const stockTotals = new Map<string, number>();
+      ((stockRows ?? []) as StockLocationRow[]).forEach((stockRow) => {
+        stockTotals.set(stockRow.product_id, (stockTotals.get(stockRow.product_id) ?? 0) + (stockRow.stock_qty ?? 0));
+      });
+
+      setProducts(productRows.map((product) => ({
+        ...product,
+        live_stock_qty: stockTotals.get(product.id) ?? 0,
+      })));
+      setBrands((br ?? []) as BrandRow[]);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load products');
     } finally {
@@ -55,26 +98,43 @@ export const Products = () => {
   useEffect(() => { fetchData(); }, []);
 
   const openAdd = () => { setEditing(null); setForm({ name: '', brand_id: '', sku: '', dealer_price: '', stock_qty: '0' }); setOpen(true); };
-  const openEdit = (p: any) => { setEditing(p); setForm({ name: p.name, brand_id: p.brands?.id ?? '', sku: p.sku, dealer_price: String(p.dealer_price), stock_qty: String(p.stock_qty) }); setOpen(true); };
+  const openEdit = (p: ProductStockRow) => { setEditing(p); setForm({ name: p.name, brand_id: p.brands?.id ?? '', sku: p.sku, dealer_price: String(p.dealer_price), stock_qty: String(p.live_stock_qty) }); setOpen(true); };
 
   const handleSave = async () => {
     if (!form.name || !form.sku) { toast.error('Name and SKU are required'); return; }
     setSaving(true);
-    const payload = { name: form.name, brand_id: form.brand_id || null, sku: form.sku, dealer_price: Number(form.dealer_price) || 0, stock_qty: Number(form.stock_qty) || 0 };
+    const initialStock = Number(form.stock_qty) || 0;
+    const payload = { name: form.name, brand_id: form.brand_id || null, sku: form.sku, dealer_price: Number(form.dealer_price) || 0, stock_qty: initialStock };
     try {
       if (editing) {
-        const { error } = await supabase.from('products').update(payload).eq('id', editing.id);
+        const { error } = await supabase
+          .from('products')
+          .update({ name: payload.name, brand_id: payload.brand_id, sku: payload.sku, dealer_price: payload.dealer_price })
+          .eq('id', editing.id);
         if (error) throw error; toast.success('Product updated!');
       } else {
-        const { error } = await supabase.from('products').insert({ ...payload, is_active: true });
+        const { data: createdProduct, error } = await supabase
+          .from('products')
+          .insert({ ...payload, is_active: true })
+          .select('id')
+          .single();
         if (error) throw error; toast.success('Product added!');
+        if (createdProduct?.id) {
+          const { error: stockInitError } = await supabase
+            .from('product_stock_locations')
+            .insert([
+              { product_id: createdProduct.id, location: 'Kottakkal', stock_qty: initialStock },
+              { product_id: createdProduct.id, location: 'Chenakkal', stock_qty: 0 },
+            ]);
+          if (stockInitError) throw stockInitError;
+        }
       }
       setOpen(false); fetchData();
     } catch (err: any) { toast.error(err.message || 'Failed to save product'); }
     finally { setSaving(false); }
   };
 
-  const deleteProduct = async (p: any) => {
+  const deleteProduct = async (p: ProductStockRow) => {
     const { error } = await supabase.from('products').delete().eq('id', p.id);
     if (error) toast.error('Failed to delete product');
     else { toast.success('Product deleted'); setDeleteTarget(null); fetchData(); }
@@ -150,10 +210,10 @@ export const Products = () => {
                         <StyledTd right mono>₹{p.dealer_price?.toLocaleString('en-IN')}</StyledTd>
                         <StyledTd right mono>
                           <span
-                            title={p.stock_qty === 0 ? 'Out of stock' : p.stock_qty <= 5 ? 'Low stock' : 'In stock'}
-                            className={`font-bold ${p.stock_qty === 0 ? 'text-red-600' : p.stock_qty <= 5 ? 'text-amber-600' : 'text-foreground'}`}
+                            title={p.live_stock_qty === 0 ? 'Out of stock' : p.live_stock_qty <= 5 ? 'Low stock' : 'In stock'}
+                            className={`font-bold ${p.live_stock_qty === 0 ? 'text-red-600' : p.live_stock_qty <= 5 ? 'text-amber-600' : 'text-foreground'}`}
                           >
-                            {p.stock_qty}
+                            {p.live_stock_qty}
                           </span>
                         </StyledTd>
                         <StyledTd><StatusBadge status={p.is_active ? 'Active' : 'Inactive'} /></StyledTd>
@@ -221,7 +281,7 @@ export const Products = () => {
                 <Label className="text-xs">Initial Stock</Label>
                 <Input type="number" value={form.stock_qty} onChange={e => setForm(f => ({ ...f, stock_qty: e.target.value }))} disabled={Boolean(editing)} />
                 <p className="text-[10px] text-muted-foreground">
-                  {Boolean(editing) ? 'Modify stock via Adjustments' : 'Initial stock is set during product creation'}
+                  {Boolean(editing) ? 'Live stock is managed through Adjustments, Transfers, GRN and Billing' : 'Initial stock is seeded into live inventory during product creation'}
                 </p>
               </div>
             </div>

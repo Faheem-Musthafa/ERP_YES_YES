@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { fmt, downloadCSV } from '@/app/utils';
+import type { OrderStatusEnum } from '@/app/types/database';
 import {
     PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd,
     StatusBadge, SearchBar, Spinner, EmptyState, FilterBar, FilterField, TablePagination
@@ -96,7 +97,7 @@ export const AdminReports = () => {
                     orders!inner (order_number, status, company, created_at, customers (name))`)
                 .order('id', { ascending: false });
 
-            if (statusFilter !== 'all') query = query.eq('orders.status', statusFilter);
+            if (statusFilter !== 'all') query = query.eq('orders.status', statusFilter as OrderStatusEnum);
             if (dateFrom) { const from = new Date(dateFrom); from.setHours(0, 0, 0, 0); query = query.gte('orders.created_at', from.toISOString()); }
             if (dateTo) { const to = new Date(dateTo); to.setHours(23, 59, 59, 999); query = query.lte('orders.created_at', to.toISOString()); }
 
@@ -341,7 +342,7 @@ export const AdminReports = () => {
                                                     <StyledTd right mono className="text-muted-foreground">{item.dealer_price?.toLocaleString('en-IN') ?? '0'}</StyledTd>
                                                     <StyledTd right mono className="text-red-600/80">{item.discount_pct}%</StyledTd>
                                                     <StyledTd right mono className="font-bold text-emerald-600">₹{item.amount?.toLocaleString('en-IN') ?? '0'}</StyledTd>
-                                                    <StyledTd center><StatusBadge status={item.orders?.status} /></StyledTd>
+                                                    <StyledTd center><StatusBadge status={item.orders?.status ?? 'Pending'} /></StyledTd>
                                                 </StyledTr>
                                             ))}
                                         </tbody>

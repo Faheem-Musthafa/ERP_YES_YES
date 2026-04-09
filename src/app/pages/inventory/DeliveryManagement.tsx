@@ -32,6 +32,43 @@ interface StaffUser {
   role: string;
 }
 
+interface DeliveryRow {
+  id: string;
+  delivery_number: string;
+  status: 'Pending' | 'In Transit' | 'Delivered' | 'Failed';
+  driver_name: string | null;
+  vehicle_number: string | null;
+  initiated_by: string | null;
+  initiated_by_name: string | null;
+  delivery_agent_id: string | null;
+  dispatched_at: string | null;
+  delivered_at: string | null;
+  failure_reason: string | null;
+  orders: {
+    id: string;
+    order_number: string;
+    invoice_number: string | null;
+    site_address: string;
+    customers: { name: string; address: string } | null;
+  } | null;
+  delivery_agents: {
+    id: string;
+    name: string;
+    vehicle_number: string | null;
+  } | null;
+  initiator: {
+    id: string;
+    full_name: string;
+  } | null;
+}
+
+interface OrderOption {
+  id: string;
+  order_number: string;
+  invoice_number: string | null;
+  customers: { name: string } | null;
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export const DeliveryManagement = () => {
@@ -39,8 +76,8 @@ export const DeliveryManagement = () => {
   const navigate = useNavigate();
   const isAdmin = user?.role === 'admin';
 
-  const [deliveries, setDeliveries] = useState<any[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
+  const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
+  const [orders, setOrders] = useState<OrderOption[]>([]);
   const [staffList, setStaffList] = useState<StaffUser[]>([]);
   const [agents, setAgents] = useState<DeliveryAgent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,8 +151,8 @@ export const DeliveryManagement = () => {
       if (ordError) throw ordError;
       if (staffError) throw staffError;
 
-      setDeliveries(del ?? []);
-      setOrders(ord ?? []);
+      setDeliveries((del ?? []) as DeliveryRow[]);
+      setOrders((ord ?? []) as OrderOption[]);
       setStaffList(staff ?? []);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load delivery data');
@@ -142,16 +179,14 @@ export const DeliveryManagement = () => {
       const isOtherAgent = form.delivery_agent_id === '__other__';
       const isOtherInitiator = form.initiated_by_id === '__other__';
       const agent = !isOtherAgent ? agents.find(a => a.id === form.delivery_agent_id) : null;
-      const { error } = await supabase.from('deliveries').insert({
-        delivery_number: `DEL-${Date.now()}`,
-        order_id: form.order_id,
-        initiated_by: !isOtherInitiator ? form.initiated_by_id : null,
-        initiated_by_name: isOtherInitiator ? form.initiated_by_other.trim() : null,
-        delivery_agent_id: !isOtherAgent ? form.delivery_agent_id : null,
-        driver_name: isOtherAgent ? form.driver_other.trim() : (agent?.name ?? null),
-        vehicle_number: form.vehicle_number.trim() || null,
-        status: 'Pending',
-        created_by: user?.id ?? null,
+      const { error } = await supabase.rpc('create_delivery', {
+        p_order_id: form.order_id,
+        p_agent_id: !isOtherAgent ? form.delivery_agent_id : null,
+        p_initiated_by: !isOtherInitiator ? form.initiated_by_id : null,
+        p_initiated_by_name: isOtherInitiator ? form.initiated_by_other.trim() : null,
+        p_driver_name: isOtherAgent ? form.driver_other.trim() : (agent?.name ?? null),
+        p_vehicle_number: form.vehicle_number.trim() || null,
+        p_created_by: user?.id ?? null,
       });
       if (error) throw error;
       toast.success('Delivery created!');
@@ -162,90 +197,23 @@ export const DeliveryManagement = () => {
   };
 
   // ── Update status
-  const updateStatus = async (id: string, status: string) => {
+  const updateStatus = async (id: string, status: DeliveryRow['status']) => {
     if (status === 'Failed') {
       setFailTargetId(id);
       setFailReason('');
       setFailOpen(true);
       return;
     }
-    
+
     try {
-      const updateData: any = { status };
-      if (status === 'In Transit') updateData.dispatched_at = new Date().toISOString();
-      if (status === 'Delivered') {
-        updateData.delivered_at = new Date().toISOString();
-        
-        // Get delivery with order details including status
-        const { data: delivery, error: deliveryError } = await supabase
-          .from('deliveries')
-          .select('order_id, orders(status, godown, order_items(product_id, quantity))')
-          .eq('id', id)
-          .single();
-        
-        if (deliveryError) throw deliveryError;
-        
-        const order = delivery?.orders as any;
-        const orderStatus = order?.status;
-        const godown = order?.godown || 'Kottakkal';
-        const orderItems = order?.order_items || [];
-        
-        // Only deduct stock if order was NOT already billed (stock deducted at billing)
-        const stockAlreadyDeducted = orderStatus === 'Billed';
-        
-        if (!stockAlreadyDeducted && orderItems.length > 0) {
-          for (const item of orderItems) {
-            // Get current stock at location
-            const { data: stockData, error: stockFetchError } = await supabase
-              .from('product_stock_locations')
-              .select('stock_qty')
-              .eq('product_id', item.product_id)
-              .eq('location', godown)
-              .maybeSingle();
-            
-            if (stockFetchError) throw stockFetchError;
-            
-            const currentStock = stockData?.stock_qty ?? 0;
-            const newStock = Math.max(0, currentStock - item.quantity);
-            
-            // Update stock at location
-            const { error: stockError } = await supabase
-              .from('product_stock_locations')
-              .upsert({
-                product_id: item.product_id,
-                location: godown,
-                stock_qty: newStock,
-              }, {
-                onConflict: 'product_id,location'
-              });
-            
-            if (stockError) throw stockError;
-            
-            // Log stock movement
-            await supabase.from('stock_movements').insert({
-              product_id: item.product_id,
-              quantity: -item.quantity,
-              movement_type: 'order_delivery',
-              reference_type: 'delivery',
-              reference_id: id,
-              location: godown,
-              created_by: null,
-            });
-          }
-        }
-        
-        // Update order status to Delivered
-        const { error: orderError } = await supabase
-          .from('orders')
-          .update({ status: 'Delivered' })
-          .eq('id', delivery.order_id);
-        
-        if (orderError) throw orderError;
-      }
-      
-      const { error } = await supabase.from('deliveries').update(updateData).eq('id', id);
+      const { error } = await supabase.rpc('update_delivery_status', {
+        p_delivery_id: id,
+        p_status: status,
+        p_failure_reason: null,
+        p_updated_by: user?.id ?? null,
+      });
       if (error) throw error;
-      
+
       toast.success(status === 'Delivered' ? 'Delivered & stock updated!' : 'Status updated');
       fetchData();
     } catch (error: any) {
@@ -256,23 +224,25 @@ export const DeliveryManagement = () => {
   const handleFailSubmit = async () => {
     if (!failReason.trim()) { toast.error('Please provide a reason for failure'); return; }
     setFailSaving(true);
-    const { error } = await supabase
-      .from('deliveries')
-      .update({ status: 'Failed', failure_reason: failReason.trim() })
-      .eq('id', failTargetId!);
+    const { error } = await supabase.rpc('update_delivery_status', {
+      p_delivery_id: failTargetId!,
+      p_status: 'Failed',
+      p_failure_reason: failReason.trim(),
+      p_updated_by: user?.id ?? null,
+    });
     if (error) toast.error(error.message);
     else { toast.success('Marked as Failed'); setFailOpen(false); fetchData(); }
     setFailSaving(false);
   };
 
   // ── Use joined data from Supabase — no client-side lookup needed
-  const getInitiatorName = (delivery: any): string | null =>
+  const getInitiatorName = (delivery: DeliveryRow): string | null =>
     delivery.initiator?.full_name ?? delivery.initiated_by_name ?? null;
 
-  const getDriverName = (delivery: any): string | null =>
+  const getDriverName = (delivery: DeliveryRow): string | null =>
     delivery.delivery_agents?.name ?? delivery.driver_name ?? null;
 
-  const getVehicleNumber = (delivery: any): string | null =>
+  const getVehicleNumber = (delivery: DeliveryRow): string | null =>
     delivery.delivery_agents?.vehicle_number ?? delivery.vehicle_number ?? null;
 
   const statusColor: Record<string, string> = {
@@ -393,7 +363,7 @@ export const DeliveryManagement = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <Select value={d.status} onValueChange={v => updateStatus(d.id, v)}>
+                        <Select value={d.status} onValueChange={v => updateStatus(d.id, v as DeliveryRow['status'])}>
                           <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="Pending">Pending</SelectItem>

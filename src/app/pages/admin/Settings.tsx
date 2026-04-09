@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import {
   PageHeader, FormCard, FormSection, CustomTooltip, Spinner,
 } from '@/app/components/ui/primitives';
+import type { Json } from '@/app/types/database';
 
 interface SystemConfig {
   company_name: string;
@@ -54,6 +55,55 @@ const DISTRICTS = [
   'Alappuzha', 'Pathanamthitta', 'Kollam', 'Thiruvananthapuram',
 ];
 const VEHICLE_TYPES = ['2-Wheeler', '3-Wheeler', '4-Wheeler', 'Truck', 'Others'];
+const SYSTEM_CONFIG_KEYS = new Set<keyof SystemConfig>([
+  'company_name',
+  'company_gstin',
+  'company_address',
+  'company_phone',
+  'company_email',
+  'default_invoice_type',
+  'enable_auto_approval',
+  'max_discount_percentage',
+  'financial_year_start',
+  'financial_year_end',
+]);
+
+const isStringArray = (value: Json | null): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+const readString = (value: Json | null, fallback = '') => typeof value === 'string' ? value : fallback;
+const readBoolean = (value: Json | null, fallback = false) => typeof value === 'boolean' ? value : fallback;
+const readNumber = (value: Json | null, fallback = 0) => typeof value === 'number' ? value : fallback;
+const applySystemSetting = (
+  current: SystemConfig,
+  key: keyof SystemConfig,
+  value: Json | null,
+): SystemConfig => {
+  switch (key) {
+    case 'company_name':
+      return { ...current, company_name: readString(value, DEFAULT_CONFIG.company_name) };
+    case 'company_gstin':
+      return { ...current, company_gstin: readString(value, DEFAULT_CONFIG.company_gstin) };
+    case 'company_address':
+      return { ...current, company_address: readString(value, DEFAULT_CONFIG.company_address) };
+    case 'company_phone':
+      return { ...current, company_phone: readString(value, DEFAULT_CONFIG.company_phone) };
+    case 'company_email':
+      return { ...current, company_email: readString(value, DEFAULT_CONFIG.company_email) };
+    case 'default_invoice_type':
+      return { ...current, default_invoice_type: readString(value, DEFAULT_CONFIG.default_invoice_type) };
+    case 'enable_auto_approval':
+      return { ...current, enable_auto_approval: readBoolean(value, DEFAULT_CONFIG.enable_auto_approval) };
+    case 'max_discount_percentage':
+      return { ...current, max_discount_percentage: readNumber(value, DEFAULT_CONFIG.max_discount_percentage) };
+    case 'financial_year_start':
+      return { ...current, financial_year_start: readNumber(value, DEFAULT_CONFIG.financial_year_start) };
+    case 'financial_year_end':
+      return { ...current, financial_year_end: readNumber(value, DEFAULT_CONFIG.financial_year_end) };
+    default:
+      return current;
+  }
+};
 
 export const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
@@ -90,23 +140,17 @@ export const AdminSettings = () => {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        const newConfig = { ...DEFAULT_CONFIG };
-        const newGodowns: string[] = GODOWNS;
-        const newDistricts: string[] = DISTRICTS;
-        const newVehicles: string[] = VEHICLE_TYPES;
+        let newConfig = { ...DEFAULT_CONFIG };
 
         for (const setting of data) {
-          if (setting.key in newConfig) {
-            newConfig[setting.key as keyof SystemConfig] = setting.value;
+          if (SYSTEM_CONFIG_KEYS.has(setting.key as keyof SystemConfig)) {
+            newConfig = applySystemSetting(newConfig, setting.key as keyof SystemConfig, setting.value);
           } else if (setting.key === 'godowns') {
-            Object.assign(newGodowns, Array.isArray(setting.value) ? setting.value : GODOWNS);
-            setGodownList(Array.isArray(setting.value) ? setting.value : GODOWNS);
+            setGodownList(isStringArray(setting.value) ? setting.value : GODOWNS);
           } else if (setting.key === 'districts') {
-            Object.assign(newDistricts, Array.isArray(setting.value) ? setting.value : DISTRICTS);
-            setDistrictList(Array.isArray(setting.value) ? setting.value : DISTRICTS);
+            setDistrictList(isStringArray(setting.value) ? setting.value : DISTRICTS);
           } else if (setting.key === 'vehicle_types') {
-            Object.assign(newVehicles, Array.isArray(setting.value) ? setting.value : VEHICLE_TYPES);
-            setVehicleList(Array.isArray(setting.value) ? setting.value : VEHICLE_TYPES);
+            setVehicleList(isStringArray(setting.value) ? setting.value : VEHICLE_TYPES);
           }
         }
 

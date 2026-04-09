@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { fmtK } from '@/app/utils';
+import { fmtK, isCollectedReceiptStatus } from '@/app/utils';
 import {
   DollarSign, CheckCircle, FileText, AlertCircle,
   TrendingUp, Wallet, Receipt
@@ -43,30 +43,34 @@ export const AccountsDashboard = () => {
         { data: recentReceiptsData, error: recentReceiptsError },
       ] = await Promise.all([
         supabase.from('orders').select('id, order_number, status, grand_total, created_at, customers(name), users!orders_created_by_fkey(full_name)').order('created_at', { ascending: false }).limit(100),
-        supabase.from('receipts').select('id, amount, payment_mode, created_at, orders(order_number, customers(name))'),
-        supabase.from('receipts').select('id, amount').gte('created_at', monthStart),
-        supabase.from('receipts').select('id, amount').gte('created_at', todayStart),
-        supabase.from('receipts').select('id, amount, payment_mode, created_at, orders(order_number, customers(name))').order('created_at', { ascending: false }).limit(6),
+        supabase.from('receipts').select('id, amount, payment_mode, payment_status, created_at, orders(order_number, customers(name))'),
+        supabase.from('receipts').select('id, amount, payment_status').gte('created_at', monthStart),
+        supabase.from('receipts').select('id, amount, payment_status').gte('created_at', todayStart),
+        supabase.from('receipts').select('id, amount, payment_mode, payment_status, created_at, orders(order_number, customers(name))').order('created_at', { ascending: false }).limit(12),
       ]);
 
       const fetchError = ordersError || receiptsError || monthReceiptsError || todayReceiptsError || recentReceiptsError;
       if (fetchError) throw new Error(fetchError.message);
 
+      const collectedReceipts = (receipts ?? []).filter(r => isCollectedReceiptStatus(r.payment_status));
+      const monthCollectedReceipts = (monthReceipts ?? []).filter(r => isCollectedReceiptStatus(r.payment_status));
+      const todayCollectedReceipts = (todayReceiptsData ?? []).filter(r => isCollectedReceiptStatus(r.payment_status));
+      const recentCollectedReceipts = (recentReceiptsData ?? []).filter(r => isCollectedReceiptStatus(r.payment_status)).slice(0, 6);
       const pending = (orders ?? []).filter(o => o.status === 'Pending');
       const approved = (orders ?? []).filter(o => o.status === 'Approved');
 
       setPendingOrders(pending.slice(0, 5));
-      setRecentReceipts(recentReceiptsData ?? []);
+      setRecentReceipts(recentCollectedReceipts);
 
       setStats({
         pendingOrders: pending.length,
         pendingValue: pending.reduce((s, o) => s + (o.grand_total ?? 0), 0),
         approvedOrders: approved.length,
-        totalCollected: (receipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
-        monthCollected: (monthReceipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
-        todayCollected: (todayReceiptsData ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
-        totalReceipts: (receipts ?? []).length,
-        monthReceipts: (monthReceipts ?? []).length,
+        totalCollected: collectedReceipts.reduce((s, r) => s + (r.amount ?? 0), 0),
+        monthCollected: monthCollectedReceipts.reduce((s, r) => s + (r.amount ?? 0), 0),
+        todayCollected: todayCollectedReceipts.reduce((s, r) => s + (r.amount ?? 0), 0),
+        totalReceipts: collectedReceipts.length,
+        monthReceipts: monthCollectedReceipts.length,
       });
     } catch (err: any) {
       setError(err?.message || 'Unable to load accounts overview');

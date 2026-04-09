@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { fmt, fmtK } from '@/app/utils';
+import { fmt, fmtK, isCollectedReceiptStatus } from '@/app/utils';
 import { Link } from 'react-router';
 import { PageHeader, DataCard, Spinner, StatusBadge, EmptyState, ErrorState } from '@/app/components/ui/primitives';
 
@@ -148,7 +148,7 @@ export const AdminDashboard = () => {
       let ordersQuery = supabase.from('orders').select('id, status, grand_total, created_by, created_at, order_number, customers(name)').order('created_at', { ascending: false });
       if (rangeStart) ordersQuery = ordersQuery.gte('created_at', rangeStart.toISOString());
 
-      let receiptsQuery = supabase.from('receipts').select('id, amount');
+      let receiptsQuery = supabase.from('receipts').select('id, amount, payment_status');
       if (rangeStart) receiptsQuery = receiptsQuery.gte('created_at', rangeStart.toISOString());
 
       const [
@@ -166,8 +166,8 @@ export const AdminDashboard = () => {
         supabase.from('orders').select('id, status, grand_total, created_by').gte('created_at', monthStart),
         supabase.from('orders').select('id, status, grand_total').gte('created_at', prevMonthStart).lte('created_at', prevMonthEnd),
         receiptsQuery,
-        supabase.from('receipts').select('id, amount').gte('created_at', monthStart),
-        supabase.from('receipts').select('id, amount, created_at').gte('created_at', chartStart),
+        supabase.from('receipts').select('id, amount, payment_status').gte('created_at', monthStart),
+        supabase.from('receipts').select('id, amount, payment_status, created_at').gte('created_at', chartStart),
         supabase.from('users').select('id, full_name, role, is_active'),
         supabase.from('products').select('id, name, stock_qty, brands(name)').eq('is_active', true),
         supabase.from('customers').select('id', { count: 'exact' }),
@@ -177,11 +177,14 @@ export const AdminDashboard = () => {
 
       const validStatuses = ['Approved', 'Billed', 'Delivered'];
       const salesOrders = (allOrders ?? []).filter(o => validStatuses.includes(o.status));
+      const collectedReceipts = (allReceipts ?? []).filter(r => isCollectedReceiptStatus(r.payment_status));
+      const monthCollectedReceipts = (monthReceipts ?? []).filter(r => isCollectedReceiptStatus(r.payment_status));
+      const chartCollectedReceipts = (chartReceipts ?? []).filter(r => isCollectedReceiptStatus(r.payment_status));
       const totalRevenue = salesOrders.reduce((s, o) => s + (o.grand_total ?? 0), 0);
       const monthRevenue = (monthOrders ?? []).filter(o => validStatuses.includes(o.status)).reduce((s, o) => s + (o.grand_total ?? 0), 0);
       const prevMonthRevenue = (prevMonthOrders ?? []).filter(o => validStatuses.includes(o.status)).reduce((s, o) => s + (o.grand_total ?? 0), 0);
-      const totalCollected = (allReceipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
-      const monthCollected = (monthReceipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0);
+      const totalCollected = collectedReceipts.reduce((s, r) => s + (r.amount ?? 0), 0);
+      const monthCollected = monthCollectedReceipts.reduce((s, r) => s + (r.amount ?? 0), 0);
 
       // Chart data - dynamic based on range
       const monthBuckets: Record<string, { revenue: number; collected: number }> = {};
@@ -197,7 +200,7 @@ export const AdminDashboard = () => {
           if (monthBuckets[key]) monthBuckets[key].revenue += o.grand_total ?? 0;
         }
       });
-      (chartReceipts ?? []).forEach((r) => {
+      chartCollectedReceipts.forEach((r) => {
         const d = new Date(r.created_at);
         const key = d.toLocaleString('en-IN', { month: 'short', year: '2-digit' });
         if (monthBuckets[key]) monthBuckets[key].collected += r.amount ?? 0;

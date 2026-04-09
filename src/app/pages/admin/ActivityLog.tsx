@@ -96,7 +96,7 @@ export const ActivityLog = () => {
                     id: `order-created-${o.id}`,
                     timestamp: o.created_at,
                     action: 'Order Created',
-                    performedBy: users[o.created_by] ?? 'Unknown',
+                    performedBy: (o.created_by && users[o.created_by]) ?? 'Unknown',
                     details: `${o.order_number} - ${customerName} (${fmt(o.grand_total ?? 0)})`,
                     category: 'order',
                 });
@@ -107,7 +107,7 @@ export const ActivityLog = () => {
                         id: `order-review-${o.id}`,
                         timestamp: o.approved_at,
                         action: statusLabel,
-                        performedBy: users[o.approved_by] ?? 'Unknown',
+                        performedBy: (o.approved_by && users[o.approved_by]) ?? 'Unknown',
                         details: `${o.order_number} - ${customerName}`,
                         category: 'order',
                     });
@@ -121,7 +121,7 @@ export const ActivityLog = () => {
                     id: `stock-${s.id}`,
                     timestamp: s.created_at,
                     action: `Stock ${s.type}`,
-                    performedBy: users[s.adjusted_by] ?? 'Unknown',
+                    performedBy: (s.adjusted_by && users[s.adjusted_by]) ?? 'Unknown',
                     details: `${s.quantity} x ${productName} - ${s.reason ?? ''}`,
                     category: 'stock',
                 });
@@ -133,7 +133,7 @@ export const ActivityLog = () => {
                     id: `delivery-${d.id}`,
                     timestamp: d.created_at,
                     action: 'Delivery Created',
-                    performedBy: d.initiated_by_name || users[d.created_by] || 'Unknown',
+                    performedBy: d.initiated_by_name || (d.created_by ? users[d.created_by] : undefined) || 'Unknown',
                     details: `${d.delivery_number ?? ''} - Status: ${d.status}`,
                     category: 'delivery',
                 });

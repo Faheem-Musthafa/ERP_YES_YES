@@ -35,7 +35,7 @@ interface StaffUser {
     created_at: string;
 }
 
-const ROLES = [
+const ROLES: Array<{ value: Exclude<UserRole, 'admin'>; label: string }> = [
     { value: 'sales', label: 'Sales' },
     { value: 'accounts', label: 'Accounts' },
     { value: 'inventory', label: 'Inventory' },
@@ -281,7 +281,7 @@ export const StaffManagement = () => {
                                                             onValueChange={async (newRole) => {
                                                                 setUpdatingRoleId(u.id);
                                                                 try {
-                                                                    const { error } = await supabase.from('users').update({ role: newRole }).eq('id', u.id);
+                                                                    const { error } = await supabase.from('users').update({ role: newRole as UserRole }).eq('id', u.id);
                                                                     if (error) {
                                                                         toast.error('Failed to update role');
                                                                     } else {

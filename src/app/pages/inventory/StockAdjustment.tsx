@@ -9,6 +9,7 @@ import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import { DataCard, EmptyState, FormSection, PageHeader, SearchBar } from '@/app/components/ui/primitives';
+import type { GodownEnum } from '@/app/types/database';
 
 interface ProductWithStock {
   id: string;
@@ -20,12 +21,21 @@ interface ProductWithStock {
   total_stock: number;
 }
 
+interface AdjustmentRow {
+  id: string;
+  quantity: number;
+  type: 'Addition' | 'Subtraction';
+  reason: string | null;
+  created_at: string;
+  products: { name: string; sku: string } | null;
+}
+
 export const StockAdjustment = () => {
   const { user } = useAuth();
   const [products, setProducts] = useState<ProductWithStock[]>([]);
-  const [recentAdjustments, setRecentAdjustments] = useState<any[]>([]);
+  const [recentAdjustments, setRecentAdjustments] = useState<AdjustmentRow[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState<'Kottakkal' | 'Chenakkal'>('Kottakkal');
+  const [selectedLocation, setSelectedLocation] = useState<GodownEnum>('Kottakkal');
   const [quantity, setQuantity] = useState('');
   const [type, setType] = useState<'Addition' | 'Subtraction'>('Addition');
   const [reason, setReason] = useState('');
@@ -65,7 +75,7 @@ export const StockAdjustment = () => {
       });
 
       setProducts(productsWithStock);
-      setRecentAdjustments(adj ?? []);
+      setRecentAdjustments((adj ?? []) as AdjustmentRow[]);
     } catch (err: any) {
       toast.error(err.message || 'Failed to load data');
     }
@@ -92,64 +102,18 @@ export const StockAdjustment = () => {
     }
     setSaving(true);
     try {
-      // Fetch current stock from DB to prevent race condition
-      const { data: currentStock, error: fetchErr } = await supabase
-        .from('product_stock_locations')
-        .select('stock_qty')
-        .eq('product_id', selectedProductId)
-        .eq('location', selectedLocation)
-        .maybeSingle();
-      
-      if (fetchErr) throw fetchErr;
-
-      const currentQty = currentStock?.stock_qty ?? 0;
-      const newStock = type === 'Addition' ? currentQty + qty : currentQty - qty;
-      if (newStock < 0) { toast.error('Stock cannot go below 0'); setSaving(false); return; }
-
-      // Insert adjustment record
-      const { data: adjData, error: adjErr } = await supabase
-        .from('stock_adjustments')
-        .insert({ 
-          product_id: selectedProductId, 
-          quantity: qty, 
-          type, 
-          reason, 
-          adjusted_by: user?.id ?? null 
-        })
-        .select('id')
-        .single();
-      
-      if (adjErr) throw adjErr;
-
-      // Update stock at location (use upsert in case entry doesn't exist)
-      const { error: stockErr } = await supabase
-        .from('product_stock_locations')
-        .upsert({ 
-          product_id: selectedProductId, 
-          location: selectedLocation, 
-          stock_qty: newStock 
-        }, { 
-          onConflict: 'product_id,location' 
-        });
-      
-      if (stockErr) {
-        // Rollback: delete the adjustment record if stock update failed
-        await supabase.from('stock_adjustments').delete().eq('id', adjData.id);
-        throw stockErr;
-      }
-
-      // Log stock movement
-      await supabase.from('stock_movements').insert({
-        product_id: selectedProductId,
-        quantity: type === 'Addition' ? qty : -qty,
-        movement_type: 'adjustment',
-        reference_type: 'stock_adjustment',
-        reference_id: adjData.id,
-        location: selectedLocation,
-        created_by: user?.id ?? null,
+      const { data: adjustmentId, error: adjustmentErr } = await supabase.rpc('create_stock_adjustment_atomic', {
+        p_product_id: selectedProductId,
+        p_location: selectedLocation,
+        p_quantity: qty,
+        p_type: type,
+        p_reason: reason,
+        p_user_id: user?.id ?? null,
       });
 
-      toast.success(`Stock ${type === 'Addition' ? 'increased' : 'decreased'} by ${qty} at ${selectedLocation}. New stock: ${newStock}`);
+      if (adjustmentErr) throw adjustmentErr;
+
+      toast.success(`Stock ${type === 'Addition' ? 'increased' : 'decreased'} by ${qty} at ${selectedLocation}. Adjustment ${adjustmentId ? 'saved' : 'applied'}.`);
       setSelectedProductId(''); 
       setQuantity(''); 
       setReason('');
@@ -199,7 +163,7 @@ export const StockAdjustment = () => {
                 )}
                 <div className="space-y-2">
                   <Label>Location *</Label>
-                  <Select value={selectedLocation} onValueChange={(v: any) => setSelectedLocation(v)}>
+                  <Select value={selectedLocation} onValueChange={(v) => setSelectedLocation(v as GodownEnum)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Kottakkal">Kottakkal {selectedProduct && `(Current: ${selectedProduct.kottakkal_stock})`}</SelectItem>

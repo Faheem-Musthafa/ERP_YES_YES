@@ -218,7 +218,7 @@ export const MyCustomers = () => {
                         <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Locations</SelectItem>
-                            {locations.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
+                            {LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
                         </SelectContent>
                     </Select>
                 </FilterField>
@@ -261,7 +261,7 @@ export const MyCustomers = () => {
                                             </StyledTd>
                                             <StyledTd right className="font-semibold">{c.totalOrders}</StyledTd>
                                             <StyledTd right mono>₹ {c.totalRevenue.toLocaleString('en-IN')}</StyledTd>
-                                            <StyledTd right mono>₹ {c.averageOrderValue.toFixed(0).toLocaleString('en-IN')}</StyledTd>
+                                            <StyledTd right mono>₹ {Math.round(c.averageOrderValue).toLocaleString('en-IN')}</StyledTd>
                                             <StyledTd className="text-xs text-muted-foreground">
                                                 {c.lastOrderDate ? new Date(c.lastOrderDate).toLocaleDateString('en-IN') : '—'}
                                             </StyledTd>

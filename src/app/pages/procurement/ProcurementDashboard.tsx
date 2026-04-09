@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ShoppingCart, Truck, ClipboardList, Clock, CheckCircle2, Activity } from 'lucide-react';
 import { supabase } from '@/app/supabase';
+import { toast } from 'sonner';
 import {
   PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd, EmptyState, Spinner,
 } from '@/app/components/ui/primitives';
@@ -12,18 +13,18 @@ interface DashboardPO {
   total_amount: number;
   created_at: string;
   expected_delivery_date: string | null;
+  delivered_at: string | null;
   suppliers: { name: string } | null;
-  purchase_order_items: { quantity: number }[] | null;
+  po_items: { quantity: number }[] | null;
 }
 
 interface DashboardGRN {
   id: string;
-  purchase_order_id: string | null;
-  status: string;
-  received_date: string | null;
+  grn_number: string;
+  received_date: string;
   created_at: string;
-  expected_qty: number;
-  received_qty: number;
+  purchase_orders: { po_number: string | null } | null;
+  grn_items: { received_qty: number; status: string }[] | null;
 }
 
 export const ProcurementDashboard = () => {
@@ -39,12 +40,12 @@ export const ProcurementDashboard = () => {
         const [{ data: poData, error: poError }, { data: grnData, error: grnError }, { data: supplierData, error: supplierError }] = await Promise.all([
           supabase
             .from('purchase_orders')
-            .select('id, po_number, status, total_amount, created_at, expected_delivery_date, suppliers(name), purchase_order_items(quantity)')
+            .select('id, po_number, status, total_amount, created_at, expected_delivery_date, delivered_at, suppliers(name), po_items(quantity)')
             .order('created_at', { ascending: false })
             .limit(100),
           supabase
-            .from('grn_items')
-            .select('id, purchase_order_id, status, received_date, created_at, expected_qty, received_qty')
+            .from('grn')
+            .select('id, grn_number, received_date, created_at, purchase_orders:purchase_orders!grn_po_id_fkey(po_number), grn_items(received_qty, status)')
             .order('created_at', { ascending: false })
             .limit(100),
           supabase
@@ -71,8 +72,8 @@ export const ProcurementDashboard = () => {
   const thisMonthKey = new Date().toISOString().slice(0, 7);
   const activePOs = orders.filter(po => po.status === 'Pending' || po.status === 'Approved').length;
   const completedPOs = orders.filter(po => po.status === 'Received').length;
-  const completedThisMonth = orders.filter(po => po.status === 'Received' && po.created_at.startsWith(thisMonthKey)).length;
-  const pendingGRNs = grnRows.filter(grn => grn.status !== 'Completed').length;
+  const completedThisMonth = orders.filter(po => po.status === 'Received' && (po.delivered_at ?? po.created_at).startsWith(thisMonthKey)).length;
+  const pendingGRNs = grnRows.filter(grn => (grn.grn_items ?? []).some(item => item.status !== 'Completed')).length;
 
   const kpis = [
     { label: 'Active POs', value: activePOs, sub: 'In progress', icon: <ShoppingCart size={20} />, iconBg: 'bg-teal-100 text-teal-600' },
@@ -90,15 +91,15 @@ export const ProcurementDashboard = () => {
   const recentActivity = useMemo(() => {
     const poActivity = orders.slice(0, 4).map(po => ({
       title: po.status === 'Received' ? 'PO Received' : 'Purchase Order Updated',
-      desc: `${po.po_number} • ${(po.purchase_order_items ?? []).reduce((sum, row) => sum + (row.quantity ?? 0), 0)} units • ${po.suppliers?.name ?? 'Unknown Supplier'}`,
-      time: new Date(po.created_at).toLocaleString(),
+      desc: `${po.po_number} • ${(po.po_items ?? []).reduce((sum, row) => sum + (row.quantity ?? 0), 0)} units • ${po.suppliers?.name ?? 'Unknown Supplier'}`,
+      time: new Date(po.delivered_at ?? po.created_at).toLocaleString(),
       dot: po.status === 'Received' ? 'bg-emerald-500' : 'bg-teal-500',
     }));
     const grnActivity = grnRows.slice(0, 4).map(grn => ({
-      title: grn.status === 'Completed' ? 'GRN Completed' : 'GRN Updated',
-      desc: `${grn.purchase_order_id ?? 'No PO'} • Received ${grn.received_qty}/${grn.expected_qty}`,
+      title: (grn.grn_items ?? []).every(item => item.status === 'Completed') ? 'GRN Completed' : 'GRN Updated',
+      desc: `${grn.purchase_orders?.po_number ?? 'No PO'} • Received ${(grn.grn_items ?? []).reduce((sum, item) => sum + (item.received_qty ?? 0), 0)} units`,
       time: new Date(grn.received_date ?? grn.created_at).toLocaleString(),
-      dot: grn.status === 'Completed' ? 'bg-emerald-500' : 'bg-blue-500',
+      dot: (grn.grn_items ?? []).every(item => item.status === 'Completed') ? 'bg-emerald-500' : 'bg-blue-500',
     }));
     return [...grnActivity, ...poActivity].slice(0, 6);
   }, [orders, grnRows]);
@@ -183,7 +184,7 @@ export const ProcurementDashboard = () => {
                 <StyledTr key={po.id}>
                   <StyledTd className="font-semibold text-primary">{po.po_number}</StyledTd>
                   <StyledTd>{po.suppliers?.name ?? 'Unknown Supplier'}</StyledTd>
-                  <StyledTd className="text-center text-muted-foreground">{(po.purchase_order_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0)} items</StyledTd>
+                  <StyledTd className="text-center text-muted-foreground">{(po.po_items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0), 0)} items</StyledTd>
                   <StyledTd right className="font-bold">₹ {po.total_amount.toLocaleString('en-IN')}</StyledTd>
                   <StyledTd className="text-muted-foreground">{po.expected_delivery_date ? new Date(po.expected_delivery_date).toLocaleDateString() : '—'}</StyledTd>
                   <StyledTd className="text-center">

@@ -41,7 +41,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 An unexpected error occurred. Please try refreshing the page.
               </p>
             </div>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
                 <p className="text-xs font-mono text-destructive break-words">
                   {this.state.error.message}

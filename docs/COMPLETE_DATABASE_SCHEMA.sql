@@ -313,7 +313,7 @@ CREATE TABLE IF NOT EXISTS receipts (
     order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
     amount DECIMAL(12,2) NOT NULL CHECK (amount > 0),
     payment_mode payment_mode_enum NOT NULL,
-    payment_status TEXT DEFAULT 'Completed',
+    payment_status TEXT DEFAULT 'Not Collected',
     bounce_reason TEXT,  -- For cheque bounces
     recorded_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -1185,7 +1185,8 @@ BEGIN
     SELECT COALESCE(SUM(r.amount), 0) INTO v_receipts_total
     FROM receipts r
     JOIN orders o ON r.order_id = o.id
-    WHERE o.customer_id = p_customer_id;
+    WHERE o.customer_id = p_customer_id
+      AND r.payment_status IN ('Received', 'Credited', 'Cleared');
     
     RETURN v_opening + v_orders_total - v_receipts_total;
 END;
@@ -1386,6 +1387,7 @@ BEGIN
         FROM receipts r
         JOIN orders o ON r.order_id = o.id
         WHERE o.customer_id = p_customer_id
+          AND r.payment_status IN ('Received', 'Credited', 'Cleared')
     )
     SELECT 
         t.txn_date,

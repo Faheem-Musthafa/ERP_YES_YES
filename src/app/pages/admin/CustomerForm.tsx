@@ -10,6 +10,12 @@ import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { PageHeader, FormCard, FormSection, Spinner, CustomTooltip } from '@/app/components/ui/primitives';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
+import type { DistrictEnum } from '@/app/types/database';
+
+const DISTRICT_OPTIONS: DistrictEnum[] = [
+    'Kasaragod', 'Kannur', 'Wayanad', 'Kozhikode', 'Malappuram', 'Palakkad', 'Thrissur',
+    'Ernakulam', 'Idukki', 'Kottayam', 'Alappuzha', 'Pathanamthitta', 'Kollam', 'Thiruvananthapuram',
+];
 
 export const CustomerForm = () => {
     const navigate = useNavigate();
@@ -17,7 +23,7 @@ export const CustomerForm = () => {
     const isEdit = Boolean(id);
 
     const [form, setForm] = useState({
-        name: '', place: '', address: '', phone: '', pincode: '', gst_pan: '', location: null as string | null, assigned_to: null as string | null, opening_balance: 0,
+        name: '', place: '', address: '', phone: '', pincode: '', gst_pan: '', location: null as DistrictEnum | null, assigned_to: null as string | null, opening_balance: 0,
     });
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(isEdit);
@@ -26,7 +32,7 @@ export const CustomerForm = () => {
     const [salesReps, setSalesReps] = useState<any[]>([]);
 
     useEffect(() => {
-        if (!isEdit) return;
+        if (!isEdit || !id) return;
         (async () => {
             const { data, error } = await supabase
                 .from('customers')
@@ -37,7 +43,7 @@ export const CustomerForm = () => {
             setForm({
                 name: data.name ?? '', place: data.place ?? '', address: data.address ?? '',
                 phone: data.phone ?? '', pincode: data.pincode ?? '', gst_pan: data.gst_pan ?? '',
-                location: data.location ?? '', assigned_to: data.assigned_to ?? '', opening_balance: data.opening_balance ?? 0,
+                location: data.location ?? null, assigned_to: data.assigned_to ?? '', opening_balance: data.opening_balance ?? 0,
             });
             setFetching(false);
         })();
@@ -69,11 +75,12 @@ export const CustomerForm = () => {
                 name: form.name.trim(), place: form.place.trim() || null,
                 address: form.address.trim(), phone: form.phone.trim(),
                 pincode: form.pincode.trim() || null, gst_pan: form.gst_pan.trim() || null,
-                location: form.location?.trim() || null,
+                location: form.location || null,
                 assigned_to: form.assigned_to?.trim() || null,
                 opening_balance: parseFloat(form.opening_balance?.toString() || '0') || 0,
             };
             if (isEdit) {
+                if (!id) throw new Error('Customer ID is missing');
                 const { error } = await supabase.from('customers').update(payload).eq('id', id);
                 if (error) throw error;
                 toast.success('Customer updated!');
@@ -151,7 +158,9 @@ export const CustomerForm = () => {
                     phone: cols[phoneIdx] || '',
                     address: cols[addressIdx] || '',
                     place: placeIdx >= 0 ? cols[placeIdx] || null : null,
-                    location: locationIdx >= 0 ? cols[locationIdx] || null : null,
+                    location: locationIdx >= 0 && DISTRICT_OPTIONS.includes(cols[locationIdx] as DistrictEnum)
+                        ? (cols[locationIdx] as DistrictEnum)
+                        : null,
                     pincode: pincodeIdx >= 0 ? cols[pincodeIdx] || null : null,
                     gst_pan: gstIdx >= 0 ? cols[gstIdx] || null : null,
                     assigned_to: assignedToId,
@@ -211,23 +220,12 @@ export const CustomerForm = () => {
                             </div>
                             <div className="space-y-1.5">
                                 <Label>Location (District)</Label>
-                                <Select value={form.location ?? ''} onValueChange={(v) => setForm(f => ({ ...f, location: v || null }))}>
+                                <Select value={form.location ?? ''} onValueChange={(v) => setForm(f => ({ ...f, location: (v || null) as DistrictEnum | null }))}>
                                     <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="Kasaragod">Kasaragod</SelectItem>
-                                        <SelectItem value="Kannur">Kannur</SelectItem>
-                                        <SelectItem value="Wayanad">Wayanad</SelectItem>
-                                        <SelectItem value="Kozhikode">Kozhikode</SelectItem>
-                                        <SelectItem value="Malappuram">Malappuram</SelectItem>
-                                        <SelectItem value="Palakkad">Palakkad</SelectItem>
-                                        <SelectItem value="Thrissur">Thrissur</SelectItem>
-                                        <SelectItem value="Ernakulam">Ernakulam</SelectItem>
-                                        <SelectItem value="Idukki">Idukki</SelectItem>
-                                        <SelectItem value="Kottayam">Kottayam</SelectItem>
-                                        <SelectItem value="Alappuzha">Alappuzha</SelectItem>
-                                        <SelectItem value="Pathanamthitta">Pathanamthitta</SelectItem>
-                                        <SelectItem value="Kollam">Kollam</SelectItem>
-                                        <SelectItem value="Thiruvananthapuram">Thiruvananthapuram</SelectItem>
+                                        {DISTRICT_OPTIONS.map((district) => (
+                                            <SelectItem key={district} value={district}>{district}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>

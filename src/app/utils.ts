@@ -2,6 +2,7 @@
  * Shared utility functions and constants for the ERP system.
  * Centralised here to avoid copy-pasting across page files.
  */
+import type { PaymentModeEnum } from '@/app/types/database';
 
 // ── Currency formatters ────────────────────────────────────────────────────
 
@@ -26,6 +27,22 @@ export const STATUS_COLOR: Record<string, string> = {
     Billed: 'bg-teal-100 text-teal-700',
     Delivered: 'bg-purple-100 text-purple-700',
 };
+
+// ── Receipt status helpers ────────────────────────────────────────────────
+
+export const DEFAULT_RECEIPT_STATUS = 'Not Collected' as const;
+
+export const RECEIPT_COLLECTED_STATUSES = ['Received', 'Credited', 'Cleared'] as const;
+
+export const RECEIPT_STATUS_OPTIONS_BY_MODE: Record<PaymentModeEnum, string[]> = {
+    Cash: [DEFAULT_RECEIPT_STATUS, 'Received', 'Not Received'],
+    Cheque: [DEFAULT_RECEIPT_STATUS, 'Cleared', 'Bounced'],
+    'Bank Transfer': [DEFAULT_RECEIPT_STATUS, 'Credited'],
+    UPI: [DEFAULT_RECEIPT_STATUS, 'Received'],
+};
+
+export const isCollectedReceiptStatus = (status: string | null | undefined): boolean =>
+    status != null && RECEIPT_COLLECTED_STATUSES.includes(status as (typeof RECEIPT_COLLECTED_STATUSES)[number]);
 
 // ── Email validation ────────────────────────────────────────────────────
 

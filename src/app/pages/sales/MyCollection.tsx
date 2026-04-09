@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router';
 import { Plus, Wallet } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { DEFAULT_RECEIPT_STATUS } from '@/app/utils';
 import {
   PageHeader, SearchBar, FilterBar, FilterField, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -19,6 +20,7 @@ const MODE_COLORS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
+  'Not Collected': 'Not Collected',
   Received: 'Received',
   Credited: 'Credited',
   Cleared: 'Cleared',
@@ -44,7 +46,7 @@ export const MyCollection = () => {
       setError('');
       const { data, error: fetchError } = await supabase
         .from('receipts')
-        .select('id, receipt_number, amount, payment_mode, payment_status, created_at, orders(order_number, invoice_number, grand_total, customers(name))')
+        .select('id, receipt_number, amount, payment_mode, payment_status, company, brand, on_account_of, received_date, created_at, customers(name), orders(order_number, invoice_number, grand_total, customers(name))')
         .eq('recorded_by', user.id)
         .order('created_at', { ascending: false });
       if (fetchError) {
@@ -114,7 +116,7 @@ export const MyCollection = () => {
             setLoading(true);
             const { data, error: fetchError } = await supabase
               .from('receipts')
-              .select('id, receipt_number, amount, payment_mode, payment_status, created_at, orders(order_number, invoice_number, grand_total, customers(name))')
+              .select('id, receipt_number, amount, payment_mode, payment_status, company, brand, on_account_of, received_date, created_at, customers(name), orders(order_number, invoice_number, grand_total, customers(name))')
               .eq('recorded_by', user.id)
               .order('created_at', { ascending: false });
             if (fetchError) setError(fetchError.message);
@@ -145,25 +147,22 @@ export const MyCollection = () => {
               <tbody>
                 {paginated.map(r => {
                   const invoiceNo = r.orders?.invoice_number ?? r.orders?.order_number ?? '—';
+                  const currentStatus = r.payment_status ?? DEFAULT_RECEIPT_STATUS;
                   return (
                     <StyledTr key={r.id}>
                       <StyledTd className="font-semibold text-primary">{r.receipt_number}</StyledTd>
                       <StyledTd className="font-medium text-foreground">{invoiceNo}</StyledTd>
-                      <StyledTd className="text-muted-foreground">{r.orders?.customers?.name ?? '—'}</StyledTd>
+                      <StyledTd className="text-muted-foreground">{r.orders?.customers?.name ?? r.customers?.name ?? '—'}</StyledTd>
                       <StyledTd center>
                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${MODE_COLORS[r.payment_mode] ?? 'bg-muted text-muted-foreground'}`}>
                           {r.payment_mode}
                         </span>
                       </StyledTd>
                       <StyledTd center>
-                        {r.payment_status ? (
-                          <StatusBadge status={STATUS_COLORS[r.payment_status] ?? r.payment_status} />
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">Pending</span>
-                        )}
+                        <StatusBadge status={STATUS_COLORS[currentStatus] ?? currentStatus} />
                       </StyledTd>
                       <StyledTd right mono className="font-bold">₹ {r.amount?.toLocaleString('en-IN')}</StyledTd>
-                      <StyledTd mono className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</StyledTd>
+                      <StyledTd mono className="text-xs text-muted-foreground">{new Date(r.received_date ?? r.created_at).toLocaleDateString()}</StyledTd>
                     </StyledTr>
                   );
                 })}

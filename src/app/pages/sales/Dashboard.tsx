@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { fmtK } from '@/app/utils';
+import { fmtK, isCollectedReceiptStatus } from '@/app/utils';
 import {
   ShoppingCart, TrendingUp, CheckCircle,
   DollarSign, Activity, FileText
@@ -41,12 +41,14 @@ export const SalesDashboard = () => {
       ] = await Promise.all([
         supabase.from('orders').select('id, order_number, status, grand_total, created_at, customers(name)').eq('created_by', user!.id).order('created_at', { ascending: false }).limit(50),
         supabase.from('orders').select('id, status, grand_total, created_at').eq('created_by', user!.id).gte('created_at', monthStart),
-        supabase.from('receipts').select('id, amount').eq('recorded_by', user!.id),
-        supabase.from('receipts').select('id, amount').eq('recorded_by', user!.id).gte('created_at', monthStart),
+        supabase.from('receipts').select('id, amount, payment_status').eq('recorded_by', user!.id),
+        supabase.from('receipts').select('id, amount, payment_status').eq('recorded_by', user!.id).gte('created_at', monthStart),
       ]);
       const fetchError = allMyOrdersError || myMonthOrdersError || myReceiptsError || myMonthReceiptsError;
       if (fetchError) throw new Error(fetchError.message);
 
+      const collectedReceipts = (myReceipts ?? []).filter(r => isCollectedReceiptStatus(r.payment_status));
+      const monthCollectedReceipts = (myMonthReceipts ?? []).filter(r => isCollectedReceiptStatus(r.payment_status));
       const validated = (allMyOrders ?? []).filter(o => ['Approved', 'Billed', 'Delivered'].includes(o.status));
       const myMonthSalesOrders = (myMonthOrders ?? []).filter(o => ['Approved', 'Billed', 'Delivered'].includes(o.status));
 
@@ -66,8 +68,8 @@ export const SalesDashboard = () => {
         myMonthOrders: (myMonthOrders ?? []).length,
         myPending: (allMyOrders ?? []).filter(o => o.status === 'Pending').length,
         myApproved: (allMyOrders ?? []).filter(o => o.status === 'Approved').length,
-        myCollected: (myReceipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
-        myMonthCollected: (myMonthReceipts ?? []).reduce((s, r) => s + (r.amount ?? 0), 0),
+        myCollected: collectedReceipts.reduce((s, r) => s + (r.amount ?? 0), 0),
+        myMonthCollected: monthCollectedReceipts.reduce((s, r) => s + (r.amount ?? 0), 0),
         totalOrders: (allMyOrders ?? []).length,
       });
     } catch (err: any) {

@@ -11,26 +11,36 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import { FormSection, FormCard, PageHeader } from '@/app/components/ui/primitives';
 import type { PaymentModeEnum } from '@/app/types/database';
+import { DEFAULT_RECEIPT_STATUS } from '@/app/utils';
 
-const mapMode = (m: string): PaymentModeEnum => (m === 'Bank' ? 'Bank Transfer' : m as PaymentModeEnum);
+interface CustomerOption {
+  id: string;
+  name: string;
+  phone: string;
+  address: string;
+  gst_pan: string | null;
+}
 
-const MODE_STATUSES: Record<string, string[]> = {
-  Cash: ['Received', 'Not Received'],
-  Cheque: ['Cleared', 'Bounced'],
-  Bank: ['Credited'],
-  UPI: ['Received'],
-};
+interface OrderOption {
+  id: string;
+  order_number: string;
+  invoice_number: string | null;
+  grand_total: number;
+  created_at: string;
+  customer_id: string | null;
+  customers: { name: string } | null;
+}
 
 export const ReceiptEntry = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
   const [brands, setBrands] = useState<string[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [approvedOrders, setApprovedOrders] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [approvedOrders, setApprovedOrders] = useState<OrderOption[]>([]);
 
   const [company, setCompany] = useState('');
-  const [modeOfReceipt, setModeOfReceipt] = useState('');
+  const [modeOfReceipt, setModeOfReceipt] = useState<PaymentModeEnum | ''>('');
   const [brand, setBrand] = useState('');
   const [otherBrand, setOtherBrand] = useState('');
   const [customerType, setCustomerType] = useState('existing');
@@ -43,19 +53,21 @@ export const ReceiptEntry = () => {
   const [addressAutoFilled, setAddressAutoFilled] = useState(false);
   const [gstAutoFilled, setGstAutoFilled] = useState(false);
   const [receivedAmount, setReceivedAmount] = useState('');
-  const [receivedDate, setReceivedDate] = useState('');
+  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0] ?? '');
   const [onAccountOf, setOnAccountOf] = useState<'Invoice' | 'Advance' | ''>('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [chequeNumber, setChequeNumber] = useState('');
   const [chequeDate, setChequeDate] = useState('');
   const [loading, setLoading] = useState(false);
+  const invoiceCustomerId = customerType === 'existing' ? selectedCustomerId : '';
+  const customerFilteredOrders = approvedOrders.filter(o => !invoiceCustomerId || o.customer_id === invoiceCustomerId);
 
   useEffect(() => {
     (async () => {
       try {
         const [{ data: custData, error: custError }, { data: ordData, error: ordError }, { data: brandData, error: brandError }] = await Promise.all([
           supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
-          supabase.from('orders').select('id, order_number, invoice_number, grand_total, created_at, customer_id, customers(name)').eq('status', 'Approved').order('created_at', { ascending: false }),
+          supabase.from('orders').select('id, order_number, invoice_number, grand_total, created_at, customer_id, customers(name)').in('status', ['Approved', 'Billed', 'Delivered']).order('created_at', { ascending: false }),
           supabase.from('brands').select('name').eq('is_active', true).order('name'),
         ]);
 
@@ -63,9 +75,9 @@ export const ReceiptEntry = () => {
         if (ordError) throw ordError;
         if (brandError) throw brandError;
 
-        if (custData) setCustomers(custData);
-        if (ordData) setApprovedOrders(ordData);
-        if (brandData) setBrands([...brandData.map((b: any) => b.name), 'Other']);
+        if (custData) setCustomers(custData as CustomerOption[]);
+        if (ordData) setApprovedOrders(ordData as OrderOption[]);
+        if (brandData) setBrands([...brandData.map((b: { name: string }) => b.name), 'Other']);
       } catch (err: any) {
         toast.error(err.message || 'Failed to load data');
       }
@@ -90,9 +102,14 @@ export const ReceiptEntry = () => {
     e.preventDefault();
     if (customerType === 'existing' && !selectedCustomerId) { toast.error('Please select a customer'); return; }
     if (customerType === 'new' && (!customerName || !customerPhone)) { toast.error('Please fill new customer details'); return; }
+    if (!company) { toast.error('Please select a company'); return; }
+    if (!modeOfReceipt) { toast.error('Please select mode of receipt'); return; }
+    if (!brand || (brand === 'Other' && !otherBrand.trim())) { toast.error('Please select a brand'); return; }
     if (!onAccountOf) { toast.error('Please select On Account Of'); return; }
+    if (onAccountOf === 'Invoice' && !invoiceCustomerId) { toast.error('Please select a customer first'); return; }
     if (onAccountOf === 'Invoice' && !selectedOrderId) { toast.error('Please select an invoice'); return; }
     if (!receivedAmount || !receivedDate) { toast.error('Please enter amount and date'); return; }
+    if (modeOfReceipt === 'Cheque' && (!chequeNumber.trim() || !chequeDate)) { toast.error('Please complete cheque details'); return; }
 
     setLoading(true);
     try {
@@ -106,13 +123,20 @@ export const ReceiptEntry = () => {
       }
 
       const receiptNumber = `RCPT-${Date.now()}`;
-      const paymentStatus = MODE_STATUSES[modeOfReceipt]?.[0] ?? null;
+      const finalBrand = brand === 'Other' ? otherBrand.trim() : brand;
       const { error } = await supabase.from('receipts').insert({
         receipt_number: receiptNumber,
         order_id: onAccountOf === 'Invoice' ? selectedOrderId : null,
+        customer_id: finalCustomerId,
         amount: Number(receivedAmount),
-        payment_mode: mapMode(modeOfReceipt),
-        payment_status: paymentStatus,
+        payment_mode: modeOfReceipt,
+        payment_status: DEFAULT_RECEIPT_STATUS,
+        company,
+        brand: finalBrand,
+        received_date: receivedDate,
+        cheque_number: chequeNumber.trim() || null,
+        cheque_date: chequeDate || null,
+        on_account_of: onAccountOf,
         recorded_by: user?.id ?? null,
       });
       if (error) throw error;
@@ -165,9 +189,9 @@ export const ReceiptEntry = () => {
                 </Select>
               </div>
               <div className="space-y-1.5"><Label>Mode of Receipt <span className="text-destructive">*</span></Label>
-                <Select value={modeOfReceipt} onValueChange={setModeOfReceipt}>
-                  <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
-                  <SelectContent><SelectItem value="Cash">Cash</SelectItem><SelectItem value="Cheque">Cheque</SelectItem><SelectItem value="Bank">Bank Transfer</SelectItem><SelectItem value="UPI">UPI</SelectItem></SelectContent>
+                  <Select value={modeOfReceipt} onValueChange={(value) => setModeOfReceipt(value as PaymentModeEnum)}>
+                    <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
+                  <SelectContent><SelectItem value="Cash">Cash</SelectItem><SelectItem value="Cheque">Cheque</SelectItem><SelectItem value="Bank Transfer">Bank Transfer</SelectItem><SelectItem value="UPI">UPI</SelectItem></SelectContent>
                 </Select>
               </div>
             </div>
@@ -258,12 +282,12 @@ export const ReceiptEntry = () => {
                 </Select>
               </div>
 
-              {onAccountOf === 'Invoice' && (
+              {onAccountOf === 'Invoice' && invoiceCustomerId && (
                 <div className="space-y-1.5 md:col-span-2"><Label>Select Invoice <span className="text-destructive">*</span></Label>
                   <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
                     <SelectTrigger className="h-auto py-2"><SelectValue placeholder="Select an approved invoice..." /></SelectTrigger>
                     <SelectContent>
-                      {approvedOrders.filter(o => !selectedCustomerId || o.customer_id === selectedCustomerId).map(o => (
+                      {customerFilteredOrders.map(o => (
                         <SelectItem key={o.id} value={o.id}>
                           <div className="flex flex-col py-0.5 space-y-0.5">
                             <span className="font-semibold text-foreground">{o.invoice_number ?? o.order_number}</span>
@@ -277,11 +301,17 @@ export const ReceiptEntry = () => {
                           </div>
                         </SelectItem>
                       ))}
-                      {approvedOrders.filter(o => !selectedCustomerId || o.customer_id === selectedCustomerId).length === 0 && (
+                      {customerFilteredOrders.length === 0 && (
                         <SelectItem value="none" disabled>No pending invoices for this customer</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
+                </div>
+              )}
+
+              {onAccountOf === 'Invoice' && !invoiceCustomerId && (
+                <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  Select an existing customer first to load invoice options.
                 </div>
               )}
             </div>

@@ -8,21 +8,35 @@ import { useNavigate } from 'react-router';
 import { Plus, ClipboardCheck, AlertCircle } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
+import type { PaymentModeEnum } from '@/app/types/database';
 import {
   PageHeader, SearchBar, FilterBar, FilterField, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
   EmptyState, Spinner, StatusBadge, TablePagination, ErrorState,
 } from '@/app/components/ui/primitives';
+import { DEFAULT_RECEIPT_STATUS, RECEIPT_STATUS_OPTIONS_BY_MODE } from '@/app/utils';
 
-/* ── Payment status options per mode ── */
-const MODE_STATUSES: Record<string, string[]> = {
-  Cash: ['Received', 'Not Received'],
-  Cheque: ['Cleared', 'Bounced'],
-  'Bank Transfer': ['Credited'],
-  UPI: ['Received'],
-};
+interface ReceiptRow {
+  id: string;
+  receipt_number: string;
+  amount: number | null;
+  payment_mode: PaymentModeEnum;
+  payment_status: string | null;
+  bounce_reason: string | null;
+  received_date: string | null;
+  created_at: string;
+  customers: { name: string } | null;
+  orders: {
+    id: string;
+    order_number: string;
+    invoice_number: string | null;
+    status: string;
+    customers: { name: string } | null;
+  } | null;
+}
 
 const STATUS_COLORS: Record<string, string> = {
+  'Not Collected': 'Not Collected',
   Received: 'Received',
   Credited: 'Credited',
   Cleared: 'Cleared',
@@ -39,7 +53,7 @@ const MODE_COLORS: Record<string, string> = {
 
 export const CollectionStatus = () => {
   const navigate = useNavigate();
-  const [receipts, setReceipts] = useState<any[]>([]);
+  const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -59,10 +73,10 @@ export const CollectionStatus = () => {
     setError('');
     const { data, error: fetchError } = await supabase
       .from('receipts')
-      .select('id, receipt_number, amount, payment_mode, payment_status, bounce_reason, created_at, orders(id, order_number, invoice_number, status, customers(name))')
+      .select('id, receipt_number, amount, payment_mode, payment_status, bounce_reason, company, brand, on_account_of, received_date, created_at, customers(name), orders(id, order_number, invoice_number, status, customers(name))')
       .order('created_at', { ascending: false });
     if (fetchError) setError(fetchError.message);
-    else setReceipts(data ?? []);
+    else setReceipts((data ?? []) as ReceiptRow[]);
     setLoading(false);
   };
 
@@ -70,12 +84,13 @@ export const CollectionStatus = () => {
 
   const filtered = receipts.filter(r => {
     const invoiceNo = r.orders?.invoice_number ?? r.orders?.order_number ?? '';
+    const currentStatus = r.payment_status ?? DEFAULT_RECEIPT_STATUS;
     const match = !search ||
       r.receipt_number.toLowerCase().includes(search.toLowerCase()) ||
       invoiceNo.toLowerCase().includes(search.toLowerCase()) ||
       (r.orders?.customers?.name ?? '').toLowerCase().includes(search.toLowerCase());
     const matchMode = !modeFilter || modeFilter === 'all' || r.payment_mode === modeFilter;
-    const matchStatus = !statusFilter || statusFilter === 'all' || r.payment_status === statusFilter;
+    const matchStatus = !statusFilter || statusFilter === 'all' || currentStatus === statusFilter;
     return match && matchMode && matchStatus;
   });
   useEffect(() => { setCurrentPage(1); }, [search, modeFilter, statusFilter, receipts.length]);
@@ -83,7 +98,7 @@ export const CollectionStatus = () => {
   const page = Math.min(currentPage, totalPages);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  const updateStatus = async (receiptId: string, status: string, mode: string) => {
+  const updateStatus = async (receiptId: string, status: string) => {
     if (status === 'Bounced') {
       setBounceTargetId(receiptId);
       setBounceReason('');
@@ -144,6 +159,7 @@ export const CollectionStatus = () => {
               <SelectTrigger className="h-10 w-[170px]"><SelectValue placeholder="All Statuses" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Not Collected">Not Collected</SelectItem>
                 <SelectItem value="Received">Received</SelectItem>
                 <SelectItem value="Not Received">Not Received</SelectItem>
                 <SelectItem value="Cleared">Cleared</SelectItem>
@@ -184,14 +200,14 @@ export const CollectionStatus = () => {
               <tbody>
                 {paginated.map(r => {
                   const invoiceNo = r.orders?.invoice_number ?? r.orders?.order_number ?? '—';
-                  const statusOptions = MODE_STATUSES[r.payment_mode] ?? [];
-                  const currentStatus = r.payment_status;
+                  const statusOptions = RECEIPT_STATUS_OPTIONS_BY_MODE[r.payment_mode] ?? [];
+                  const currentStatus = r.payment_status ?? DEFAULT_RECEIPT_STATUS;
 
                   return (
                     <StyledTr key={r.id}>
                       <StyledTd className="font-semibold text-primary">{r.receipt_number}</StyledTd>
                       <StyledTd className="font-medium text-foreground">{invoiceNo}</StyledTd>
-                      <StyledTd className="text-muted-foreground">{r.orders?.customers?.name ?? '—'}</StyledTd>
+                      <StyledTd className="text-muted-foreground">{r.orders?.customers?.name ?? r.customers?.name ?? '—'}</StyledTd>
                       <StyledTd center>
                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${MODE_COLORS[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>
                           {r.payment_mode}
@@ -213,15 +229,15 @@ export const CollectionStatus = () => {
                           )}
                           {statusOptions.length > 0 && (
                             <Select
-                              value={currentStatus ?? ''}
-                              onValueChange={(v: string) => updateStatus(r.id, v, r.payment_mode)}
+                              value={currentStatus}
+                              onValueChange={(v: string) => updateStatus(r.id, v)}
                               disabled={savingStatus === r.id}
                             >
                               <SelectTrigger className="h-6 text-[10px] w-28 rounded-md border-gray-200">
                                 <SelectValue placeholder="Update…" />
                               </SelectTrigger>
                               <SelectContent>
-                                {statusOptions.map(s => (
+                                {statusOptions.map((s: string) => (
                                   <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
                                 ))}
                               </SelectContent>
@@ -230,7 +246,7 @@ export const CollectionStatus = () => {
                         </div>
                       </StyledTd>
                       <StyledTd right mono className="font-bold">₹ {r.amount?.toLocaleString('en-IN')}</StyledTd>
-                      <StyledTd mono className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</StyledTd>
+                      <StyledTd mono className="text-xs text-muted-foreground">{new Date(r.received_date ?? r.created_at).toLocaleDateString()}</StyledTd>
                     </StyledTr>
                   );
                 })}
