@@ -260,179 +260,361 @@ const addLine = (doc: jsPDF, text: string, y: number, opts?: { bold?: boolean; r
 
 const renderInvoicePdf = (order: BillableOrder, lines: OrderLine[], invoiceNo: string, settings: InvoiceSettings) => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  
+  // PAGE DIMENSIONS & MARGINS
   const pageWidth = 210;
   const pageHeight = 297;
   const margin = 12;
-  const rightX = pageWidth - margin;
   const contentWidth = pageWidth - margin * 2;
   const invoiceDate = formatDate(order.billed_at ?? order.approved_at ?? order.created_at);
 
-  const drawTableHeader = (top: number) => {
-    doc.setFillColor(15, 23, 42);
-    doc.rect(margin, top, contentWidth, 8, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.text('#', 15, top + 5.2);
-    doc.text('Description', 23, top + 5.2);
-    doc.text('SKU', 103, top + 5.2);
-    doc.text('Qty', 123, top + 5.2, { align: 'right' });
-    doc.text('Rate', 143, top + 5.2, { align: 'right' });
-    doc.text('Disc%', 161, top + 5.2, { align: 'right' });
-    doc.text('Taxable', 180, top + 5.2, { align: 'right' });
-    doc.text('Amount', 198, top + 5.2, { align: 'right' });
-    doc.setTextColor(31, 41, 55);
-  };
+  let y = margin;
 
-  doc.setDrawColor(203, 213, 225);
-  doc.setFillColor(15, 118, 110);
-  doc.rect(margin, margin, contentWidth, 16, 'F');
+  // ========== HEADER SECTION ==========
+  // Premium dark background
+  doc.setFillColor(15, 23, 42); // slate-900
+  doc.rect(0, 0, pageWidth, 40, 'F');
+
+  // Accent stripe (left side)
+  doc.setFillColor(6, 182, 212); // cyan-500
+  doc.rect(0, 0, 3, 40, 'F');
+
+  // Company Name - Refined typography
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text(settings.companyName || 'YES YES MARKETING', margin + 4, margin + 7);
-  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(24);
+  doc.text(settings.companyName || 'YES YES MARKETING', margin + 2, 15);
+
+  // Tagline or subtitle (optional)
   doc.setFontSize(8.5);
-  doc.text('TAX INVOICE', margin + 4, margin + 12.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text(invoiceNo, rightX - 2, margin + 8, { align: 'right' });
+  doc.setTextColor(148, 163, 184); // slate-400
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text(`Invoice Date: ${invoiceDate}`, rightX - 2, margin + 13, { align: 'right' });
+  doc.text('Professional Invoicing & Billing', margin + 2, 20);
 
-  doc.setTextColor(31, 41, 55);
-  doc.setDrawColor(226, 232, 240);
-  doc.setFillColor(248, 250, 252);
+  // INVOICE LABEL (right aligned, prominent)
+  doc.setTextColor(6, 182, 212); // cyan accent
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(32);
+  doc.text('INVOICE', pageWidth - margin, 18, { align: 'right' });
 
-  doc.roundedRect(margin, 34, 92, 39, 3, 3, 'FD');
-  doc.roundedRect(106, 34, 92, 39, 3, 3, 'FD');
+  y = 48;
+
+  // ========== INVOICE METADATA SECTION ==========
+  doc.setFontSize(8);
+  doc.setTextColor(71, 85, 105); // slate-600
+
+  // Create two columns for metadata
+  const rightMetaX = pageWidth - margin;
+
+  // Invoice Details Box (Right side, in a subtle background)
+  doc.setFillColor(248, 250, 252); // slate-50
+  doc.rect(rightMetaX - 58, y - 5, 54, 24, 'F');
 
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(15, 23, 42); // slate-900
+  doc.setFontSize(7.5);
+  
+  doc.text('Invoice No', rightMetaX - 56, y + 1);
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text('Sold By', margin + 4, 40);
-  doc.text('Bill To / Ship To', 110, 40);
+  doc.setTextColor(6, 182, 212);
+  doc.text(invoiceNo, rightMetaX - 3, y + 1, { align: 'right' });
 
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Date', rightMetaX - 56, y + 8);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(51, 65, 85); // slate-700
+  doc.text(invoiceDate, rightMetaX - 3, y + 8, { align: 'right' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Order Ref', rightMetaX - 56, y + 15);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(51, 65, 85);
+  doc.text(order.order_number, rightMetaX - 3, y + 15, { align: 'right' });
+
+  y += 30;
+
+  // ========== ADDRESS SECTION ==========
+  // Refined section divider
+  doc.setDrawColor(226, 232, 240); // slate-200
+  doc.setLineWidth(0.3);
+  doc.line(margin, y, pageWidth - margin, y);
+
+  y += 8;
+
+  // Headers for address blocks
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42); // slate-900
+
+  doc.text('FROM', margin, y);
+  doc.text('TO', margin + 100, y);
+
+  y += 7;
+
+  // FROM / SELLER INFO
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
+  doc.setTextColor(51, 65, 85); // slate-700
+
   const sellerLines = [
     settings.companyName || 'YES YES MARKETING',
-    settings.companyAddress || 'Company address not configured',
-    settings.companyPhone ? `Phone: ${settings.companyPhone}` : '',
-    settings.companyEmail ? `Email: ${settings.companyEmail}` : '',
+    settings.companyAddress || '',
+    settings.companyPhone ? `T: ${settings.companyPhone}` : '',
+    settings.companyEmail ? `E: ${settings.companyEmail}` : '',
     settings.companyGstin ? `GSTIN: ${settings.companyGstin}` : '',
   ].filter(Boolean);
-  sellerLines.forEach((line, index) => {
-    doc.text(splitText(doc, line, 82), margin + 4, 46 + (index * 4.3));
+
+  sellerLines.forEach((line, i) => {
+    const wrappedText = splitText(doc, line, 60);
+    doc.text(wrappedText, margin, y + i * 5);
   });
+
+  // TO / CUSTOMER INFO
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
 
   const customerLines = [
     order.customers?.name ?? 'Walk-in Customer',
-    order.customers?.address ?? 'Customer address not available',
+    order.customers?.address ?? '',
     order.customers?.place ? `Place: ${order.customers.place}` : '',
-    order.site_address ? `Site Address: ${order.site_address}` : '',
-    order.customers?.phone ? `Phone: ${order.customers.phone}` : '',
+    order.site_address ? `Site: ${order.site_address}` : '',
+    order.customers?.phone ? `T: ${order.customers.phone}` : '',
     order.customers?.gst_pan ? `GST/PAN: ${order.customers.gst_pan}` : '',
   ].filter(Boolean);
-  customerLines.forEach((line, index) => {
-    doc.text(splitText(doc, line, 82), 110, 46 + (index * 4.3));
+
+  customerLines.forEach((line, i) => {
+    if (i === 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+    } else {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(51, 65, 85);
+    }
+    const wrappedText = splitText(doc, line, 70);
+    doc.text(wrappedText, margin + 100, y + i * 5);
   });
 
-  doc.roundedRect(margin, 78, contentWidth, 17, 3, 3, 'FD');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.text('Order No', margin + 4, 84);
-  doc.text('Invoice Type', 62, 84);
-  doc.text('Company', 104, 84);
-  doc.text('Delivery Date', 142, 84);
-  doc.text('Godown', 176, 84);
-  doc.setFont('helvetica', 'normal');
-  doc.text(order.order_number, margin + 4, 90);
-  doc.text(order.invoice_type, 62, 90);
-  doc.text(order.company, 104, 90);
-  doc.text(formatDate(order.delivery_date), 142, 90);
-  doc.text(order.godown ?? '—', 176, 90);
+  y += Math.max(sellerLines.length, customerLines.length) * 5 + 12;
 
-  let y = 101;
-  drawTableHeader(y);
-  y += 10;
+  // ========== LINE ITEMS TABLE ==========
+  const tableTop = y;
+  const tableMargin = margin;
+  const tableWidth = contentWidth;
 
-  doc.setFontSize(8.2);
+  // Table Header
+  const drawTableHeader = (topY: number) => {
+    // Header background
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(tableMargin, topY, tableWidth, 10, 'F');
+
+    // Header text
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+
+    const cols = [
+      { label: 'Item', x: tableMargin + 3, width: 50 },
+      { label: 'SKU', x: tableMargin + 63, width: 25, align: 'center' as const },
+      { label: 'Qty', x: tableMargin + 95, width: 12, align: 'right' as const },
+      { label: 'Rate', x: tableMargin + 113, width: 20, align: 'right' as const },
+      { label: 'Disc %', x: tableMargin + 138, width: 14, align: 'right' as const },
+      { label: 'Amount', x: pageWidth - tableMargin - 20, width: 20, align: 'right' as const },
+    ];
+
+    cols.forEach((col) => {
+      doc.text(col.label, col.x, topY + 6.5, { align: col.align });
+    });
+  };
+
+  drawTableHeader(tableTop);
+  y = tableTop + 10;
+
+  // Table Rows
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
+  doc.setTextColor(51, 65, 85); // slate-700
+  doc.setDrawColor(226, 232, 240); // slate-200
+  doc.setLineWidth(0.2);
 
   lines.forEach((line, index) => {
-    const description = splitText(doc, line.products?.name ?? 'Product', 74);
-    const sku = splitText(doc, line.products?.sku ?? '—', 16);
-    const rowHeight = Math.max(description.length, sku.length, 1) * 4.5 + 2;
+    const description = line.products?.name ?? 'Product';
+    const sku = line.products?.sku ?? '—';
+    const qty = line.quantity.toString();
+    const rate = line.dealer_price.toFixed(2);
+    const discount = line.discount_pct.toFixed(2);
+    const amount = line.amount.toFixed(2);
 
-    if (y + rowHeight > pageHeight - 60) {
+    const rowHeight = 7;
+
+    // Check for page break
+    if (y + rowHeight > pageHeight - 80) {
+      // Add subtotal row before page break if needed
+      y += 2;
+      
       doc.addPage();
-      y = 18;
+      y = margin;
+      
+      // Repeat header on new page
       drawTableHeader(y);
       y += 10;
-      doc.setFontSize(8.2);
-      doc.setFont('helvetica', 'normal');
     }
 
-    doc.setDrawColor(241, 245, 249);
-    doc.rect(margin, y - 4.5, contentWidth, rowHeight, 'S');
-    doc.text(String(index + 1), 15, y);
-    doc.text(description, 23, y);
-    doc.text(sku, 103, y);
-    doc.text(String(line.quantity), 123, y, { align: 'right' });
-    doc.text(line.dealer_price.toFixed(2), 143, y, { align: 'right' });
-    doc.text(line.discount_pct.toFixed(2), 161, y, { align: 'right' });
-    doc.text(line.amount.toFixed(2), 180, y, { align: 'right' });
-    doc.text(line.amount.toFixed(2), 198, y, { align: 'right' });
+    // Alternate row background for readability
+    if (index % 2 === 0) {
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.rect(tableMargin, y, tableWidth, rowHeight, 'F');
+    }
+
+    // Row border
+    doc.rect(tableMargin, y, tableWidth, rowHeight, 'S');
+
+    // Row content
+    doc.text(splitText(doc, description, 50), tableMargin + 3, y + 5);
+    doc.text(sku, tableMargin + 63, y + 5, { align: 'center' });
+    doc.text(qty, tableMargin + 95, y + 5, { align: 'right' });
+    doc.text(rate, tableMargin + 113, y + 5, { align: 'right' });
+    doc.text(discount, tableMargin + 138, y + 5, { align: 'right' });
+    doc.text(amount, pageWidth - tableMargin - 3, y + 5, { align: 'right' });
+
     y += rowHeight;
   });
 
-  const amountInWords = `${numberToWordsIndian(order.grand_total)} Rupees Only`;
-  const summaryTop = Math.min(y + 4, 218);
+  y += 5;
 
-  doc.roundedRect(margin, summaryTop, 108, 34, 3, 3, 'FD');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.text('Amount in Words', margin + 4, summaryTop + 6);
+  // ========== TOTALS SECTION ==========
+  if (y > pageHeight - 75) {
+    doc.addPage();
+    y = margin;
+  }
+
+  const totalsX = pageWidth - margin - 65;
+  const totalsRightX = pageWidth - margin;
+
+  // Totals background box
+  doc.setFillColor(248, 250, 252); // slate-50
+  doc.setDrawColor(226, 232, 240); // slate-200
+  doc.setLineWidth(0.5);
+  doc.rect(totalsX, y - 2, 68, 58, 'FD');
+
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text(splitText(doc, amountInWords, 98), margin + 4, summaryTop + 12);
   doc.setFontSize(8);
-  doc.setTextColor(100, 116, 139);
-  doc.text(splitText(doc, order.remarks?.trim() ? `Remarks: ${order.remarks}` : 'Remarks: Thank you for your business.', 98), margin + 4, summaryTop + 26);
-  doc.setTextColor(31, 41, 55);
+  doc.setTextColor(71, 85, 105); // slate-600
 
-  doc.roundedRect(126, summaryTop, 72, 46, 3, 3, 'FD');
-  const totals: Array<[string, number]> = [
+  const totalsData: Array<[string, number]> = [
     ['Subtotal', order.subtotal],
-    ['Discount', order.total_discount],
+    ['Discount', order.total_discount > 0 ? -order.total_discount : 0],
     ['Taxable Amount', order.taxable_amount],
   ];
-  if (order.cgst_amount > 0) totals.push(['CGST', order.cgst_amount]);
-  if (order.sgst_amount > 0) totals.push(['SGST', order.sgst_amount]);
-  if (order.igst_amount > 0) totals.push(['IGST', order.igst_amount]);
-  if (order.tax_amount > 0) totals.push(['Total Tax', order.tax_amount]);
-  totals.push(['Grand Total', order.grand_total]);
 
-  let totalsY = summaryTop + 7;
-  totals.forEach(([label, value], index) => {
-    const isGrand = index === totals.length - 1;
-    doc.setFont('helvetica', isGrand ? 'bold' : 'normal');
-    doc.setFontSize(isGrand ? 10 : 8.5);
-    doc.text(label, 130, totalsY);
-    doc.text(formatCurrency(value), 194, totalsY, { align: 'right' });
-    totalsY += isGrand ? 6.5 : 5;
+  if (order.cgst_amount > 0) totalsData.push(['CGST (9%)', order.cgst_amount]);
+  if (order.sgst_amount > 0) totalsData.push(['SGST (9%)', order.sgst_amount]);
+  if (order.igst_amount > 0) totalsData.push(['IGST (18%)', order.igst_amount]);
+
+  let totalsY = y + 4;
+
+  totalsData.forEach(([label, value]) => {
+    doc.text(label, totalsX + 4, totalsY);
+    // Ensure accurate sign representation 
+    const strVal = value < 0 ? `- ${formatCurrency(Math.abs(value))}` : formatCurrency(value);
+    doc.text(strVal, totalsRightX - 4, totalsY, {
+      align: 'right',
+    });
+    totalsY += 6;
   });
 
-  const footerY = 270;
-  doc.setDrawColor(203, 213, 225);
-  doc.line(margin, footerY - 8, rightX, footerY - 8);
+  // Grand Total - Premium styling
+  totalsY += 2;
+  doc.setDrawColor(6, 182, 212); // cyan accent
+  doc.setLineWidth(1.5);
+  doc.line(totalsX, totalsY, totalsRightX, totalsY);
+
+  doc.setFillColor(6, 182, 212); // cyan background
+  doc.rect(totalsX, totalsY + 2, 68, 10, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
+  doc.text('GRAND TOTAL', totalsX + 4, totalsY + 8);
+  doc.text(formatCurrency(order.grand_total), totalsRightX - 4, totalsY + 8, {
+    align: 'right',
+  });
+
+  // ========== AMOUNT IN WORDS & REMARKS ==========
+  const wordsY = y;
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Amount in Words', margin, wordsY);
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.text('Certified that the particulars given above are true and correct.', margin, footerY - 2);
-  doc.text(`For ${settings.companyName || 'YES YES MARKETING'}`, rightX, footerY - 2, { align: 'right' });
-  doc.line(158, footerY + 8, rightX, footerY + 8);
-  doc.text('Authorised Signatory', rightX, footerY + 13, { align: 'right' });
+  doc.setTextColor(51, 65, 85);
+  const amountWords = `${numberToWordsIndian(order.grand_total)} Rupees Only`;
+  doc.text(splitText(doc, amountWords, 95), margin, wordsY + 5);
+
+  if (order.remarks?.trim()) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Remarks', margin, wordsY + 16);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    doc.text(splitText(doc, order.remarks.trim(), 95), margin, wordsY + 21);
+  }
+
+  // ========== FOOTER SECTION ==========
+  const footerY = pageHeight - 30;
+  
+  // Footer separator
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(margin, footerY, pageWidth - margin, footerY);
+
+  // Left: Generated date
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(148, 163, 184); // slate-400
+  doc.text(
+    `Generated on ${new Date().toLocaleString('en-IN')}`,
+    margin,
+    footerY + 6
+  );
+
+  // Right: Signature & Authorization
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  doc.text(
+    `Authorized by: ${settings.companyName || 'YES YES MARKETING'}`,
+    pageWidth - margin,
+    footerY + 2,
+    { align: 'right' }
+  );
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(71, 85, 105);
+  doc.text('Authorized Signatory', pageWidth - margin, footerY + 8, {
+    align: 'right',
+  });
+
+  doc.setFontSize(7);
+  doc.setTextColor(148, 163, 184);
+  doc.text('_________________', pageWidth - margin - 15, footerY + 12, {
+    align: 'right',
+  });
+
+  // Save the PDF
   doc.save(`${invoiceNo}.pdf`);
 };
 

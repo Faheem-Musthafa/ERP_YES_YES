@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '@/app/contexts/AuthContext';
 import {
@@ -203,42 +203,41 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
         ${w}
       `}
       style={{
-        background: 'linear-gradient(178deg, #0b1320 0%, #111d2d 62%, #12263a 100%)',
-        boxShadow: '4px 0 28px rgba(0,0,0,0.28)',
+        backgroundColor: 'var(--brand-900)',
+        boxShadow: '4px 0 28px rgba(0,48,46,0.4)',
       }}
       aria-label="Primary sidebar"
     >
       {/* ── Brand ── */}
-      <div className={`flex items-center gap-3 border-b border-white/15 shrink-0 ${isCollapsed ? 'px-3 py-4 justify-center' : 'px-5 py-4'
-        }`}>
-        <div className="relative shrink-0">
-          <img
-            src="/logo.jpg"
-            alt="YES YES MARKETING"
-            className={`object-contain rounded-lg transition-all duration-300 ${isCollapsed ? 'h-8 w-8' : 'h-8 w-8'
-              }`}
-          />
-          {/* Live indicator dot */}
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-300 rounded-full border-2 border-[#0f1a2a]" />
-        </div>
-        {!isCollapsed && (
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-white leading-tight tracking-widest uppercase">
-              YES YES
-            </p>
-            <p className="text-[9px] text-white/60 leading-tight tracking-[0.2em] uppercase">
-              Marketing ERP
-            </p>
+      <div className={`shrink-0 border-b border-white/10 ${isCollapsed ? 'px-2 py-4' : 'px-5 py-6'}`}>
+        <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
+          <div className="relative shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-white to-teal-50 shadow-lg shadow-black/20">
+            <img
+              src="/logo.jpg"
+              alt="Logo"
+              className="w-7 h-7 object-contain mix-blend-multiply"
+            />
           </div>
-        )}
-        <button
-          type="button"
-          onClick={onClose}
-          className="lg:hidden ml-auto p-1 rounded-md text-white/60 hover:bg-white/20 hover:text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1a2a]"
-          aria-label="Close sidebar"
-        >
-          <X size={16} />
-        </button>
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+              <h2 className="text-[14px] font-black tracking-tight text-white leading-none">
+                YES YES
+              </h2>
+              <p className="text-[10px] font-bold text-teal-300/80 uppercase tracking-widest mt-1">
+                ERP System
+              </p>
+            </div>
+          )}
+          {!isCollapsed && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="lg:hidden p-1.5 rounded-lg text-white/50 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Navigation ── */}
@@ -256,7 +255,7 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                   aria-expanded={sectionOpen}
                   aria-controls={`sidebar-section-${group.title.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  <span className="text-[9px] font-bold text-white/50 uppercase tracking-[0.18em] group-hover/sec:text-white/80 transition-colors">
+                  <span className="text-[10px] font-black text-teal-300/60 uppercase tracking-[0.15em] group-hover/sec:text-white/80 transition-colors">
                     {group.title}
                   </span>
                   <ChevronDown
@@ -290,18 +289,18 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                               : 'gap-2.5 px-3 py-2'
                             }
                             ${active
-                              ? 'bg-primary/22 text-white border border-primary/25'
-                              : 'text-white/75 hover:bg-white/[0.08] hover:text-white border border-transparent'
+                              ? 'bg-white/20 text-white border border-white/25 shadow-sm font-bold'
+                              : 'text-white/90 hover:bg-white/10 hover:text-white border border-transparent'
                             }
                           `}
                         >
                           {/* Active accent bar */}
                           {active && (
-                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary rounded-r-full shadow-[0_0_10px_rgba(0,189,180,0.7)]" />
+                            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[4px] h-6 bg-white rounded-r-full shadow-[0_0_12px_rgba(255,255,255,0.9)]" />
                           )}
                           <span className={`shrink-0 transition-colors ${active
                             ? 'text-white'
-                            : 'text-white/60 group-hover/link:text-white/90'
+                            : 'text-white/70 group-hover/link:text-white'
                             }`}>
                             {item.icon}
                           </span>

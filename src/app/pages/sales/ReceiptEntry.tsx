@@ -406,14 +406,13 @@ export const ReceiptEntry = () => {
           <span className="font-medium leading-relaxed">Cross-check selected invoice and nominal values. Receipt finalization permanently impacts customer ledger balance.</span>
         </div>
 
-        {/* Floating Action Controller */}
-        <div className="sticky bottom-4 z-30 bg-background/90 backdrop-blur-xl shadow-2xl rounded-2xl border border-slate-200/80 dark:border-slate-700 p-4 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between transform transition-all hover:bg-background/95">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-2">Fields dotted directly with <span className="text-rose-500">*</span> are mandatory.</p>
-          <div className="flex gap-2 w-full sm:w-auto">
+        <div className="sticky bottom-4 z-30 bg-background/90 backdrop-blur-xl shadow-2xl rounded-[1.5rem] border border-slate-200/80 dark:border-slate-700 p-4 w-full flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between transform transition-all hover:bg-background/95 mt-8">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-2 flex-1 min-w-0">Fields dotted directly with <span className="text-rose-500">*</span> are mandatory.</p>
+          <div className="flex gap-3 w-full sm:w-auto shrink-0">
             <Button type="button" variant="outline" onClick={handleCancel} className="flex-1 sm:flex-none h-12 px-6 rounded-xl border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold transition-all">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="flex-1 sm:flex-none h-12 px-8 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold tracking-wide shadow-lg hover:shadow-primary/25 transition-all w-full sm:min-w-[180px] text-sm">
+            <Button type="submit" disabled={loading} className="flex-1 sm:flex-none h-12 px-8 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold tracking-wide shadow-lg hover:shadow-primary/25 transition-all outline-none text-sm whitespace-nowrap">
               {loading ? (
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Committing...
