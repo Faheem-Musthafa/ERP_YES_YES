@@ -194,10 +194,13 @@ for (const item of order.order_items) {
 
 ## 🔐 Security Considerations
 
-All tables have Row Level Security (RLS) enabled:
-- `product_stock_locations` - Authenticated users can read/write
-- `stock_transfers` - Authenticated users can read/write
+All tables should run with least-privilege RLS policies by role:
+- `product_stock_locations` - read for operational roles, write only for controlled workflows
+- `stock_transfers` - writes via authorized inventory/procurement/admin paths
+- Privileged operations should run through secured RPCs with role checks
 - All operations log the user ID for audit trail
+
+Apply `docs/SECURITY_TRANSACTION_HARDENING.sql` before production go-live.
 
 ## 📈 Performance Notes
 

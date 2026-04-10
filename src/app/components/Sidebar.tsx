@@ -6,7 +6,7 @@ import {
   BarChart3, FileText, LogOut, DollarSign, FileCheck, Boxes,
   Plus, Receipt, Wallet, ClipboardCheck, Truck, Car,
   UserCircle, ChevronRight, ChevronDown, X, PanelLeftClose, PanelLeftOpen,
-  ClipboardList, Activity, Settings, ArrowRightLeft,
+  Activity, Settings, ArrowRightLeft,
 } from 'lucide-react';
 
 interface NavItem { label: string; path: string; icon: React.ReactNode; }
@@ -46,16 +46,6 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
         { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={16} /> },
         { label: 'Customer Analysis', path: '/admin/customer-analysis', icon: <BarChart3 size={16} /> },
         { label: 'Reports', path: '/admin/reports', icon: <FileText size={16} /> },
-      ],
-    },
-    {
-      title: 'Procurement',
-      items: [
-        { label: 'Purchase Orders', path: '/procurement/orders', icon: <ClipboardList size={16} /> },
-        { label: 'GRN', path: '/procurement/grn', icon: <ClipboardCheck size={16} /> },
-        { label: 'Purchase History', path: '/procurement/history', icon: <TrendingUp size={16} /> },
-        { label: 'Suppliers', path: '/procurement/suppliers', icon: <Truck size={16} /> },
-        { label: 'Proc. Reports', path: '/procurement/reports', icon: <BarChart3 size={16} /> },
       ],
     },
     {
@@ -149,45 +139,13 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
 
   if (role === 'procurement') return [
     {
-      title: 'Overview',
-      items: [{ label: 'Dashboard', path: '/procurement', icon: <LayoutDashboard size={16} /> }],
-    },
-    {
-      title: 'Purchase',
-      items: [
-        { label: 'Purchase Orders', path: '/procurement/orders', icon: <ShoppingCart size={16} /> },
-        { label: 'GRN', path: '/procurement/grn', icon: <ClipboardCheck size={16} /> },
-        { label: 'Purchase History', path: '/procurement/history', icon: <TrendingUp size={16} /> },
-      ],
-    },
-    {
-      title: 'Suppliers',
-      items: [
-        { label: 'Suppliers', path: '/procurement/suppliers', icon: <Truck size={16} /> },
-        { label: 'Reports', path: '/procurement/reports', icon: <BarChart3 size={16} /> },
-      ],
-    },
-    {
       title: 'Inventory',
-      items: [
-        { label: 'Stock View', path: '/stock', icon: <Package size={16} /> },
-      ],
+      items: [{ label: 'Stock View', path: '/stock', icon: <Package size={16} /> }],
     },
   ];
 
   return [];
 };
-
-const ROLE_META: Record<string, { label: string; color: string; dot: string }> = {
-  admin: { label: 'Administrator', color: 'text-violet-200', dot: 'bg-violet-300' },
-  sales: { label: 'Sales Executive', color: 'text-white/70', dot: 'bg-white' },
-  accounts: { label: 'Accounts', color: 'text-emerald-200', dot: 'bg-emerald-300' },
-  inventory: { label: 'Inventory', color: 'text-sky-200', dot: 'bg-sky-300' },
-  procurement: { label: 'Procurement', color: 'text-rose-200', dot: 'bg-rose-300' },
-};
-
-const getInitials = (name: string) =>
-  name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
 interface SidebarProps {
   isOpen: boolean;
@@ -220,7 +178,6 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
   const { user, logout } = useAuth();
   const location = useLocation();
   const groups = useNavGroups(user?.role);
-  const roleMeta = ROLE_META[user?.role ?? ''];
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(
     () => Object.fromEntries(groups.map(g => [g.title, true]))
@@ -282,38 +239,6 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
         >
           <X size={16} />
         </button>
-      </div>
-
-      {/* ── User Profile ── */}
-      <div className={`border-b border-white/15 shrink-0 ${isCollapsed ? 'px-3 py-3' : 'px-4 py-3.5'
-        }`}>
-        {isCollapsed ? (
-          <NavTooltip
-            label={`${user?.full_name} · ${roleMeta?.label ?? ''}`}
-            collapsed
-          >
-            <div className="w-9 h-9 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-xs font-bold text-white mx-auto cursor-default select-none">
-              {getInitials(user?.full_name ?? 'U')}
-            </div>
-          </NavTooltip>
-        ) : (
-            <div className="flex items-center gap-3 bg-white/[0.07] rounded-xl px-3 py-2.5 border border-white/10">
-              <div className="relative w-8 h-8 rounded-xl bg-white/[0.08] border border-white/15 flex items-center justify-center text-xs font-bold text-white shrink-0 select-none">
-              {getInitials(user?.full_name ?? 'U')}
-              {roleMeta && (
-                  <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#0f1a2a] ${roleMeta.dot}`} />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate leading-tight">{user?.full_name}</p>
-              {roleMeta && (
-                <p className={`text-[10px] mt-0.5 leading-none font-medium ${roleMeta.color}`}>
-                  {roleMeta.label}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── Navigation ── */}

@@ -14,20 +14,16 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
-import { Settings, Save, RotateCcw, Database, Building2, MapPin, Truck, AlertCircle, Check } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
+import { Settings, Save, RotateCcw, Database, Building2, MapPin, Truck, AlertCircle, Check, Briefcase, Calculator, Building, Phone, Mail, BadgePercent, CalendarDays, FileText } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 import {
   PageHeader, FormCard, FormSection, CustomTooltip, Spinner,
 } from '@/app/components/ui/primitives';
-import type { Json } from '@/app/types/database';
+import type { CompanyEnum, Json } from '@/app/types/database';
 
 interface SystemConfig {
-  company_name: string;
-  company_gstin: string;
-  company_address: string;
-  company_phone: string;
-  company_email: string;
   default_invoice_type: string;
   enable_auto_approval: boolean;
   max_discount_percentage: number;
@@ -35,18 +31,55 @@ interface SystemConfig {
   financial_year_end: number;
 }
 
+interface CompanyProfile {
+  company_name: string;
+  company_gstin: string;
+  company_address: string;
+  company_phone: string;
+  company_email: string;
+}
+
+type CompanyProfiles = Record<CompanyEnum, CompanyProfile>;
+
 const DEFAULT_CONFIG: SystemConfig = {
-  company_name: 'YES YES',
-  company_gstin: '',
-  company_address: '',
-  company_phone: '',
-  company_email: '',
   default_invoice_type: 'GST',
   enable_auto_approval: false,
   max_discount_percentage: 20,
   financial_year_start: 4,
   financial_year_end: 3,
 };
+
+const COMPANY_LIST: CompanyEnum[] = ['LLP', 'YES YES', 'Zekon'];
+
+const DEFAULT_COMPANY_PROFILES: CompanyProfiles = {
+  LLP: {
+    company_name: 'LLP',
+    company_gstin: '',
+    company_address: '',
+    company_phone: '',
+    company_email: '',
+  },
+  'YES YES': {
+    company_name: 'YES YES',
+    company_gstin: '',
+    company_address: '',
+    company_phone: '',
+    company_email: '',
+  },
+  Zekon: {
+    company_name: 'Zekon',
+    company_gstin: '',
+    company_address: '',
+    company_phone: '',
+    company_email: '',
+  },
+};
+
+const cloneCompanyProfiles = (): CompanyProfiles => ({
+  LLP: { ...DEFAULT_COMPANY_PROFILES.LLP },
+  'YES YES': { ...DEFAULT_COMPANY_PROFILES['YES YES'] },
+  Zekon: { ...DEFAULT_COMPANY_PROFILES.Zekon },
+});
 
 const GODOWNS = ['Kottakkal', 'Chenakkal'];
 const DISTRICTS = [
@@ -56,11 +89,6 @@ const DISTRICTS = [
 ];
 const VEHICLE_TYPES = ['2-Wheeler', '3-Wheeler', '4-Wheeler', 'Truck', 'Others'];
 const SYSTEM_CONFIG_KEYS = new Set<keyof SystemConfig>([
-  'company_name',
-  'company_gstin',
-  'company_address',
-  'company_phone',
-  'company_email',
   'default_invoice_type',
   'enable_auto_approval',
   'max_discount_percentage',
@@ -71,6 +99,9 @@ const SYSTEM_CONFIG_KEYS = new Set<keyof SystemConfig>([
 const isStringArray = (value: Json | null): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string');
 
+const isJsonObject = (value: Json | null): value is Record<string, Json> =>
+  !!value && typeof value === 'object' && !Array.isArray(value);
+
 const readString = (value: Json | null, fallback = '') => typeof value === 'string' ? value : fallback;
 const readBoolean = (value: Json | null, fallback = false) => typeof value === 'boolean' ? value : fallback;
 const readNumber = (value: Json | null, fallback = 0) => typeof value === 'number' ? value : fallback;
@@ -80,16 +111,6 @@ const applySystemSetting = (
   value: Json | null,
 ): SystemConfig => {
   switch (key) {
-    case 'company_name':
-      return { ...current, company_name: readString(value, DEFAULT_CONFIG.company_name) };
-    case 'company_gstin':
-      return { ...current, company_gstin: readString(value, DEFAULT_CONFIG.company_gstin) };
-    case 'company_address':
-      return { ...current, company_address: readString(value, DEFAULT_CONFIG.company_address) };
-    case 'company_phone':
-      return { ...current, company_phone: readString(value, DEFAULT_CONFIG.company_phone) };
-    case 'company_email':
-      return { ...current, company_email: readString(value, DEFAULT_CONFIG.company_email) };
     case 'default_invoice_type':
       return { ...current, default_invoice_type: readString(value, DEFAULT_CONFIG.default_invoice_type) };
     case 'enable_auto_approval':
@@ -105,25 +126,58 @@ const applySystemSetting = (
   }
 };
 
+const readProfileFromJson = (value: Json | null, fallback: CompanyProfile): CompanyProfile => {
+  if (!isJsonObject(value)) {
+    return { ...fallback };
+  }
+
+  return {
+    company_name: readString(value.company_name ?? null, fallback.company_name),
+    company_gstin: readString(value.company_gstin ?? null, fallback.company_gstin),
+    company_address: readString(value.company_address ?? null, fallback.company_address),
+    company_phone: readString(value.company_phone ?? null, fallback.company_phone),
+    company_email: readString(value.company_email ?? null, fallback.company_email),
+  };
+};
+
+const readCompanyProfiles = (value: Json | null): CompanyProfiles => {
+  const next = cloneCompanyProfiles();
+  if (!isJsonObject(value)) {
+    return next;
+  }
+
+  COMPANY_LIST.forEach((company) => {
+    next[company] = readProfileFromJson(value[company] ?? null, next[company]);
+  });
+
+  return next;
+};
+
 export const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingBusiness, setSavingBusiness] = useState(false);
+  const [savingCompany, setSavingCompany] = useState<CompanyEnum | null>(null);
   const [config, setConfig] = useState<SystemConfig>(DEFAULT_CONFIG);
   const [originalConfig, setOriginalConfig] = useState<SystemConfig>(DEFAULT_CONFIG);
+  const [companyProfiles, setCompanyProfiles] = useState<CompanyProfiles>(cloneCompanyProfiles());
+  const [originalCompanyProfiles, setOriginalCompanyProfiles] = useState<CompanyProfiles>(cloneCompanyProfiles());
   const [resetConfirm, setResetConfirm] = useState(false);
 
   // Dialog states for master data
   const [godownDialog, setGodownDialog] = useState(false);
   const [newGodown, setNewGodown] = useState('');
   const [godownList, setGodownList] = useState<string[]>(GODOWNS);
+  const [originalGodownList, setOriginalGodownList] = useState<string[]>(GODOWNS);
 
   const [districtDialog, setDistrictDialog] = useState(false);
   const [newDistrict, setNewDistrict] = useState('');
   const [districtList, setDistrictList] = useState<string[]>(DISTRICTS);
+  const [originalDistrictList, setOriginalDistrictList] = useState<string[]>(DISTRICTS);
 
   const [vehicleDialog, setVehicleDialog] = useState(false);
   const [newVehicle, setNewVehicle] = useState('');
   const [vehicleList, setVehicleList] = useState<string[]>(VEHICLE_TYPES);
+  const [originalVehicleList, setOriginalVehicleList] = useState<string[]>(VEHICLE_TYPES);
 
   useEffect(() => {
     loadSettings();
@@ -141,21 +195,61 @@ export const AdminSettings = () => {
 
       if (data && data.length > 0) {
         let newConfig = { ...DEFAULT_CONFIG };
+        let profiles = cloneCompanyProfiles();
+        let hasCompanyProfilesKey = false;
+        let legacyYesYesProfile = { ...profiles['YES YES'] };
+        let hasLegacyCompanyValues = false;
+        let nextGodowns = [...GODOWNS];
+        let nextDistricts = [...DISTRICTS];
+        let nextVehicleTypes = [...VEHICLE_TYPES];
 
         for (const setting of data) {
           if (SYSTEM_CONFIG_KEYS.has(setting.key as keyof SystemConfig)) {
             newConfig = applySystemSetting(newConfig, setting.key as keyof SystemConfig, setting.value);
+          } else if (setting.key === 'company_profiles') {
+            profiles = readCompanyProfiles(setting.value);
+            hasCompanyProfilesKey = true;
+          } else if (setting.key === 'company_name') {
+            legacyYesYesProfile.company_name = readString(setting.value, legacyYesYesProfile.company_name);
+            hasLegacyCompanyValues = true;
+          } else if (setting.key === 'company_gstin') {
+            legacyYesYesProfile.company_gstin = readString(setting.value, legacyYesYesProfile.company_gstin);
+            hasLegacyCompanyValues = true;
+          } else if (setting.key === 'company_address') {
+            legacyYesYesProfile.company_address = readString(setting.value, legacyYesYesProfile.company_address);
+            hasLegacyCompanyValues = true;
+          } else if (setting.key === 'company_phone') {
+            legacyYesYesProfile.company_phone = readString(setting.value, legacyYesYesProfile.company_phone);
+            hasLegacyCompanyValues = true;
+          } else if (setting.key === 'company_email') {
+            legacyYesYesProfile.company_email = readString(setting.value, legacyYesYesProfile.company_email);
+            hasLegacyCompanyValues = true;
           } else if (setting.key === 'godowns') {
-            setGodownList(isStringArray(setting.value) ? setting.value : GODOWNS);
+            nextGodowns = isStringArray(setting.value) ? setting.value : GODOWNS;
           } else if (setting.key === 'districts') {
-            setDistrictList(isStringArray(setting.value) ? setting.value : DISTRICTS);
+            nextDistricts = isStringArray(setting.value) ? setting.value : DISTRICTS;
           } else if (setting.key === 'vehicle_types') {
-            setVehicleList(isStringArray(setting.value) ? setting.value : VEHICLE_TYPES);
+            nextVehicleTypes = isStringArray(setting.value) ? setting.value : VEHICLE_TYPES;
           }
+        }
+
+        if (!hasCompanyProfilesKey && hasLegacyCompanyValues) {
+          profiles = {
+            ...profiles,
+            'YES YES': legacyYesYesProfile,
+          };
         }
 
         setConfig(newConfig);
         setOriginalConfig(newConfig);
+        setCompanyProfiles(profiles);
+        setOriginalCompanyProfiles(profiles);
+        setGodownList(nextGodowns);
+        setOriginalGodownList(nextGodowns);
+        setDistrictList(nextDistricts);
+        setOriginalDistrictList(nextDistricts);
+        setVehicleList(nextVehicleTypes);
+        setOriginalVehicleList(nextVehicleTypes);
       }
     } catch (err: any) {
       toast.error('Failed to load settings: ' + (err.message || 'Unknown error'));
@@ -164,30 +258,15 @@ export const AdminSettings = () => {
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
+  const handleSaveBusiness = async () => {
+    setSavingBusiness(true);
     try {
-      // Validate required fields
-      if (!config.company_name.trim()) {
-        toast.error('Company name is required');
-        return;
-      }
-      if (!config.company_address.trim()) {
-        toast.error('Company address is required');
-        return;
-      }
       if (config.max_discount_percentage < 0 || config.max_discount_percentage > 100) {
         toast.error('Discount percentage must be between 0 and 100');
         return;
       }
 
-      // Save company settings
-      const companySettings = [
-        { key: 'company_name', value: config.company_name },
-        { key: 'company_gstin', value: config.company_gstin },
-        { key: 'company_address', value: config.company_address },
-        { key: 'company_phone', value: config.company_phone },
-        { key: 'company_email', value: config.company_email },
+      const businessSettings = [
         { key: 'default_invoice_type', value: config.default_invoice_type },
         { key: 'enable_auto_approval', value: config.enable_auto_approval },
         { key: 'max_discount_percentage', value: config.max_discount_percentage },
@@ -198,7 +277,7 @@ export const AdminSettings = () => {
         { key: 'vehicle_types', value: vehicleList },
       ];
 
-      for (const setting of companySettings) {
+      for (const setting of businessSettings) {
         const { error } = await supabase
           .from('settings')
           .upsert({
@@ -210,16 +289,81 @@ export const AdminSettings = () => {
       }
 
       setOriginalConfig(config);
-      toast.success('Settings saved successfully!');
+      setOriginalGodownList(godownList);
+      setOriginalDistrictList(districtList);
+      setOriginalVehicleList(vehicleList);
+      toast.success('Business settings saved successfully');
     } catch (err: any) {
       toast.error(err.message || 'Failed to save settings');
     } finally {
-      setSaving(false);
+      setSavingBusiness(false);
+    }
+  };
+
+  const handleSaveCompanyProfile = async (company: CompanyEnum) => {
+    const profile = companyProfiles[company];
+    if (!profile.company_name.trim()) {
+      toast.error(`${company} company name is required`);
+      return;
+    }
+    if (!profile.company_address.trim()) {
+      toast.error(`${company} company address is required`);
+      return;
+    }
+
+    setSavingCompany(company);
+    try {
+      const { error: profilesError } = await supabase
+        .from('settings')
+        .upsert(
+          {
+            key: 'company_profiles',
+            value: companyProfiles as unknown as Json,
+          },
+          { onConflict: 'key' },
+        );
+
+      if (profilesError) throw profilesError;
+
+      if (company === 'YES YES') {
+        const legacySettings = [
+          { key: 'company_name', value: profile.company_name },
+          { key: 'company_gstin', value: profile.company_gstin },
+          { key: 'company_address', value: profile.company_address },
+          { key: 'company_phone', value: profile.company_phone },
+          { key: 'company_email', value: profile.company_email },
+        ];
+
+        for (const setting of legacySettings) {
+          const { error } = await supabase
+            .from('settings')
+            .upsert(
+              {
+                key: setting.key,
+                value: setting.value,
+              },
+              { onConflict: 'key' },
+            );
+
+          if (error) throw error;
+        }
+      }
+
+      setOriginalCompanyProfiles(companyProfiles);
+      toast.success(`${company} profile saved`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save company profile');
+    } finally {
+      setSavingCompany(null);
     }
   };
 
   const handleReset = () => {
     setConfig(originalConfig);
+    setCompanyProfiles(originalCompanyProfiles);
+    setGodownList(originalGodownList);
+    setDistrictList(originalDistrictList);
+    setVehicleList(originalVehicleList);
     setResetConfirm(false);
     toast.success('Settings reset to last saved state');
   };
@@ -245,6 +389,7 @@ export const AdminSettings = () => {
 
       if (error) throw error;
       setGodownList(updatedList);
+      setOriginalGodownList(updatedList);
       setNewGodown('');
       toast.success('Godown added');
       setGodownDialog(false);
@@ -270,6 +415,7 @@ export const AdminSettings = () => {
 
       if (error) throw error;
       setGodownList(updatedList);
+      setOriginalGodownList(updatedList);
       toast.success('Godown removed');
     } catch (err: any) {
       toast.error(err.message || 'Failed to remove godown');
@@ -297,6 +443,7 @@ export const AdminSettings = () => {
 
       if (error) throw error;
       setDistrictList(updatedList);
+      setOriginalDistrictList(updatedList);
       setNewDistrict('');
       toast.success('District added');
       setDistrictDialog(false);
@@ -322,6 +469,7 @@ export const AdminSettings = () => {
 
       if (error) throw error;
       setDistrictList(updatedList);
+      setOriginalDistrictList(updatedList);
       toast.success('District removed');
     } catch (err: any) {
       toast.error(err.message || 'Failed to remove district');
@@ -349,6 +497,7 @@ export const AdminSettings = () => {
 
       if (error) throw error;
       setVehicleList(updatedList);
+      setOriginalVehicleList(updatedList);
       setNewVehicle('');
       toast.success('Vehicle type added');
       setVehicleDialog(false);
@@ -374,407 +523,539 @@ export const AdminSettings = () => {
 
       if (error) throw error;
       setVehicleList(updatedList);
+      setOriginalVehicleList(updatedList);
       toast.success('Vehicle type removed');
     } catch (err: any) {
       toast.error(err.message || 'Failed to remove vehicle type');
     }
   };
 
-  const hasChanges = JSON.stringify(config) !== JSON.stringify(originalConfig);
+  const hasBusinessChanges =
+    JSON.stringify(config) !== JSON.stringify(originalConfig)
+    || JSON.stringify(godownList) !== JSON.stringify(originalGodownList)
+    || JSON.stringify(districtList) !== JSON.stringify(originalDistrictList)
+    || JSON.stringify(vehicleList) !== JSON.stringify(originalVehicleList);
+
+  const hasCompanyChanges = JSON.stringify(companyProfiles) !== JSON.stringify(originalCompanyProfiles);
+  const hasChanges = hasBusinessChanges || hasCompanyChanges;
+
+  const isCompanyDirty = (company: CompanyEnum) =>
+    JSON.stringify(companyProfiles[company]) !== JSON.stringify(originalCompanyProfiles[company]);
+
+  const updateCompanyProfile = (company: CompanyEnum, key: keyof CompanyProfile, value: string) => {
+    setCompanyProfiles((prev) => ({
+      ...prev,
+      [company]: {
+        ...prev[company],
+        [key]: value,
+      },
+    }));
+  };
 
   if (loading) return <Spinner />;
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="System Settings"
-        subtitle="Configure company information, business rules, and master data"
-        actions={
+    <div className="space-y-8 pb-12 animate-in fade-in duration-500">
+      <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">System Settings</h1>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-xl">
+            Configure system rules, manage company identities, and update master references in one secure place.
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-3 shrink-0">
           <CustomTooltip content="Reset all changes to last saved state" side="bottom">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setResetConfirm(true)}
-              disabled={!hasChanges || saving}
-              className="gap-2"
+              disabled={!hasChanges || savingBusiness || savingCompany !== null}
+              className="gap-2 transition-all shadow-sm hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 dark:hover:border-rose-500/30"
             >
               <RotateCcw size={15} /> Reset
             </Button>
           </CustomTooltip>
-        }
-      />
-
-      {/* Company Information */}
-      <FormCard>
-        <FormSection
-          title="Company Information"
-          subtitle="Basic company details used in invoices and communications"
-          action={
-            <CustomTooltip content={hasChanges ? 'Save all changes' : 'No changes to save'} side="top">
-              <Button
-                size="sm"
-                onClick={handleSave}
-                disabled={!hasChanges || saving}
-                className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                <Save size={14} /> {saving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </CustomTooltip>
-          }
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2 space-y-1.5">
-              <Label>Company Name <span className="text-destructive">*</span></Label>
-              <Input
-                value={config.company_name}
-                onChange={(e) => setConfig({ ...config, company_name: e.target.value })}
-                placeholder="e.g. YES YES"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Company GSTIN</Label>
-              <Input
-                value={config.company_gstin}
-                onChange={(e) => setConfig({ ...config, company_gstin: e.target.value })}
-                placeholder="e.g. 32AABCT1234F1Z5"
-                className="uppercase"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Company Phone</Label>
-              <Input
-                value={config.company_phone}
-                onChange={(e) => setConfig({ ...config, company_phone: e.target.value })}
-                placeholder="e.g. +91 9876543210"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Company Email</Label>
-              <Input
-                type="email"
-                value={config.company_email}
-                onChange={(e) => setConfig({ ...config, company_email: e.target.value })}
-                placeholder="e.g. info@yesyes.com"
-              />
-            </div>
-            <div className="md:col-span-2 space-y-1.5">
-              <Label>Company Address <span className="text-destructive">*</span></Label>
-              <Textarea
-                value={config.company_address}
-                onChange={(e) => setConfig({ ...config, company_address: e.target.value })}
-                placeholder="Full company address"
-                rows={3}
-                required
-              />
-            </div>
-          </div>
-        </FormSection>
-      </FormCard>
-
-      {/* Business Rules */}
-      <FormCard>
-        <FormSection
-          title="Business Rules"
-          subtitle="Define system behavior and operational limits"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Default Invoice Type</Label>
-              <Select
-                value={config.default_invoice_type}
-                onValueChange={(v) => setConfig({ ...config, default_invoice_type: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="GST">GST</SelectItem>
-                  <SelectItem value="NGST">NGST</SelectItem>
-                  <SelectItem value="IGST">IGST</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Max Discount Percentage (%)</Label>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                value={config.max_discount_percentage}
-                onChange={(e) => setConfig({ ...config, max_discount_percentage: Number(e.target.value) || 0 })}
-                placeholder="0-100"
-              />
-            </div>
-            <div className="space-y-3 md:col-span-2">
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
-                <div>
-                  <p className="text-sm font-medium">Enable Auto-Approval</p>
-                  <p className="text-xs text-muted-foreground">Automatically approve orders above set thresholds</p>
-                </div>
-                <Switch
-                  checked={config.enable_auto_approval}
-                  onCheckedChange={(v) => setConfig({ ...config, enable_auto_approval: v })}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Financial Year Start (Month)</Label>
-              <Select
-                value={config.financial_year_start.toString()}
-                onValueChange={(v) => setConfig({ ...config, financial_year_start: Number(v) })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <SelectItem key={i + 1} value={(i + 1).toString()}>
-                      {new Date(2024, i).toLocaleString('default', { month: 'long' })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Financial Year End (Month)</Label>
-              <Select
-                value={config.financial_year_end.toString()}
-                onValueChange={(v) => setConfig({ ...config, financial_year_end: Number(v) })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 12 }, (_, i) => (
-                    <SelectItem key={i + 1} value={(i + 1).toString()}>
-                      {new Date(2024, i).toLocaleString('default', { month: 'long' })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </FormSection>
-      </FormCard>
-
-      {/* Master Data Management */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Godowns */}
-        <FormCard>
-          <FormSection
-            title="Godown Locations"
-            subtitle={`${godownList.length} location${godownList.length !== 1 ? 's' : ''} available`}
-            action={
-              <CustomTooltip content="Add new godown" side="top">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setGodownDialog(true)}
-                  className="gap-1"
-                >
-                  <Building2 size={14} /> Add
-                </Button>
-              </CustomTooltip>
-            }
-          >
-            <div className="space-y-2">
-              {godownList.map((godown) => (
-                <div
-                  key={godown}
-                  className="flex items-center justify-between p-2.5 bg-muted/50 rounded-lg border border-border text-sm"
-                >
-                  <span className="font-medium">{godown}</span>
-                  <button
-                    onClick={() => handleRemoveGodown(godown)}
-                    className="text-xs text-destructive hover:text-destructive/80"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          </FormSection>
-        </FormCard>
-
-        {/* Districts */}
-        <FormCard>
-          <FormSection
-            title="Districts"
-            subtitle={`${districtList.length} district${districtList.length !== 1 ? 's' : ''} available`}
-            action={
-              <CustomTooltip content="Add new district" side="top">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setDistrictDialog(true)}
-                  className="gap-1"
-                >
-                  <MapPin size={14} /> Add
-                </Button>
-              </CustomTooltip>
-            }
-          >
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {districtList.map((district) => (
-                <div
-                  key={district}
-                  className="flex items-center justify-between p-2.5 bg-muted/50 rounded-lg border border-border text-sm"
-                >
-                  <span className="font-medium">{district}</span>
-                  <button
-                    onClick={() => handleRemoveDistrict(district)}
-                    className="text-xs text-destructive hover:text-destructive/80"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          </FormSection>
-        </FormCard>
-
-        {/* Vehicle Types */}
-        <FormCard>
-          <FormSection
-            title="Vehicle Types"
-            subtitle={`${vehicleList.length} type${vehicleList.length !== 1 ? 's' : ''} available`}
-            action={
-              <CustomTooltip content="Add new vehicle type" side="top">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setVehicleDialog(true)}
-                  className="gap-1"
-                >
-                  <Truck size={14} /> Add
-                </Button>
-              </CustomTooltip>
-            }
-          >
-            <div className="space-y-2">
-              {vehicleList.map((vehicle) => (
-                <div
-                  key={vehicle}
-                  className="flex items-center justify-between p-2.5 bg-muted/50 rounded-lg border border-border text-sm"
-                >
-                  <span className="font-medium">{vehicle}</span>
-                  <button
-                    onClick={() => handleRemoveVehicle(vehicle)}
-                    className="text-xs text-destructive hover:text-destructive/80"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          </FormSection>
-        </FormCard>
-      </div>
-
-      {/* Info Banner */}
-      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 flex items-start gap-3">
-        <AlertCircle size={16} className="mt-0.5 shrink-0" />
-        <div>
-          <p className="font-medium">Settings are system-wide</p>
-          <p className="text-xs mt-1">Changes to company information and business rules affect all users and transactions immediately.</p>
+          {(hasBusinessChanges || hasCompanyChanges) && (
+            <Button
+              size="sm"
+              onClick={handleSaveBusiness}
+              disabled={!hasBusinessChanges || savingBusiness}
+              className="gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 transition-all shadow-md active:scale-[0.98]"
+            >
+              <Save size={15} /> {savingBusiness ? 'Saving...' : 'Save Business & Master Details'}
+            </Button>
+          )}
         </div>
       </div>
 
+      <div className="rounded-2xl border border-blue-200/60 bg-blue-50/50 dark:bg-blue-900/10 dark:border-blue-800/30 px-5 py-4 text-sm text-blue-800 dark:text-blue-300 flex items-start gap-4 shadow-sm backdrop-blur-xl transition-all hover:bg-blue-50/80">
+        <div className="p-2 bg-blue-100 dark:bg-blue-800/40 rounded-full shrink-0">
+          <AlertCircle size={18} className="text-blue-600 dark:text-blue-400" />
+        </div>
+        <div className="pt-0.5">
+          <p className="font-semibold text-base">Profile-Based Identity Enabled</p>
+          <p className="text-sm mt-1 opacity-90 leading-relaxed max-w-2xl">
+            Billing and invoice outputs can now leverage individual profile setups for <span className="font-semibold">LLP</span>, <span className="font-semibold">YES YES</span>, and <span className="font-semibold">Zekon</span> independently. Configuration under the "Company Profiles" tab takes precedence.
+          </p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="business" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 p-1.5 h-auto bg-slate-100/80 dark:bg-slate-800/50 rounded-2xl mb-8 backdrop-blur-md border border-slate-200/50 dark:border-slate-700/50">
+          <TabsTrigger value="business" className="py-2.5 gap-2.5 rounded-xl text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-white">
+            <Settings size={16} className="opacity-70" /> Business Rules
+          </TabsTrigger>
+          <TabsTrigger value="profiles" className="py-2.5 gap-2.5 rounded-xl text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-white">
+            <Briefcase size={16} className="opacity-70" /> Company Profiles
+          </TabsTrigger>
+          <TabsTrigger value="master" className="py-2.5 gap-2.5 rounded-xl text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-white">
+            <Database size={16} className="opacity-70" /> Master Data
+          </TabsTrigger>
+        </TabsList>
+
+        <div className="mt-6 rounded-3xl">
+          {/* BUSINESS RULES TAB */}
+          <TabsContent value="business" className="space-y-6 focus-visible:outline-none focus-visible:ring-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              
+              <FormCard className="lg:col-span-1 p-0 overflow-hidden border-border/60 bg-white dark:bg-slate-900/40 shadow-sm rounded-2xl group transition-all hover:border-slate-300 dark:hover:border-slate-700">
+                <div className="p-6 border-b border-border/50 bg-slate-50/50 dark:bg-slate-900/50">
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+                      <FileText size={16} className="text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Invoice Settings</h3>
+                  </div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 pl-12">Manage default configurations for system-generated invoices.</p>
+                </div>
+                <div className="p-6 space-y-6">
+                  <div className="space-y-2">
+                    <Label className="text-slate-700 dark:text-slate-300 font-medium">Default Invoice Type</Label>
+                    <Select
+                      value={config.default_invoice_type}
+                      onValueChange={(v) => setConfig({ ...config, default_invoice_type: v })}
+                    >
+                      <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="GST">GST</SelectItem>
+                        <SelectItem value="NGST">NGST</SelectItem>
+                        <SelectItem value="IGST">IGST</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-slate-700 dark:text-slate-300 font-medium flex items-center gap-2">
+                      <BadgePercent size={14} className="text-slate-400" /> Max Discount Percentage (%)
+                    </Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={config.max_discount_percentage}
+                      onChange={(e) => setConfig({ ...config, max_discount_percentage: Number(e.target.value) || 0 })}
+                      placeholder="0-100"
+                      className="h-11 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/30 rounded-xl border border-slate-200/60 dark:border-slate-700/60 gap-4 mt-2 transition-all hover:bg-slate-100/50 dark:hover:bg-slate-800/50">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Enable Auto-Approval</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Automatically approve standard orders that fall within safe operational limits.</p>
+                    </div>
+                    <Switch
+                      checked={config.enable_auto_approval}
+                      onCheckedChange={(v) => setConfig({ ...config, enable_auto_approval: v })}
+                      className="data-[state=checked]:bg-emerald-500"
+                    />
+                  </div>
+                </div>
+              </FormCard>
+
+              <FormCard className="lg:col-span-1 p-0 overflow-hidden border-border/60 bg-white dark:bg-slate-900/40 shadow-sm rounded-2xl group transition-all hover:border-slate-300 dark:hover:border-slate-700">
+                <div className="p-6 border-b border-border/50 bg-slate-50/50 dark:bg-slate-900/50">
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+                      <CalendarDays size={16} className="text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Financial Year Details</h3>
+                  </div>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 pl-12">Define the starting and ending months for the operational business year.</p>
+                </div>
+                <div className="p-6 space-y-6">
+                  <div className="space-y-2">
+                    <Label className="text-slate-700 dark:text-slate-300 font-medium">Start Month</Label>
+                    <Select
+                      value={config.financial_year_start.toString()}
+                      onValueChange={(v) => setConfig({ ...config, financial_year_start: Number(v) })}
+                    >
+                      <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        {Array.from({ length: 12 }, (_, i) => (
+                          <SelectItem key={i + 1} value={(i + 1).toString()}>
+                            {new Date(2024, i).toLocaleString('default', { month: 'long' })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-700 dark:text-slate-300 font-medium">End Month</Label>
+                    <Select
+                      value={config.financial_year_end.toString()}
+                      onValueChange={(v) => setConfig({ ...config, financial_year_end: Number(v) })}
+                    >
+                      <SelectTrigger className="h-11 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        {Array.from({ length: 12 }, (_, i) => (
+                          <SelectItem key={i + 1} value={(i + 1).toString()}>
+                            {new Date(2024, i).toLocaleString('default', { month: 'long' })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </FormCard>
+            </div>
+          </TabsContent>
+
+          {/* COMPANY PROFILES TAB */}
+          <TabsContent value="profiles" className="focus-visible:outline-none focus-visible:ring-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {COMPANY_LIST.map((company) => {
+                const profile = companyProfiles[company];
+                const dirty = isCompanyDirty(company);
+                const isSavingThisCompany = savingCompany === company;
+
+                return (
+                  <div key={company} className="relative flex flex-col bg-white dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden transition-all hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md">
+                    <div className="flex items-center justify-between p-5 bg-gradient-to-r from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 border-b border-border/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary flex items-center justify-center font-bold text-lg border border-primary/20">
+                          {company.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">{company}</p>
+                          <p className="text-[11px] text-slate-500 uppercase tracking-widest font-semibold mt-0.5">Profile Identity</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => void handleSaveCompanyProfile(company)}
+                        disabled={!dirty || savingCompany !== null || savingBusiness}
+                        className={dirty ? "bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm animate-pulse" : "bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"}
+                      >
+                        <Save size={14} className={dirty ? "mr-1.5" : ""} /> {isSavingThisCompany ? 'Saving' : dirty ? 'Save' : ''}
+                      </Button>
+                    </div>
+
+                    <div className="p-5 space-y-5 flex-1 bg-white dark:bg-transparent">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                          <Building size={12} /> Company Name *
+                        </Label>
+                        <Input
+                          value={profile.company_name}
+                          onChange={(e) => updateCompanyProfile(company, 'company_name', e.target.value)}
+                          placeholder={`Legal Name for ${company}`}
+                          required
+                          className="h-10 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/60"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                          <Calculator size={12} /> GSTIN
+                        </Label>
+                        <Input
+                          value={profile.company_gstin}
+                          onChange={(e) => updateCompanyProfile(company, 'company_gstin', e.target.value.toUpperCase())}
+                          placeholder="e.g. 32AABCT1234F1Z5"
+                          className="h-10 uppercase rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/60 font-mono tracking-wider text-sm"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                            <Phone size={12} /> Phone
+                          </Label>
+                          <Input
+                            value={profile.company_phone}
+                            onChange={(e) => updateCompanyProfile(company, 'company_phone', e.target.value)}
+                            placeholder="+91..."
+                            className="h-10 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/60"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                            <Mail size={12} /> Email
+                          </Label>
+                          <Input
+                            type="email"
+                            value={profile.company_email}
+                            onChange={(e) => updateCompanyProfile(company, 'company_email', e.target.value)}
+                            placeholder="mail@..."
+                            className="h-10 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/60"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                          <MapPin size={12} /> Registered Address *
+                        </Label>
+                        <Textarea
+                          value={profile.company_address}
+                          onChange={(e) => updateCompanyProfile(company, 'company_address', e.target.value)}
+                          placeholder="Full operational address for invoices"
+                          rows={3}
+                          required
+                          className="rounded-xl resize-none bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/60 text-sm leading-relaxed"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </TabsContent>
+
+          {/* MASTER DATA TAB */}
+          <TabsContent value="master" className="focus-visible:outline-none focus-visible:ring-0 animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              
+              {/* Godowns */}
+              <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm flex flex-col overflow-hidden">
+                <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 rounded-lg">
+                      <Building2 size={16} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-100 leading-tight">Godowns</h3>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">{godownList.length} locations</p>
+                    </div>
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800" onClick={() => setGodownDialog(true)}>
+                    <span className="text-lg font-light leading-none mb-0.5">+</span>
+                  </Button>
+                </div>
+                <div className="p-3 bg-slate-50/30 dark:bg-transparent flex-1 h-64 overflow-y-auto w-full custom-scrollbar">
+                  <div className="space-y-2">
+                    {godownList.map((godown) => (
+                      <div key={godown} className="group flex items-center justify-between p-3 bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/50 text-sm shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600">
+                        <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div> {godown}
+                        </span>
+                        <button onClick={() => handleRemoveGodown(godown)} className="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10">
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    {godownList.length === 0 && <p className="text-center text-sm text-slate-400 py-6">No godowns configured</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Districts */}
+              <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm flex flex-col overflow-hidden">
+                <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 rounded-lg">
+                      <MapPin size={16} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-100 leading-tight">Districts</h3>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">{districtList.length} regions</p>
+                    </div>
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800" onClick={() => setDistrictDialog(true)}>
+                    <span className="text-lg font-light leading-none mb-0.5">+</span>
+                  </Button>
+                </div>
+                <div className="p-3 bg-slate-50/30 dark:bg-transparent flex-1 h-64 overflow-y-auto w-full custom-scrollbar">
+                  <div className="space-y-2">
+                    {districtList.map((district) => (
+                      <div key={district} className="group flex items-center justify-between p-3 bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/50 text-sm shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600">
+                        <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div> {district}
+                        </span>
+                        <button onClick={() => handleRemoveDistrict(district)} className="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10">
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    {districtList.length === 0 && <p className="text-center text-sm text-slate-400 py-6">No districts configured</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Vehicle Types */}
+              <div className="rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm flex flex-col overflow-hidden">
+                <div className="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 rounded-lg">
+                      <Truck size={16} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-100 leading-tight">Vehicle Types</h3>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">{vehicleList.length} modes</p>
+                    </div>
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800" onClick={() => setVehicleDialog(true)}>
+                    <span className="text-lg font-light leading-none mb-0.5">+</span>
+                  </Button>
+                </div>
+                <div className="p-3 bg-slate-50/30 dark:bg-transparent flex-1 h-64 overflow-y-auto w-full custom-scrollbar">
+                  <div className="space-y-2">
+                    {vehicleList.map((vehicle) => (
+                      <div key={vehicle} className="group flex items-center justify-between p-3 bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/50 text-sm shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600">
+                        <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full"></div> {vehicle}
+                        </span>
+                        <button onClick={() => handleRemoveVehicle(vehicle)} className="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10">
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    {vehicleList.length === 0 && <p className="text-center text-sm text-slate-400 py-6">No vehicle types configured</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        </div>
+      </Tabs>
+
       {/* Dialogs */}
       <Dialog open={godownDialog} onOpenChange={setGodownDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Godown</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="godown-name">Godown Name</Label>
-              <Input
-                id="godown-name"
-                value={newGodown}
-                onChange={(e) => setNewGodown(e.target.value)}
-                placeholder="e.g. Kottakkal Branch"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddGodown()}
-              />
+        <DialogContent className="sm:max-w-md rounded-2xl overflow-hidden p-0 border-0 shadow-2xl">
+          <div className="p-6">
+            <DialogHeader className="mb-6">
+              <DialogTitle className="text-xl flex items-center gap-3">
+                <div className="p-2 bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400 rounded-xl"><Building2 size={20} /></div>
+                Add Godown
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="godown-name" className="text-slate-600 font-medium">Godown Location Name</Label>
+                <Input
+                  id="godown-name"
+                  value={newGodown}
+                  onChange={(e) => setNewGodown(e.target.value)}
+                  placeholder="e.g. Kottakkal Branch"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddGodown()}
+                  className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
+                  autoFocus
+                />
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setGodownDialog(false)}>Cancel</Button>
-            <Button onClick={handleAddGodown} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Check size={14} /> Add Godown
+          <DialogFooter className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+            <Button variant="ghost" onClick={() => setGodownDialog(false)} className="rounded-xl">Cancel</Button>
+            <Button onClick={handleAddGodown} className="gap-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl">
+              <Check size={16} /> Add Location
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={districtDialog} onOpenChange={setDistrictDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New District</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="district-name">District Name</Label>
-              <Input
-                id="district-name"
-                value={newDistrict}
-                onChange={(e) => setNewDistrict(e.target.value)}
-                placeholder="e.g. Kottayam"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddDistrict()}
-              />
+        <DialogContent className="sm:max-w-md rounded-2xl overflow-hidden p-0 border-0 shadow-2xl">
+          <div className="p-6">
+            <DialogHeader className="mb-6">
+              <DialogTitle className="text-xl flex items-center gap-3">
+                <div className="p-2 bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 rounded-xl"><MapPin size={20} /></div>
+                Add District
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="district-name" className="text-slate-600 font-medium">District Name</Label>
+                <Input
+                  id="district-name"
+                  value={newDistrict}
+                  onChange={(e) => setNewDistrict(e.target.value)}
+                  placeholder="e.g. Kottayam"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddDistrict()}
+                  className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
+                  autoFocus
+                />
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDistrictDialog(false)}>Cancel</Button>
-            <Button onClick={handleAddDistrict} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Check size={14} /> Add District
+          <DialogFooter className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+            <Button variant="ghost" onClick={() => setDistrictDialog(false)} className="rounded-xl">Cancel</Button>
+            <Button onClick={handleAddDistrict} className="gap-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl">
+              <Check size={16} /> Add District
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={vehicleDialog} onOpenChange={setVehicleDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Vehicle Type</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="vehicle-name">Vehicle Type</Label>
-              <Input
-                id="vehicle-name"
-                value={newVehicle}
-                onChange={(e) => setNewVehicle(e.target.value)}
-                placeholder="e.g. Auto Rickshaw"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddVehicle()}
-              />
+        <DialogContent className="sm:max-w-md rounded-2xl overflow-hidden p-0 border-0 shadow-2xl">
+          <div className="p-6">
+            <DialogHeader className="mb-6">
+              <DialogTitle className="text-xl flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 rounded-xl"><Truck size={20} /></div>
+                Add Vehicle Type
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="vehicle-name" className="text-slate-600 font-medium">Vehicle Category</Label>
+                <Input
+                  id="vehicle-name"
+                  value={newVehicle}
+                  onChange={(e) => setNewVehicle(e.target.value)}
+                  placeholder="e.g. Auto Rickshaw"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddVehicle()}
+                  className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
+                  autoFocus
+                />
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setVehicleDialog(false)}>Cancel</Button>
-            <Button onClick={handleAddVehicle} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Check size={14} /> Add Vehicle Type
+          <DialogFooter className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+            <Button variant="ghost" onClick={() => setVehicleDialog(false)} className="rounded-xl">Cancel</Button>
+            <Button onClick={handleAddVehicle} className="gap-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl">
+              <Check size={16} /> Add Vehicle
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={resetConfirm} onOpenChange={setResetConfirm}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-3xl border-0 shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Reset All Changes?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will discard all unsaved changes and restore settings to the last saved state.
+            <div className="mx-auto w-16 h-16 bg-rose-100 dark:bg-rose-500/20 flex items-center justify-center rounded-full mb-3 shadow-inner">
+              <RotateCcw size={28} className="text-rose-600 dark:text-rose-400" />
+            </div>
+            <AlertDialogTitle className="text-center text-xl">Discard Unsaved Changes?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-slate-500 text-base mt-2">
+              Are you sure you want to revert to the last saved state? You will lose any <span className="font-medium text-slate-700 dark:text-slate-300">unsaved profile or rule edits</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="sm:justify-center mt-6 gap-3">
+            <AlertDialogCancel className="w-full sm:w-auto h-11 rounded-xl">Keep Editing</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleReset}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
+              className="w-full sm:w-auto h-11 rounded-xl bg-rose-600 hover:bg-rose-700 focus:ring-rose-500 text-white shadow-md border-0"
             >
-              Reset Changes
+              Discard Changes
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -782,3 +1063,4 @@ export const AdminSettings = () => {
     </div>
   );
 };
+

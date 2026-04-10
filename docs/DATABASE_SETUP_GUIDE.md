@@ -242,7 +242,8 @@ SELECT * FROM product_stock_summary WHERE sku = 'TEST-001';
 
 ### Row Level Security (RLS)
 - All tables have RLS enabled
-- Default policy: authenticated users have full access
+- Use least-privilege policies by role (avoid blanket authenticated full-access policies)
+- Use `docs/SECURITY_TRANSACTION_HARDENING.sql` as the production baseline
 - Customize policies for role-based access in production
 
 ### Environment Variables

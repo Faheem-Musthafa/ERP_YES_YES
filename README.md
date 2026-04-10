@@ -10,6 +10,17 @@ Original UI reference: https://www.figma.com/design/Ejzb6IIYTSmHjzvq9z4kam/Web-D
 - `npm i`
 - `npm run dev`
 
+## Production Hardening (Required)
+
+Before production deployment, run the SQL hardening migration in Supabase SQL Editor:
+
+- `docs/SECURITY_TRANSACTION_HARDENING.sql`
+- `docs/RPC_IDEMPOTENCY_WRAPPERS.sql`
+- `docs/COMPANY_PROFILE_SETTINGS_MIGRATION.sql`
+- `docs/BILLING_REVERSAL_WORKFLOW.sql`
+
+These migrations apply least-privilege RLS, secure privileged RPC functions, switch document numbering to sequence-safe generation, and enable separate invoice/company profiles for LLP, YES YES, and Zekon.
+
 ## Implemented Functional Coverage
 
 - Reports module:

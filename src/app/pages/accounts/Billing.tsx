@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
+import { Label } from '@/app/components/ui/label';
+import { Textarea } from '@/app/components/ui/textarea';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { Search, Download, ReceiptText } from 'lucide-react';
+import { Search, Download, ReceiptText, ShieldAlert, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -23,7 +26,7 @@ import {
   StyledTr,
   TablePagination,
 } from '@/app/components/ui/primitives';
-import type { Json } from '@/app/types/database';
+import type { CompanyEnum, Json } from '@/app/types/database';
 
 type BillableOrder = {
   id: string;
@@ -76,18 +79,140 @@ type InvoiceSettings = {
   companyEmail: string;
 };
 
-const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
-  companyName: 'YES YES MARKETING',
-  companyGstin: '',
-  companyAddress: '',
-  companyPhone: '',
-  companyEmail: '',
+type ReversalStatus = 'Pending' | 'Approved' | 'Rejected';
+
+type BillingReversalRequest = {
+  id: string;
+  order_id: string;
+  order_number: string;
+  invoice_number: string | null;
+  company: string;
+  customer_name: string | null;
+  request_reason: string;
+  admin_review_note: string | null;
+  status: ReversalStatus;
+  requested_by: string;
+  requested_by_name: string | null;
+  approved_by_name: string | null;
+  rejected_by_name: string | null;
+  created_at: string;
+  updated_at: string;
 };
+
+type CompanyInvoiceSettings = Record<CompanyEnum, InvoiceSettings>;
+
+const COMPANY_LIST: CompanyEnum[] = ['LLP', 'YES YES', 'Zekon'];
+
+const DEFAULT_INVOICE_SETTINGS: CompanyInvoiceSettings = {
+  LLP: {
+    companyName: 'LLP',
+    companyGstin: '',
+    companyAddress: '',
+    companyPhone: '',
+    companyEmail: '',
+  },
+  'YES YES': {
+    companyName: 'YES YES MARKETING',
+    companyGstin: '',
+    companyAddress: '',
+    companyPhone: '',
+    companyEmail: '',
+  },
+  Zekon: {
+    companyName: 'Zekon',
+    companyGstin: '',
+    companyAddress: '',
+    companyPhone: '',
+    companyEmail: '',
+  },
+};
+
+const cloneDefaultInvoiceSettings = (): CompanyInvoiceSettings => ({
+  LLP: { ...DEFAULT_INVOICE_SETTINGS.LLP },
+  'YES YES': { ...DEFAULT_INVOICE_SETTINGS['YES YES'] },
+  Zekon: { ...DEFAULT_INVOICE_SETTINGS.Zekon },
+});
 
 const normalize = (value: string) => value.toLowerCase().trim();
 const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const formatDate = (value: string | null) => value ? new Date(value).toLocaleDateString('en-IN') : '—';
 const readSettingString = (value: Json | null, fallback = '') => typeof value === 'string' ? value : fallback;
+const readNullableString = (value: Json | null): string | null => typeof value === 'string' ? value : null;
+const isJsonObject = (value: Json | null): value is Record<string, Json> =>
+  !!value && typeof value === 'object' && !Array.isArray(value);
+
+const readReversalStatus = (value: Json | null): ReversalStatus => {
+  const raw = readSettingString(value, 'Pending');
+  if (raw === 'Approved') return 'Approved';
+  if (raw === 'Rejected') return 'Rejected';
+  return 'Pending';
+};
+
+const readBillingReversalRequests = (value: Json | null): BillingReversalRequest[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    if (!isJsonObject(entry as Json)) {
+      return [];
+    }
+
+    const row = entry as Record<string, Json>;
+    const id = readSettingString(row.id ?? null);
+    const orderId = readSettingString(row.order_id ?? null);
+    if (!id || !orderId) {
+      return [];
+    }
+
+    const request: BillingReversalRequest = {
+      id,
+      order_id: orderId,
+      order_number: readSettingString(row.order_number ?? null, '—'),
+      invoice_number: readNullableString(row.invoice_number ?? null),
+      company: readSettingString(row.company ?? null, '—'),
+      customer_name: readNullableString(row.customer_name ?? null),
+      request_reason: readSettingString(row.request_reason ?? null),
+      admin_review_note: readNullableString(row.admin_review_note ?? null),
+      status: readReversalStatus(row.status ?? null),
+      requested_by: readSettingString(row.requested_by ?? null),
+      requested_by_name: readNullableString(row.requested_by_name ?? null),
+      approved_by_name: readNullableString(row.approved_by_name ?? null),
+      rejected_by_name: readNullableString(row.rejected_by_name ?? null),
+      created_at: readSettingString(row.created_at ?? null),
+      updated_at: readSettingString(row.updated_at ?? null),
+    };
+
+    return [request];
+  });
+};
+
+const readInvoiceSetting = (value: Json | null, fallback: InvoiceSettings): InvoiceSettings => {
+  if (!isJsonObject(value)) {
+    return { ...fallback };
+  }
+
+  return {
+    companyName: readSettingString(value.company_name ?? null, fallback.companyName),
+    companyGstin: readSettingString(value.company_gstin ?? null, fallback.companyGstin),
+    companyAddress: readSettingString(value.company_address ?? null, fallback.companyAddress),
+    companyPhone: readSettingString(value.company_phone ?? null, fallback.companyPhone),
+    companyEmail: readSettingString(value.company_email ?? null, fallback.companyEmail),
+  };
+};
+
+const readCompanyInvoiceSettings = (value: Json | null): CompanyInvoiceSettings => {
+  const next = cloneDefaultInvoiceSettings();
+  if (!isJsonObject(value)) {
+    return next;
+  }
+
+  COMPANY_LIST.forEach((company) => {
+    next[company] = readInvoiceSetting(value[company] ?? null, next[company]);
+  });
+
+  return next;
+};
 
 const splitText = (doc: jsPDF, text: string, width: number) => {
   const safeText = text.trim() || '—';
@@ -312,10 +437,16 @@ const renderInvoicePdf = (order: BillableOrder, lines: OrderLine[], invoiceNo: s
 };
 
 export const Billing = () => {
-  const { user } = useAuth();
+  const { user, login } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const canRequestReversal = user?.role === 'accounts' || isAdmin;
+
   const [orders, setOrders] = useState<BillableOrder[]>([]);
-  const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings>(DEFAULT_INVOICE_SETTINGS);
+  const [invoiceSettings, setInvoiceSettings] = useState<CompanyInvoiceSettings>(cloneDefaultInvoiceSettings());
+  const [reversalRequests, setReversalRequests] = useState<BillingReversalRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingReversals, setLoadingReversals] = useState(true);
+  const [reversalFeatureReady, setReversalFeatureReady] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Approved' | 'Billed'>('all');
   const [invoiceTypeFilter, setInvoiceTypeFilter] = useState<'all' | string>('all');
@@ -323,27 +454,68 @@ export const Billing = () => {
   const [toDate, setToDate] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [requestOrder, setRequestOrder] = useState<BillableOrder | null>(null);
+  const [requestReason, setRequestReason] = useState('');
+  const [requestingReversal, setRequestingReversal] = useState(false);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [reviewRequest, setReviewRequest] = useState<BillingReversalRequest | null>(null);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminNote, setAdminNote] = useState('');
+  const [reviewingAction, setReviewingAction] = useState(false);
   const snapshotRef = useRef<HTMLDivElement | null>(null);
   const pageSize = 10;
 
   const loadInvoiceSettings = async () => {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('key, value')
-      .in('key', ['company_name', 'company_gstin', 'company_address', 'company_phone', 'company_email']);
+    const withLegacyFallback = async () => {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('key, value')
+        .in('key', ['company_profiles', 'company_name', 'company_gstin', 'company_address', 'company_phone', 'company_email']);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    const nextSettings = { ...DEFAULT_INVOICE_SETTINGS };
-    (data ?? []).forEach((setting) => {
-      if (setting.key === 'company_name') nextSettings.companyName = readSettingString(setting.value, DEFAULT_INVOICE_SETTINGS.companyName);
-      if (setting.key === 'company_gstin') nextSettings.companyGstin = readSettingString(setting.value);
-      if (setting.key === 'company_address') nextSettings.companyAddress = readSettingString(setting.value);
-      if (setting.key === 'company_phone') nextSettings.companyPhone = readSettingString(setting.value);
-      if (setting.key === 'company_email') nextSettings.companyEmail = readSettingString(setting.value);
-    });
+      let nextSettings = cloneDefaultInvoiceSettings();
+      let hasCompanyProfiles = false;
 
-    setInvoiceSettings(nextSettings);
+      (data ?? []).forEach((setting) => {
+        if (setting.key === 'company_profiles') {
+          nextSettings = readCompanyInvoiceSettings(setting.value);
+          hasCompanyProfiles = true;
+        }
+      });
+
+      if (!hasCompanyProfiles) {
+        const legacyYesYes = { ...nextSettings['YES YES'] };
+        (data ?? []).forEach((setting) => {
+          if (setting.key === 'company_name') legacyYesYes.companyName = readSettingString(setting.value, legacyYesYes.companyName);
+          if (setting.key === 'company_gstin') legacyYesYes.companyGstin = readSettingString(setting.value);
+          if (setting.key === 'company_address') legacyYesYes.companyAddress = readSettingString(setting.value);
+          if (setting.key === 'company_phone') legacyYesYes.companyPhone = readSettingString(setting.value);
+          if (setting.key === 'company_email') legacyYesYes.companyEmail = readSettingString(setting.value);
+        });
+        nextSettings = {
+          ...nextSettings,
+          'YES YES': legacyYesYes,
+        };
+      }
+
+      setInvoiceSettings(nextSettings);
+    };
+
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_company_profiles');
+
+    if (rpcError) {
+      const isMissingRpc = rpcError.code === 'PGRST202' || rpcError.message?.toLowerCase().includes('could not find the function');
+      if (!isMissingRpc) {
+        throw rpcError;
+      }
+
+      await withLegacyFallback();
+      return;
+    }
+
+    setInvoiceSettings(readCompanyInvoiceSettings(rpcData as Json));
   };
 
   const fetchOrders = async () => {
@@ -362,11 +534,44 @@ export const Billing = () => {
     setLoading(false);
   };
 
+  const loadBillingReversalRequests = async () => {
+    setLoadingReversals(true);
+    try {
+      const { data, error } = await supabase.rpc('get_billing_reversal_requests', { p_status: null });
+      if (error) {
+        const missingRpc = error.code === 'PGRST202' || error.message?.toLowerCase().includes('could not find the function');
+        if (missingRpc) {
+          setReversalFeatureReady(false);
+          setReversalRequests([]);
+          return;
+        }
+        throw error;
+      }
+
+      setReversalFeatureReady(true);
+      setReversalRequests(readBillingReversalRequests(data as Json));
+    } catch (error: any) {
+      toast.error(error?.message ?? 'Failed to load billing reversal requests');
+    } finally {
+      setLoadingReversals(false);
+    }
+  };
+
   useEffect(() => {
-    void Promise.all([fetchOrders(), loadInvoiceSettings()]).catch((error: any) => {
+    void Promise.all([fetchOrders(), loadInvoiceSettings(), loadBillingReversalRequests()]).catch((error: any) => {
       toast.error(error?.message ?? 'Failed to load billing screen');
     });
   }, []);
+
+  const pendingRequestByOrderId = useMemo(() => {
+    const map = new Map<string, BillingReversalRequest>();
+    reversalRequests.forEach((request) => {
+      if (request.status === 'Pending') {
+        map.set(request.order_id, request);
+      }
+    });
+    return map;
+  }, [reversalRequests]);
 
   const filtered = useMemo(() => {
     const q = normalize(search);
@@ -402,19 +607,43 @@ export const Billing = () => {
   };
 
   const generateInvoice = async (order: BillableOrder) => {
+    if (order.status === 'Approved') {
+      const shouldBill = window.confirm('Do you want to bill this order now and generate the invoice PDF?');
+      if (!shouldBill) return;
+    }
+
     setBusyOrderId(order.id);
     try {
       let invoiceNo = order.invoice_number;
       if (order.status === 'Approved') {
-        const { data: billedInvoiceNo, error: billErr } = await supabase
-          .rpc('bill_order_atomic', { p_order_id: order.id, p_billed_by: user?.id ?? null });
-        if (billErr) throw billErr;
+        const idempotencyKey = `bill:${order.id}`;
+        let billedInvoiceNo: string | null = null;
+
+        const { data: idempotentInvoiceNo, error: idempotentErr } = await supabase.rpc('bill_order_idempotent', {
+          p_order_id: order.id,
+          p_billed_by: user?.id ?? null,
+          p_idempotency_key: idempotencyKey,
+        });
+
+        if (idempotentErr) {
+          const rpcMissing = idempotentErr.code === 'PGRST202' || idempotentErr.message?.toLowerCase().includes('could not find the function');
+          if (!rpcMissing) throw idempotentErr;
+
+          const { data: legacyInvoiceNo, error: legacyErr } = await supabase
+            .rpc('bill_order_atomic', { p_order_id: order.id, p_billed_by: user?.id ?? null });
+          if (legacyErr) throw legacyErr;
+          billedInvoiceNo = legacyInvoiceNo;
+        } else {
+          billedInvoiceNo = idempotentInvoiceNo;
+        }
+
         invoiceNo = billedInvoiceNo || invoiceNo;
       }
       if (!invoiceNo) throw new Error('Invoice number generation failed');
 
       const lines = await fetchOrderLines(order.id);
-      renderInvoicePdf(order, lines, invoiceNo, invoiceSettings);
+      const settingsForCompany = invoiceSettings[order.company as CompanyEnum] ?? DEFAULT_INVOICE_SETTINGS['YES YES'];
+      renderInvoicePdf(order, lines, invoiceNo, settingsForCompany);
 
       const { error: markPdfErr } = await supabase
         .from('orders')
@@ -423,11 +652,88 @@ export const Billing = () => {
       if (markPdfErr) throw markPdfErr;
 
       toast.success(`${invoiceNo} generated successfully.`);
-      await fetchOrders();
+      await Promise.all([fetchOrders(), loadBillingReversalRequests()]);
     } catch (error: any) {
       toast.error(error?.message ?? 'Unable to generate invoice');
     } finally {
       setBusyOrderId(null);
+    }
+  };
+
+  const submitBillingReversalRequest = async () => {
+    if (!requestOrder || !user) return;
+    if (!reversalFeatureReady) {
+      toast.error('Billing reversal workflow is not available. Apply BILLING_REVERSAL_WORKFLOW.sql first.');
+      return;
+    }
+    if (requestReason.trim().length < 8) {
+      toast.error('Please provide a clear reason (minimum 8 characters)');
+      return;
+    }
+
+    setRequestingReversal(true);
+    try {
+      const { error } = await supabase.rpc('request_billing_reversal', {
+        p_order_id: requestOrder.id,
+        p_reason: requestReason.trim(),
+        p_requested_by: user.id,
+      });
+      if (error) throw error;
+
+      toast.success(`Reversal request submitted for ${requestOrder.order_number}`);
+      setRequestDialogOpen(false);
+      setRequestOrder(null);
+      setRequestReason('');
+      await loadBillingReversalRequests();
+    } catch (error: any) {
+      toast.error(error?.message ?? 'Failed to submit reversal request');
+    } finally {
+      setRequestingReversal(false);
+    }
+  };
+
+  const startAdminReview = (request: BillingReversalRequest) => {
+    setReviewRequest(request);
+    setAdminNote(request.admin_review_note ?? '');
+    setAdminPassword('');
+    setReviewDialogOpen(true);
+  };
+
+  const submitAdminReview = async (action: 'approve' | 'reject') => {
+    if (!reviewRequest || !user || !isAdmin) return;
+    if (!adminPassword.trim()) {
+      toast.error('Admin password is required to continue');
+      return;
+    }
+
+    setReviewingAction(true);
+    try {
+      const authResult = await login(user.email, adminPassword);
+      if (!authResult.success) {
+        throw new Error(authResult.error ?? 'Admin password verification failed');
+      }
+
+      const rpcName = action === 'approve' ? 'approve_billing_reversal' : 'reject_billing_reversal';
+      const { data, error } = await supabase.rpc(rpcName, {
+        p_request_id: reviewRequest.id,
+        p_admin_user_id: user.id,
+        p_admin_note: adminNote.trim() || null,
+      });
+      if (error) throw error;
+      if (!data) {
+        throw new Error('Request is no longer pending');
+      }
+
+      toast.success(action === 'approve' ? 'Billing reversal approved' : 'Billing reversal request rejected');
+      setReviewDialogOpen(false);
+      setReviewRequest(null);
+      setAdminPassword('');
+      setAdminNote('');
+      await Promise.all([fetchOrders(), loadBillingReversalRequests()]);
+    } catch (error: any) {
+      toast.error(error?.message ?? 'Failed to process reversal request');
+    } finally {
+      setReviewingAction(false);
     }
   };
 
@@ -541,15 +847,33 @@ export const Billing = () => {
                       <StyledTd><StatusBadge status={order.status} /></StyledTd>
                       <StyledTd right mono className="font-semibold">₹{order.grand_total.toLocaleString('en-IN')}</StyledTd>
                       <StyledTd center>
-                        <Button
-                          size="sm"
-                          className="h-8 gap-1.5"
-                          onClick={() => void generateInvoice(order)}
-                          disabled={busyOrderId === order.id}
-                        >
-                          {order.status === 'Approved' ? <ReceiptText size={14} /> : <Download size={14} />}
-                          {busyOrderId === order.id ? 'Processing...' : order.status === 'Approved' ? 'Bill & PDF' : 'Download PDF'}
-                        </Button>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          <Button
+                            size="sm"
+                            className="h-8 gap-1.5"
+                            onClick={() => void generateInvoice(order)}
+                            disabled={busyOrderId === order.id}
+                          >
+                            {order.status === 'Approved' ? <ReceiptText size={14} /> : <Download size={14} />}
+                            {busyOrderId === order.id ? 'Processing...' : order.status === 'Approved' ? 'Bill & PDF' : 'Download PDF'}
+                          </Button>
+                          {canRequestReversal && order.status === 'Billed' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-1.5"
+                              onClick={() => {
+                                setRequestOrder(order);
+                                setRequestReason('');
+                                setRequestDialogOpen(true);
+                              }}
+                              disabled={busyOrderId === order.id || !reversalFeatureReady || pendingRequestByOrderId.has(order.id)}
+                            >
+                              <Undo2 size={14} />
+                              {pendingRequestByOrderId.has(order.id) ? 'Revert Requested' : 'Request Revert'}
+                            </Button>
+                          )}
+                        </div>
                       </StyledTd>
                     </StyledTr>
                   ))}
@@ -573,9 +897,167 @@ export const Billing = () => {
         <ul className="mt-1 list-disc pl-4 space-y-1">
           <li>Accounts generates invoice from <strong>Approved</strong> orders.</li>
           <li>System assigns invoice number and transitions order to <strong>Billed</strong>.</li>
-          <li>GST/IGST/NGST invoice PDF can be downloaded from this screen.</li>
+          <li>For mistaken billing, raise a <strong>Request Revert</strong> and wait for admin approval.</li>
         </ul>
       </DataCard>
+
+      <DataCard className="space-y-4 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold">Billing Reversal Requests</p>
+            <p className="text-xs text-muted-foreground">
+              Admin password verification is required before approving or rejecting reversal actions.
+            </p>
+          </div>
+          {!reversalFeatureReady && (
+            <div className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs text-amber-700">
+              <ShieldAlert size={14} />
+              Apply BILLING_REVERSAL_WORKFLOW.sql
+            </div>
+          )}
+        </div>
+
+        {loadingReversals ? (
+          <Spinner />
+        ) : reversalRequests.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No reversal requests yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <StyledThead>
+                <tr>
+                  <StyledTh>Order</StyledTh>
+                  <StyledTh>Invoice</StyledTh>
+                  <StyledTh>Customer</StyledTh>
+                  <StyledTh>Requested By</StyledTh>
+                  <StyledTh>Status</StyledTh>
+                  <StyledTh>Reason</StyledTh>
+                  <StyledTh center>Action</StyledTh>
+                </tr>
+              </StyledThead>
+              <tbody>
+                {reversalRequests.map((request) => (
+                  <StyledTr key={request.id}>
+                    <StyledTd mono>{request.order_number}</StyledTd>
+                    <StyledTd mono>{request.invoice_number ?? '—'}</StyledTd>
+                    <StyledTd>{request.customer_name ?? '—'}</StyledTd>
+                    <StyledTd>
+                      <div className="flex flex-col gap-0.5">
+                        <span>{request.requested_by_name ?? 'Unknown'}</span>
+                        <span className="text-xs text-muted-foreground">{request.created_at ? new Date(request.created_at).toLocaleString('en-IN') : '—'}</span>
+                      </div>
+                    </StyledTd>
+                    <StyledTd>
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                        request.status === 'Pending'
+                          ? 'bg-amber-100 text-amber-800'
+                          : request.status === 'Approved'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
+                      }`}
+                      >
+                        {request.status}
+                      </span>
+                    </StyledTd>
+                    <StyledTd>
+                      <div className="max-w-[240px]">
+                        <p className="line-clamp-2 text-xs">{request.request_reason || '—'}</p>
+                        {request.admin_review_note && (
+                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">Admin: {request.admin_review_note}</p>
+                        )}
+                      </div>
+                    </StyledTd>
+                    <StyledTd center>
+                      {isAdmin && request.status === 'Pending' ? (
+                        <Button size="sm" variant="outline" className="h-8" onClick={() => startAdminReview(request)}>
+                          Review
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </StyledTd>
+                  </StyledTr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </DataCard>
+
+      <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Billing Reversal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+              <p className="font-medium">{requestOrder?.order_number ?? 'Order'}</p>
+              <p className="text-xs text-muted-foreground">Invoice: {requestOrder?.invoice_number ?? 'Not available'}</p>
+              <p className="text-xs text-muted-foreground">Customer: {requestOrder?.customers?.name ?? '—'}</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="reversal-reason">Reason for reversal</Label>
+              <Textarea
+                id="reversal-reason"
+                value={requestReason}
+                onChange={(e) => setRequestReason(e.target.value)}
+                rows={4}
+                placeholder="Explain what was billed by mistake and why reversal is needed"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRequestDialogOpen(false)} disabled={requestingReversal}>Cancel</Button>
+            <Button onClick={() => void submitBillingReversalRequest()} disabled={requestingReversal}>
+              {requestingReversal ? 'Submitting...' : 'Submit Request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Admin Review: Billing Reversal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+              <p className="font-medium">{reviewRequest?.order_number ?? 'Order'}</p>
+              <p className="text-xs text-muted-foreground">Invoice: {reviewRequest?.invoice_number ?? '—'}</p>
+              <p className="text-xs text-muted-foreground">Requested by: {reviewRequest?.requested_by_name ?? 'Unknown'}</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="admin-note">Admin note</Label>
+              <Textarea
+                id="admin-note"
+                value={adminNote}
+                onChange={(e) => setAdminNote(e.target.value)}
+                rows={3}
+                placeholder="Optional review note"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="admin-password">Confirm admin password</Label>
+              <Input
+                id="admin-password"
+                type="password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                placeholder="Enter your password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReviewDialogOpen(false)} disabled={reviewingAction}>Cancel</Button>
+            <Button variant="outline" onClick={() => void submitAdminReview('reject')} disabled={reviewingAction}>
+              {reviewingAction ? 'Processing...' : 'Reject'}
+            </Button>
+            <Button onClick={() => void submitAdminReview('approve')} disabled={reviewingAction}>
+              {reviewingAction ? 'Processing...' : 'Approve & Revert'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

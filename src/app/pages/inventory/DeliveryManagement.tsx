@@ -179,7 +179,7 @@ export const DeliveryManagement = () => {
       const isOtherAgent = form.delivery_agent_id === '__other__';
       const isOtherInitiator = form.initiated_by_id === '__other__';
       const agent = !isOtherAgent ? agents.find(a => a.id === form.delivery_agent_id) : null;
-      const { error } = await supabase.rpc('create_delivery', {
+      const payload = {
         p_order_id: form.order_id,
         p_agent_id: !isOtherAgent ? form.delivery_agent_id : null,
         p_initiated_by: !isOtherInitiator ? form.initiated_by_id : null,
@@ -187,8 +187,23 @@ export const DeliveryManagement = () => {
         p_driver_name: isOtherAgent ? form.driver_other.trim() : (agent?.name ?? null),
         p_vehicle_number: form.vehicle_number.trim() || null,
         p_created_by: user?.id ?? null,
+      };
+
+      const idempotencyKey = `delivery:create:${payload.p_order_id}:${payload.p_agent_id || 'other'}:${payload.p_initiated_by || payload.p_initiated_by_name || 'other'}:${payload.p_driver_name || 'na'}:${payload.p_vehicle_number || 'na'}`;
+
+      const { error: idempotentErr } = await supabase.rpc('create_delivery_idempotent', {
+        ...payload,
+        p_idempotency_key: idempotencyKey,
       });
-      if (error) throw error;
+
+      if (idempotentErr) {
+        const rpcMissing = idempotentErr.code === 'PGRST202' || idempotentErr.message?.toLowerCase().includes('could not find the function');
+        if (!rpcMissing) throw idempotentErr;
+
+        const { error: legacyErr } = await supabase.rpc('create_delivery', payload);
+        if (legacyErr) throw legacyErr;
+      }
+
       toast.success('Delivery created!');
       setOpen(false);
       setForm({ order_id: '', initiated_by_id: '', initiated_by_other: '', delivery_agent_id: '', driver_other: '', vehicle_number: '' });
@@ -206,13 +221,26 @@ export const DeliveryManagement = () => {
     }
 
     try {
-      const { error } = await supabase.rpc('update_delivery_status', {
+      const payload = {
         p_delivery_id: id,
         p_status: status,
         p_failure_reason: null,
         p_updated_by: user?.id ?? null,
+      };
+
+      const idempotencyKey = `delivery:status:${id}:${status}`;
+      const { error: idempotentErr } = await supabase.rpc('update_delivery_status_idempotent', {
+        ...payload,
+        p_idempotency_key: idempotencyKey,
       });
-      if (error) throw error;
+
+      if (idempotentErr) {
+        const rpcMissing = idempotentErr.code === 'PGRST202' || idempotentErr.message?.toLowerCase().includes('could not find the function');
+        if (!rpcMissing) throw idempotentErr;
+
+        const { error: legacyErr } = await supabase.rpc('update_delivery_status', payload);
+        if (legacyErr) throw legacyErr;
+      }
 
       toast.success(status === 'Delivered' ? 'Delivered & stock updated!' : 'Status updated');
       fetchData();
@@ -224,14 +252,36 @@ export const DeliveryManagement = () => {
   const handleFailSubmit = async () => {
     if (!failReason.trim()) { toast.error('Please provide a reason for failure'); return; }
     setFailSaving(true);
-    const { error } = await supabase.rpc('update_delivery_status', {
+    const payload = {
       p_delivery_id: failTargetId!,
-      p_status: 'Failed',
+      p_status: 'Failed' as const,
       p_failure_reason: failReason.trim(),
       p_updated_by: user?.id ?? null,
+    };
+
+    const idempotencyKey = `delivery:status:${failTargetId}:Failed:${failReason.trim()}`;
+    const { error: idempotentErr } = await supabase.rpc('update_delivery_status_idempotent', {
+      ...payload,
+      p_idempotency_key: idempotencyKey,
     });
-    if (error) toast.error(error.message);
-    else { toast.success('Marked as Failed'); setFailOpen(false); fetchData(); }
+
+    if (idempotentErr) {
+      const rpcMissing = idempotentErr.code === 'PGRST202' || idempotentErr.message?.toLowerCase().includes('could not find the function');
+      if (!rpcMissing) {
+        toast.error(idempotentErr.message);
+        setFailSaving(false);
+        return;
+      }
+
+      const { error: legacyErr } = await supabase.rpc('update_delivery_status', payload);
+      if (legacyErr) {
+        toast.error(legacyErr.message);
+        setFailSaving(false);
+        return;
+      }
+    }
+
+    toast.success('Marked as Failed'); setFailOpen(false); fetchData();
     setFailSaving(false);
   };
 

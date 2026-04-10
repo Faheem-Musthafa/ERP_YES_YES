@@ -93,15 +93,34 @@ export const GRN = () => {
         receivedDate ? `Received Date: ${receivedDate}` : null,
       ].filter(Boolean).join(' | ');
 
-      const { data: grnId, error: grnError } = await supabase.rpc('create_grn', {
+      const idempotencyKey = `grn:${selectedPOId}:${receivingLocation}:${receivedDate}:${requestedQty}:${challanNumber.trim() || 'na'}`;
+
+      let grnId: string | null = null;
+      const { data: idempotentGrnId, error: idempotentErr } = await supabase.rpc('create_grn_idempotent', {
         p_items: grnItems,
         p_po_id: selectedPOId,
         p_supplier_id: selectedPO.supplier_id,
         p_received_by: null,
         p_remarks: remarksText || null,
+        p_idempotency_key: idempotencyKey,
       });
 
-      if (grnError) throw grnError;
+      if (idempotentErr) {
+        const rpcMissing = idempotentErr.code === 'PGRST202' || idempotentErr.message?.toLowerCase().includes('could not find the function');
+        if (!rpcMissing) throw idempotentErr;
+
+        const { data: legacyGrnId, error: legacyErr } = await supabase.rpc('create_grn', {
+          p_items: grnItems,
+          p_po_id: selectedPOId,
+          p_supplier_id: selectedPO.supplier_id,
+          p_received_by: null,
+          p_remarks: remarksText || null,
+        });
+        if (legacyErr) throw legacyErr;
+        grnId = legacyGrnId;
+      } else {
+        grnId = idempotentGrnId;
+      }
 
       if (grnId) {
         const { error: headerUpdateError } = await supabase

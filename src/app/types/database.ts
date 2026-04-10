@@ -1014,6 +1014,80 @@ export interface Database {
           value?: Json | null;
         }
       >;
+      billing_reversal_requests: TableDef<
+        {
+          id: string;
+          order_id: string;
+          invoice_number: string | null;
+          company: CompanyEnum;
+          request_reason: string;
+          admin_review_note: string | null;
+          status: 'Pending' | 'Approved' | 'Rejected';
+          requested_by: string;
+          approved_by: string | null;
+          rejected_by: string | null;
+          approved_at: string | null;
+          rejected_at: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          order_id: string;
+          invoice_number?: string | null;
+          company: CompanyEnum;
+          request_reason: string;
+          admin_review_note?: string | null;
+          status?: 'Pending' | 'Approved' | 'Rejected';
+          requested_by: string;
+          approved_by?: string | null;
+          rejected_by?: string | null;
+          approved_at?: string | null;
+          rejected_at?: string | null;
+        },
+        Partial<{
+          order_id: string;
+          invoice_number?: string | null;
+          company: CompanyEnum;
+          request_reason: string;
+          admin_review_note?: string | null;
+          status?: 'Pending' | 'Approved' | 'Rejected';
+          requested_by: string;
+          approved_by?: string | null;
+          rejected_by?: string | null;
+          approved_at?: string | null;
+          rejected_at?: string | null;
+        }>,
+        [
+          {
+            foreignKeyName: 'billing_reversal_requests_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'billing_reversal_requests_requested_by_fkey';
+            columns: ['requested_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'billing_reversal_requests_approved_by_fkey';
+            columns: ['approved_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'billing_reversal_requests_rejected_by_fkey';
+            columns: ['rejected_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ]
+      >;
     };
     Views: Record<string, never>;
     Functions: {
@@ -1024,6 +1098,48 @@ export interface Database {
         };
         Returns: string;
       };
+      bill_order_idempotent: {
+        Args: {
+          p_order_id: string;
+          p_billed_by?: string | null;
+          p_idempotency_key?: string | null;
+        };
+        Returns: string;
+      };
+      get_company_profiles: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      create_order: {
+        Args: {
+          p_company: CompanyEnum;
+          p_invoice_type: InvoiceTypeEnum;
+          p_customer_id?: string | null;
+          p_godown?: GodownEnum | null;
+          p_site_address: string;
+          p_items: Json;
+          p_remarks?: string | null;
+          p_delivery_date?: string | null;
+          p_created_by?: string | null;
+        };
+        Returns: string;
+      };
+      approve_order_atomic: {
+        Args: {
+          p_order_id: string;
+          p_approved_by: string;
+          p_items: Json;
+        };
+        Returns: boolean;
+      };
+      reject_order: {
+        Args: {
+          p_order_id: string;
+          p_rejected_by: string;
+          p_reason?: string | null;
+        };
+        Returns: boolean;
+      };
       create_grn: {
         Args: {
           p_items: Json;
@@ -1031,6 +1147,17 @@ export interface Database {
           p_supplier_id?: string | null;
           p_received_by?: string | null;
           p_remarks?: string | null;
+        };
+        Returns: string;
+      };
+      create_grn_idempotent: {
+        Args: {
+          p_items: Json;
+          p_po_id?: string | null;
+          p_supplier_id?: string | null;
+          p_received_by?: string | null;
+          p_remarks?: string | null;
+          p_idempotency_key?: string | null;
         };
         Returns: string;
       };
@@ -1079,6 +1206,19 @@ export interface Database {
         };
         Returns: string;
       };
+      create_delivery_idempotent: {
+        Args: {
+          p_order_id: string;
+          p_agent_id?: string | null;
+          p_initiated_by?: string | null;
+          p_initiated_by_name?: string | null;
+          p_driver_name?: string | null;
+          p_vehicle_number?: string | null;
+          p_created_by?: string | null;
+          p_idempotency_key?: string | null;
+        };
+        Returns: string;
+      };
       update_delivery_status: {
         Args: {
           p_delivery_id: string;
@@ -1087,6 +1227,46 @@ export interface Database {
           p_updated_by?: string | null;
         };
         Returns: boolean;
+      };
+      update_delivery_status_idempotent: {
+        Args: {
+          p_delivery_id: string;
+          p_status: DeliveryStatusEnum;
+          p_failure_reason?: string | null;
+          p_updated_by?: string | null;
+          p_idempotency_key?: string | null;
+        };
+        Returns: boolean;
+      };
+      request_billing_reversal: {
+        Args: {
+          p_order_id: string;
+          p_reason: string;
+          p_requested_by?: string | null;
+        };
+        Returns: string;
+      };
+      approve_billing_reversal: {
+        Args: {
+          p_request_id: string;
+          p_admin_user_id: string;
+          p_admin_note?: string | null;
+        };
+        Returns: boolean;
+      };
+      reject_billing_reversal: {
+        Args: {
+          p_request_id: string;
+          p_admin_user_id: string;
+          p_admin_note?: string | null;
+        };
+        Returns: boolean;
+      };
+      get_billing_reversal_requests: {
+        Args: {
+          p_status?: string | null;
+        };
+        Returns: Json;
       };
     };
     Enums: {

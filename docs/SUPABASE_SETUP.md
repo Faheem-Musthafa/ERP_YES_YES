@@ -233,18 +233,18 @@ const { error } = await supabase
 
 ## Row Level Security (RLS)
 
-All tables have RLS enabled with policies allowing authenticated users to:
-- **SELECT** - View all rows
-- **INSERT** - Create new rows
-- **UPDATE** - Modify existing rows
+All tables should keep RLS enabled with least-privilege policies by role.
 
-Example policy (from migration):
-```sql
-CREATE POLICY "Allow authenticated users to view product stock locations" 
-ON product_stock_locations FOR SELECT 
-TO authenticated 
-USING (true);
-```
+Recommended production baseline:
+- Use role-aware policies (sales, accounts, inventory, procurement, admin)
+- Avoid blanket `USING (true)` and `WITH CHECK (true)` policies
+- Keep privileged writes inside secured RPC functions
+
+Use this hardened migration for production policy/function setup:
+- `docs/SECURITY_TRANSACTION_HARDENING.sql`
+- `docs/RPC_IDEMPOTENCY_WRAPPERS.sql`
+- `docs/COMPANY_PROFILE_SETTINGS_MIGRATION.sql`
+- `docs/BILLING_REVERSAL_WORKFLOW.sql`
 
 ## Troubleshooting
 

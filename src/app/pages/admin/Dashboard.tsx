@@ -23,14 +23,14 @@ import {
 // Recharts
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, ResponsiveContainer
 } from 'recharts';
 
 // Lucide icons
 import {
   TrendingUp, ShoppingCart, Users,
   DollarSign, ArrowUpRight, ArrowDownRight, Activity,
-  AlertTriangle, CheckCircle2, BarChart3, Calendar,
+  AlertTriangle, CheckCircle2, BarChart3, Calendar, ShieldCheck, Wallet
 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -274,396 +274,376 @@ export const AdminDashboard = () => {
   if (error) return <ErrorState message={error} onRetry={() => void fetchAll()} />;
 
   return (
-    <div className="space-y-6 pb-12">
-      <PageHeader
-        title={`${greeting}, ${user?.full_name ?? 'Admin'}`}
-        subtitle={`Here's your business overview${dateRange === 'all' ? '' : ` for the last ${DATE_RANGE_OPTIONS.find(o => o.value === dateRange)?.label ?? ''}`}`}
-        actions={(
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-0.5 bg-muted/60 border border-border rounded-lg p-0.5">
-              {DATE_RANGE_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setDateRange(opt.value)}
-                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
-                    dateRange === opt.value
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/40 border border-border px-2.5 py-1.5 rounded-lg">
-              <Calendar size={12} className="text-primary" />
-              {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-            </div>
+    <div className="space-y-8 pb-12 animate-in fade-in duration-500 max-w-7xl mx-auto">
+      
+      {/* Sleek Top Header */}
+      <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between sticky top-0 z-20 bg-background/80 backdrop-blur-2xl py-4 border-b border-border/40 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-6 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-primary flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+             <ShieldCheck size={28} className="drop-shadow-md" />
           </div>
-        )}
-      />
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-50">
+              {greeting}, {user?.full_name?.split(' ')[0] ?? 'Leader'}
+            </h1>
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">
+              Command Center Overview {dateRange === 'all' ? '' : `• Last ${DATE_RANGE_OPTIONS.find(o => o.value === dateRange)?.label}`}
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3 bg-slate-50/50 dark:bg-slate-900/50 p-1.5 rounded-2xl border border-slate-200/50 dark:border-slate-800 backdrop-blur-md">
+          {DATE_RANGE_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setDateRange(opt.value)}
+              className={`px-4 py-2 text-[11px] font-bold rounded-xl transition-all ${
+                dateRange === opt.value
+                  ? 'bg-white dark:bg-slate-800 text-primary shadow-sm ring-1 ring-black/5 dark:ring-white/10 scale-100'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 scale-95'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ── KPI Cards: High-fidelity layout ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           {
-            label: 'Total Revenue',
+            label: 'Gross Volume',
+            metric: 'Total Revenue',
             value: fmtK(stats.totalRevenue),
-            icon: <DollarSign size={18} />,
-            color: 'text-teal-600',
-            bg: 'bg-teal-50',
-            border: 'border-teal-200 hover:border-teal-300',
-            footer: (
-              <div className="flex items-center gap-1.5 mt-2">
-                {revenueGrowth !== null ? (
-                  revenueGrowth >= 0 ? (
-                    <span className="flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                      <ArrowUpRight size={10} /> +{revenueGrowth.toFixed(1)}%
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-0.5 text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full">
-                      <ArrowDownRight size={10} /> {revenueGrowth.toFixed(1)}%
-                    </span>
-                  )
-                ) : null}
-                <span className="text-[10px] text-muted-foreground uppercase tracking-widest">vs last month</span>
-              </div>
-            ),
+            sub: revenueGrowth !== null ? (
+                   revenueGrowth >= 0 ? `+${revenueGrowth.toFixed(1)}% vs strict baseline` : `${revenueGrowth.toFixed(1)}% vs strict baseline`
+                 ) : 'Evaluating baseline...',
+            icon: DollarSign,
+            accent: 'teal',
+            growth: revenueGrowth !== null ? revenueGrowth >= 0 : true
           },
           {
-            label: 'Collected',
+            label: 'Capital Realized',
+            metric: 'Total Collected',
             value: fmtK(stats.totalCollected),
-            icon: <TrendingUp size={18} />,
-            color: 'text-violet-600',
-            bg: 'bg-violet-50',
-            border: 'border-violet-200 hover:border-violet-300',
-            footer: (
-              <div className="mt-2 space-y-1">
-                <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-muted-foreground">
-                  <span>Collection Rate</span>
-                  <span className="font-semibold text-foreground">{collectionRate.toFixed(0)}%</span>
-                </div>
-                <Progress value={collectionRate} className="h-1.5" />
-              </div>
-            ),
+            sub: `${collectionRate.toFixed(1)}% portfolio resolution rate`,
+            icon: Wallet,
+            accent: 'violet',
+            metaWidget: <div className="mt-3 h-1.5 w-full bg-violet-100 dark:bg-violet-900/40 rounded-full overflow-hidden"><div className="h-full bg-violet-500 rounded-full" style={{ width: `${collectionRate}%`}}></div></div>
           },
           {
-            label: 'Orders',
+            label: 'Pipeline Traffic',
+            metric: 'Operations Logged',
             value: stats.totalOrders.toString(),
-            icon: <ShoppingCart size={18} />,
-            color: 'text-blue-600',
-            bg: 'bg-blue-50',
-            border: 'border-blue-200 hover:border-blue-300',
-            footer: (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">{stats.pendingOrders} pending</span>
-                <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">{stats.approvedOrders} approved</span>
-              </div>
-            ),
+            sub: `${stats.pendingOrders} pending • ${stats.approvedOrders} approved`,
+            icon: ShoppingCart,
+            accent: 'blue'
           },
           {
-            label: 'People',
-            value: `${stats.activeStaff}/${stats.totalStaff}`,
-            icon: <Users size={18} />,
-            color: 'text-orange-600',
-            bg: 'bg-orange-50',
-            border: 'border-orange-200 hover:border-orange-300',
-            footer: (
-              <div className="flex items-center justify-between text-xs mt-2">
-                <span className="text-muted-foreground">{stats.totalCustomers} customers</span>
-                {stats.lowStockCount > 0 ? (
-                  <span className="flex items-center gap-0.5 text-red-600 font-semibold text-[10px] uppercase tracking-widest">
-                    <AlertTriangle size={10} /> {stats.lowStockCount} low stock
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-0.5 text-emerald-600 font-semibold text-[10px] uppercase tracking-widest">
-                    <CheckCircle2 size={10} /> Stock ok
-                  </span>
-                )}
-              </div>
-            ),
+            label: 'Network Load',
+            metric: 'Active Clients',
+            value: stats.totalCustomers.toString(),
+            sub: stats.lowStockCount > 0 ? `${stats.lowStockCount} items hit minimum stock threshold` : `Inventory levels fully normalized`,
+            icon: Users,
+            accent: stats.lowStockCount > 0 ? 'rose' : 'emerald'
           },
-        ].map((kpi, i) => (
-          <DataCard key={i} className={`p-5 transition-colors group cursor-default ${kpi.border}`}>
-            <div className="flex items-start justify-between mb-3">
-              <div className={`p-2 rounded-xl ${kpi.bg} ${kpi.color} transition-transform group-hover:scale-110`}>{kpi.icon}</div>
-            </div>
-            <p className="text-2xl font-bold text-foreground font-mono">{kpi.value}</p>
-            <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground mt-1">{kpi.label}</p>
-            {kpi.footer}
-          </DataCard>
-        ))}
-      </div>
+        ].map((kpi, i) => {
+          const Icon = kpi.icon;
+          const isTeal = kpi.accent === 'teal';
+          const isViolet = kpi.accent === 'violet';
+          const isBlue = kpi.accent === 'blue';
+          const isRose = kpi.accent === 'rose';
+          const isEmerald = kpi.accent === 'emerald';
+          
+          const bgClass = isTeal ? 'bg-teal-50/50 dark:bg-teal-900/10 border-teal-200/50' : 
+                         isViolet ? 'bg-violet-50/50 dark:bg-violet-900/10 border-violet-200/50' : 
+                         isBlue ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-200/50' : 
+                         isRose ? 'bg-rose-50/50 dark:bg-rose-900/10 border-rose-200/50' :
+                         'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200/50';
+                         
+          const textClass = isTeal ? 'text-teal-600 dark:text-teal-400' :
+                           isViolet ? 'text-violet-600 dark:text-violet-400' :
+                           isBlue ? 'text-blue-600 dark:text-blue-400' :
+                           isRose ? 'text-rose-600 dark:text-rose-400' :
+                           'text-emerald-600 dark:text-emerald-400';
 
-      {/* ── Charts row ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-        {/* Area chart — Revenue vs Collected (last 6 months) */}
-        <Card className="lg:col-span-2 shadow-sm">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="text-sm font-semibold">Revenue & Collections</CardTitle>
-                <CardDescription className="text-xs mt-0.5">{dateRange === 'all' ? 'All time' : `Last ${DATE_RANGE_OPTIONS.find(o => o.value === dateRange)?.label}`} trend</CardDescription>
-              </div>
-              <Badge variant="secondary" className="text-[10px] font-semibold">{DATE_RANGE_OPTIONS.find(o => o.value === dateRange)?.label}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={revenueChartConfig} className="h-52 w-full">
-              <AreaChart data={monthlyRevenue} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0d9488" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#0d9488" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-                <XAxis dataKey="month" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => fmtK(v)} width={60} />
-                <ChartTooltip content={<ChartTooltipContent formatter={(v: any) => fmtK(Number(v))} />} />
-                <Area type="monotone" dataKey="revenue" stroke="#0d9488" strokeWidth={2} fill="url(#revGrad)" name="Revenue" />
-                <Area type="monotone" dataKey="collected" stroke="#7c3aed" strokeWidth={2} fill="url(#colGrad)" name="Collected" />
-                <ChartLegend content={<ChartLegendContent />} />
-              </AreaChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Donut — Order status breakdown */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold">Order Status</CardTitle>
-            <CardDescription className="text-xs">Breakdown by status</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-4">
-            {orderStatusData.length > 0 ? (
-              <>
-                <div className="relative w-40 h-40">
-                  <PieChart width={160} height={160}>
-                    <Pie
-                      data={orderStatusData}
-                      cx={75} cy={75}
-                      innerRadius={44} outerRadius={68}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {orderStatusData.map((entry, i) => (
-                        <Cell key={i} fill={entry.fill} strokeWidth={0} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-xl font-bold font-mono">{stats.totalOrders}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</span>
+          return (
+            <div key={i} className={`relative overflow-hidden rounded-[2rem] border p-6 ${bgClass} dark:border-slate-800 transition-all duration-300 hover:shadow-xl hover:shadow-${kpi.accent}-500/10 hover:-translate-y-1 group`}>
+              <div className="flex items-start justify-between relative z-10">
+                <div className="space-y-4">
+                  <div className={`p-3 rounded-2xl inline-flex bg-white/80 dark:bg-slate-900/80 shadow-sm ${textClass}`}>
+                    <Icon size={22} className="group-hover:scale-110 transition-transform" />
+                  </div>
+                  <div>
+                    <h3 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter mb-1">{kpi.value}</h3>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 mb-2">{kpi.label}</p>
+                    <p className="text-[11px] font-medium text-slate-600 dark:text-slate-500 leading-snug">{kpi.sub}</p>
+                    {kpi.metaWidget}
                   </div>
                 </div>
-                <div className="w-full space-y-1.5">
-                  {orderStatusData.map(d => (
-                    <div key={d.name} className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
-                        <span className="text-muted-foreground">{d.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{d.value}</span>
-                        <span className="text-muted-foreground w-8 text-right">
-                          {((d.value / stats.totalOrders) * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <EmptyState icon={BarChart3} message="No order data" />
-            )}
-          </CardContent>
-        </Card>
+              </div>
+              <div className={`absolute -right-10 -top-10 w-40 h-40 rounded-full blur-3xl opacity-20 pointer-events-none transition-opacity group-hover:opacity-40 bg-${kpi.accent}-500`} />
+            </div>
+          );
+        })}
       </div>
 
-      {/* ── Bottom tabs section ── */}
-      <Tabs defaultValue="orders" className="space-y-4">
-        <TabsList className="h-9 bg-muted/60">
-          <TabsTrigger value="orders" className="text-xs font-semibold">Recent Orders</TabsTrigger>
-          <TabsTrigger value="salesmen" className="text-xs font-semibold">Top Salespeople</TabsTrigger>
-          <TabsTrigger value="stock" className="text-xs font-semibold">
-            Low Stock
+      {/* ── Visual Analytics Grid ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Primary Chart Area */}
+        <div className="lg:col-span-2 rounded-[2rem] border border-slate-200/80 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl shadow-sm p-6 lg:p-8 flex flex-col">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold uppercase tracking-widest mb-3">
+                 <Activity size={12} /> Velocity Engine
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Revenue vs Recovery</h3>
+              <p className="text-sm text-slate-500 mt-1">Cross-referencing gross billing against realized collection liquidity.</p>
+            </div>
+            <div className="flex gap-4">
+               <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                 <div className="w-3 h-3 rounded-full bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.5)]"></div> Gross
+               </div>
+               <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                 <div className="w-3 h-3 rounded-full bg-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.5)]"></div> Liquidity
+               </div>
+            </div>
+          </div>
+          
+          <div className="flex-1 min-h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={monthlyRevenue} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#14b8a6" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(150,150,150,0.15)" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 600, fill: '#888' }} tickLine={false} axisLine={false} dy={10} />
+                <YAxis tick={{ fontSize: 11, fontWeight: 600, fill: '#888' }} tickLine={false} axisLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
+                <ChartTooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)' }} formatter={(v: any) => fmtK(Number(v))} />
+                <Area type="monotone" dataKey="revenue" stroke="#14b8a6" strokeWidth={3} fill="url(#revGrad)" name="Gross Revenue" activeDot={{ r: 6, strokeWidth: 0 }} />
+                <Area type="monotone" dataKey="collected" stroke="#8b5cf6" strokeWidth={3} fill="url(#colGrad)" name="Collections" activeDot={{ r: 6, strokeWidth: 0 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Donut Chart Sector */}
+        <div className="rounded-[2rem] border border-slate-200/80 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl shadow-sm p-6 lg:p-8 flex flex-col items-center text-center">
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold uppercase tracking-widest mb-3">
+             <BarChart3 size={12} /> Operation Nodes
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Status Composition</h3>
+            
+          {orderStatusData.length > 0 ? (
+            <div className="flex-1 w-full flex flex-col items-center justify-center">
+              <div className="relative w-48 h-48 mb-8 hover:scale-105 transition-transform duration-500 cursor-default">
+                <PieChart width={192} height={192}>
+                  <Pie
+                    data={orderStatusData}
+                    cx={96} cy={96}
+                    innerRadius={64} outerRadius={88}
+                    paddingAngle={4}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {orderStatusData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} style={{ filter: `drop-shadow(0px 4px 6px ${entry.fill}40)` }} />
+                    ))}
+                  </Pie>
+                </PieChart>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-3xl font-black text-slate-900 dark:text-white leading-none">{stats.totalOrders}</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Total</span>
+                </div>
+              </div>
+              
+              <div className="w-full space-y-2.5">
+                {orderStatusData.map(d => (
+                  <div key={d.name} className="flex items-center justify-between text-sm px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-3 h-3 rounded-full shadow-inner" style={{ backgroundColor: d.fill }} />
+                      <span className="font-semibold text-slate-700 dark:text-slate-200">{d.name}</span>
+                    </div>
+                    <span className="font-bold font-mono text-slate-900 dark:text-white">{d.value} <span className="text-slate-400 font-sans text-xs ml-1">({((d.value / stats.totalOrders) * 100).toFixed(0)}%)</span></span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <EmptyState icon={BarChart3} message="Awaiting network data" />
+          )}
+        </div>
+      </div>
+
+      {/* ── Sub-dashboard Tabs ── */}
+      <Tabs defaultValue="orders" className="w-full mt-8">
+        <TabsList className="h-14 w-full justify-start bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur border border-slate-200/60 dark:border-slate-800 rounded-2xl p-1.5 shadow-inner">
+          <TabsTrigger value="orders" className="rounded-xl px-6 h-full text-sm font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all">Deep Dive: Orders</TabsTrigger>
+          <TabsTrigger value="salesmen" className="rounded-xl px-6 h-full text-sm font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-primary transition-all">Personnel Leaderboard</TabsTrigger>
+          <TabsTrigger value="stock" className="rounded-xl px-6 h-full text-sm font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-sm data-[state=active]:text-rose-500 transition-all">
+            Inventory Health
             {stats.lowStockCount > 0 && (
-              <span className="ml-1.5 bg-red-100 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+              <span className="ml-2 bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm shadow-rose-500/40 animate-pulse">
                 {stats.lowStockCount}
               </span>
             )}
           </TabsTrigger>
         </TabsList>
 
-        {/* Recent Orders table */}
-        <TabsContent value="orders">
-          <Card className="shadow-sm">
-            <CardHeader className="border-b pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold">Recent Orders</CardTitle>
-                <Link
-                  to="/admin/sales"
-                  className="text-xs text-teal-600 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
-                  aria-label="View all recent orders"
-                >
-                  View all →
-                </Link>
+        <div className="mt-6 rounded-[2rem] border border-slate-200/80 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl shadow-sm overflow-hidden">
+          
+          <TabsContent value="orders" className="p-0 m-0 border-0 outline-none">
+            <div className="p-6 md:p-8 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Recent Transactions</h3>
+                <p className="text-sm text-slate-500 mt-1">Latest confirmed network activity</p>
               </div>
-            </CardHeader>
-            <CardContent className="p-0">
+              <Link to="/admin/sales" className="h-10 px-4 inline-flex items-center justify-center rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors">
+                Open Full Ledger
+              </Link>
+            </div>
+            <div className="overflow-x-auto p-4 custom-scrollbar">
               <Table>
-                <caption className="sr-only">Recent orders with customer, status, amount and date</caption>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="text-xs pl-6">Order #</TableHead>
-                    <TableHead className="text-xs">Customer</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
-                    <TableHead className="text-xs text-right pr-6">Amount</TableHead>
-                    <TableHead className="text-xs">Date</TableHead>
+                  <TableRow className="border-b border-slate-200/50 dark:border-slate-800 hover:bg-transparent">
+                    <TableHead className="font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 pl-6">Identifier</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500">Beneficiary</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500">Status Vector</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 text-right pr-6">Value</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                   {recentOrders.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="py-0">
-                        <EmptyState icon={ShoppingCart} message="No orders yet" />
-                      </TableCell>
-                    </TableRow>
+                    <TableRow><TableCell colSpan={4}><EmptyState icon={ShoppingCart} message="No recent operations to display" /></TableCell></TableRow>
                   ) : (
                     recentOrders.map(order => (
-                      <TableRow key={order.id} className="hover:bg-muted/30">
-                        <TableCell className="font-mono text-xs font-semibold text-teal-600 pl-6">
-                          {order.order_number}
+                      <TableRow key={order.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors border-0 group">
+                        <TableCell className="pl-6 font-mono text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-primary transition-colors">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 group-hover:bg-primary transition-colors"></div>
+                            {order.order_number}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-sm font-medium max-w-[140px] truncate">
+                        <TableCell className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                           {(order.customers as { name: string } | null)?.name ?? '—'}
+                          <div className="text-[10px] font-medium text-slate-400 mt-0.5">{new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
                         </TableCell>
                         <TableCell>
-                          <StatusBadge status={order.status} className="h-5 px-1.5" />
+                          <StatusBadge status={order.status} className="px-3 py-1 shadow-sm" />
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm font-semibold pr-6">
+                        <TableCell className="text-right pr-6 font-mono text-sm font-bold text-slate-900 dark:text-slate-100">
                           {fmt(order.grand_total ?? 0)}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                         </TableCell>
                       </TableRow>
                     ))
                   )}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </TabsContent>
 
-        {/* Top Salespeople */}
-        <TabsContent value="salesmen">
-          <Card className="shadow-sm">
-            <CardHeader className="border-b pb-4">
-              <CardTitle className="text-sm font-semibold">Top Salespeople — {monthName}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-5">
+          <TabsContent value="salesmen" className="p-0 m-0 border-0 outline-none">
+            <div className="p-6 md:p-8 flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/60 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-900/10">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Active Agents: {monthName}</h3>
+                <p className="text-sm text-slate-500 mt-1">Ranking by cumulative operation value</p>
+              </div>
+            </div>
+            <div className="p-6 md:p-8">
               {topSalesmen.length === 0 ? (
-                <EmptyState icon={Users} message="No sales data this month" />
+                <EmptyState icon={Users} message="No agent data for this cycle" />
               ) : (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {topSalesmen.map((s, i) => {
                     const maxTotal = topSalesmen[0]?.total || 1;
                     const pct = (s.total / maxTotal) * 100;
-                    const medals = ['🥇', '🥈', '🥉'];
+                    const ranks = [
+                       'bg-amber-100 text-amber-600 border-amber-200', 
+                       'bg-slate-100 text-slate-500 border-slate-200',
+                       'bg-orange-100 text-orange-600 border-orange-200'
+                    ];
+                    
                     return (
-                      <div key={i} className="flex items-center gap-4">
-                        <div className="w-8 text-center">
-                          {i < 3 ? (
-                            <span className="text-lg">{medals[i]}</span>
-                          ) : (
-                            <Avatar className="w-7 h-7">
-                              <AvatarFallback className="text-[10px] bg-muted">
-                                {s.name.slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                          )}
+                      <div key={i} className="flex items-center gap-5 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition-all">
+                        <div className={`w-12 h-12 flex items-center justify-center rounded-[1rem] shadow-sm border font-black text-xl ${i < 3 ? ranks[i] : 'bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700'}`}>
+                           {i + 1}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <p className="text-sm font-semibold truncate">{s.name}</p>
-                            <div className="shrink-0 ml-3 text-right">
-                              <p className="text-sm font-bold font-mono text-teal-600">{fmtK(s.total)}</p>
-                              <p className="text-[10px] text-muted-foreground">{s.orders} orders</p>
-                            </div>
+                          <div className="flex items-center justify-between mb-2">
+                             <div>
+                                <p className="text-base font-bold text-slate-900 dark:text-slate-100 truncate">{s.name}</p>
+                                <p className="text-[11px] font-semibold text-slate-500 mt-0.5">{s.orders} deployments logged</p>
+                             </div>
+                             <p className="text-lg font-black font-mono text-primary">{fmtK(s.total)}</p>
                           </div>
-                          <Progress value={pct} className="h-1.5" />
+                          <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                             <div className="h-full bg-gradient-to-r from-primary/80 to-primary rounded-full relative" style={{ width: `${pct}%` }}>
+                                <div className="absolute inset-0 bg-white/20" style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.1) 20px)'}}></div>
+                             </div>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+          </TabsContent>
 
-        {/* Low Stock */}
-        <TabsContent value="stock">
-          <Card className="shadow-sm">
-            <CardHeader className="border-b pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold">Low Stock Alerts</CardTitle>
-                <Link to="/inventory/stock" className="text-xs text-teal-600 font-semibold hover:underline">
-                  Manage inventory →
-                </Link>
+          <TabsContent value="stock" className="p-0 m-0 border-0 outline-none">
+             <div className="p-6 md:p-8 flex items-center justify-between border-b border-rose-200/60 dark:border-rose-900/30 bg-rose-50/30 dark:bg-rose-950/20">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                   <AlertTriangle className="text-rose-500" size={24} /> Supply Constraints
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">Physical inventory approaching zero bound</p>
               </div>
-            </CardHeader>
-            <CardContent className="p-0">
+              <Link to="/inventory/stock" className="h-10 px-4 inline-flex items-center justify-center rounded-xl font-bold text-xs bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-900 dark:text-rose-100 transition-colors">
+                Resolve Blockers
+              </Link>
+            </div>
+             <div className="overflow-x-auto p-4 custom-scrollbar">
               {lowStockItems.length === 0 ? (
-                <EmptyState icon={CheckCircle2} message="All stock levels healthy" sub={`${stats.totalProducts} products tracked`} />
+                <EmptyState icon={CheckCircle2} message="System optimally stocked" sub={`All ${stats.totalProducts} units are operating above minimum thresholds.`} />
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="text-xs pl-6">Product</TableHead>
-                      <TableHead className="text-xs">Brand</TableHead>
-                      <TableHead className="text-xs text-right pr-6">Stock</TableHead>
+                    <TableRow className="border-b border-slate-200/50 dark:border-slate-800">
+                      <TableHead className="font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 pl-6">Asset Nomenclature</TableHead>
+                      <TableHead className="font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 text-right pr-6">Remaining Mass</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <TableBody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                     {lowStockItems.map((p) => (
-                      <TableRow key={p.id} className="hover:bg-muted/30">
-                        <TableCell className="text-sm font-medium pl-6 max-w-[200px] truncate">
-                          {p.name}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {(p.brands as { name: string } | null)?.name ?? '—'}
+                      <TableRow key={p.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 border-0 group">
+                        <TableCell className="pl-6">
+                           <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{p.name}</p>
+                           <p className="text-[11px] font-semibold text-slate-400 mt-0.5">{(p.brands as { name: string } | null)?.name ?? '—'}</p>
                         </TableCell>
                         <TableCell className="text-right pr-6">
-                          <Badge
-                            variant={p.stock_qty === 0 ? 'destructive' : 'secondary'}
-                            className={`text-[10px] font-bold ${p.stock_qty > 0 ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 border-0' : ''}`}
-                          >
-                            {p.stock_qty === 0 ? 'Out of stock' : `${p.stock_qty} left`}
-                          </Badge>
+                           <div className={`inline-flex px-3 py-1.5 rounded-lg text-sm font-black font-mono shadow-sm ${p.stock_qty === 0 ? 'bg-rose-500 text-white animate-pulse' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>
+                             {p.stock_qty === 0 ? 'DEPLETED' : `${p.stock_qty}x`}
+                           </div>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               )}
-            </CardContent>
-            {lowStockItems.length > 0 && (
-              <CardFooter className="border-t pt-4 text-xs text-muted-foreground justify-between">
-                <span>{stats.totalProducts} products total</span>
-                <span className="text-red-500 font-semibold">{stats.lowStockCount} items low/out</span>
-              </CardFooter>
-            )}
-          </Card>
-        </TabsContent>
+             </div>
+          </TabsContent>
+
+        </div>
       </Tabs>
 
     </div>

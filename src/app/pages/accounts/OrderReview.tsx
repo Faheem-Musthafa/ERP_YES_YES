@@ -5,6 +5,7 @@ import { CheckCircle, XCircle, ArrowLeft, FileText, ChevronRight } from 'lucide-
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
+import type { Json } from '@/app/types/database';
 import {
   PageHeader, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -84,22 +85,53 @@ export const OrderReview = () => {
     if (!selectedOrder || !user) return;
     setSubmitting(true);
     try {
-      // Update each item's approved pricing
-      const itemErrors: string[] = [];
-      for (const item of items) {
-        const { error } = await supabase.from('order_items').update({
-          dealer_price: item.approvedDP, discount_pct: item.approvedDiscount, amount: item.approvedAmount,
-        }).eq('id', item.id);
-        if (error) itemErrors.push(`${item.productName}: ${error.message}`);
+      const payload = items.map((item) => ({
+        id: item.id,
+        dealer_price: item.approvedDP,
+        discount_pct: item.approvedDiscount,
+        amount: item.approvedAmount,
+      }));
+
+      const { data: ok, error } = await supabase.rpc('approve_order_atomic', {
+        p_order_id: selectedOrder.id,
+        p_approved_by: user.id,
+        p_items: payload as unknown as Json,
+      });
+      if (error) {
+        const rpcMissing = error.code === 'PGRST202' || error.message?.toLowerCase().includes('could not find the function');
+        if (!rpcMissing) throw error;
+
+        // Backward-compatible fallback if approve_order_atomic is not deployed.
+        const itemErrors: string[] = [];
+        for (const item of items) {
+          const { error: itemErr } = await supabase
+            .from('order_items')
+            .update({
+              dealer_price: item.approvedDP,
+              discount_pct: item.approvedDiscount,
+              amount: item.approvedAmount,
+            })
+            .eq('id', item.id);
+          if (itemErr) itemErrors.push(`${item.productName}: ${itemErr.message}`);
+        }
+        if (itemErrors.length > 0) {
+          throw new Error(`Failed to update items: ${itemErrors.join('; ')}`);
+        }
+
+        const { error: orderErr } = await supabase
+          .from('orders')
+          .update({
+            status: 'Approved',
+            approved_by: user.id,
+            approved_at: new Date().toISOString(),
+            grand_total: approvedTotal,
+          })
+          .eq('id', selectedOrder.id);
+        if (orderErr) throw orderErr;
+      } else if (!ok) {
+        throw new Error('Order could not be approved');
       }
-      if (itemErrors.length > 0) {
-        throw new Error(`Failed to update items: ${itemErrors.join('; ')}`);
-      }
-      const { error } = await supabase.from('orders').update({
-        status: 'Approved', approved_by: user.id,
-        approved_at: new Date().toISOString(), grand_total: approvedTotal,
-      }).eq('id', selectedOrder.id);
-      if (error) throw error;
+
       toast.success(`Order ${selectedOrder.order_number} approved!`);
       await resetReviewContext();
     } catch (err: any) { toast.error(err.message || 'Failed to approve order'); }
@@ -107,11 +139,27 @@ export const OrderReview = () => {
   };
 
   const handleReject = async () => {
-    if (!selectedOrder) return;
+    if (!selectedOrder || !user) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('orders').update({ status: 'Rejected' }).eq('id', selectedOrder.id);
-      if (error) throw error;
+      const { data: ok, error } = await supabase.rpc('reject_order', {
+        p_order_id: selectedOrder.id,
+        p_rejected_by: user.id,
+        p_reason: null,
+      });
+      if (error) {
+        const rpcMissing = error.code === 'PGRST202' || error.message?.toLowerCase().includes('could not find the function');
+        if (!rpcMissing) throw error;
+
+        // Backward-compatible fallback if reject_order RPC is not deployed.
+        const { error: orderErr } = await supabase
+          .from('orders')
+          .update({ status: 'Rejected' })
+          .eq('id', selectedOrder.id);
+        if (orderErr) throw orderErr;
+      } else if (!ok) {
+        throw new Error('Order could not be rejected');
+      }
       toast.success(`Order ${selectedOrder.order_number} rejected.`);
       await resetReviewContext();
     } catch (err: any) { toast.error(err.message || 'Failed to reject order'); }

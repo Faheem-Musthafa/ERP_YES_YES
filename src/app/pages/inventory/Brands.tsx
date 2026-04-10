@@ -32,15 +32,24 @@ export const Brands = () => {
   const fetchBrands = async () => {
     setLoading(true);
     try {
-      const [{ data: brandData, error: brandError }, { data: productData, error: productError }] = await Promise.all([
-        supabase.from('brands').select('id, name, is_active, created_at').order('name'),
-        supabase.from('products').select('brand_id, dealer_price, stock_qty').eq('is_active', true),
-      ]);
-
+      const { data: brandData, error: brandError } = await supabase
+        .from('brands')
+        .select('id, name, is_active, created_at')
+        .order('name');
       if (brandError) throw brandError;
-      if (productError) throw productError;
 
-      const products = productData ?? [];
+      let products: any[] = [];
+      const { data: productData, error: productError } = await supabase
+        .from('products')
+        .select('brand_id, dealer_price, stock_qty')
+        .eq('is_active', true);
+
+      if (productError) {
+        toast.warning('Brands loaded, but product metrics are unavailable right now.');
+      } else {
+        products = productData ?? [];
+      }
+
       const enriched = (brandData ?? []).map((b: any) => {
         const brandProducts = products.filter((p: any) => p.brand_id === b.id);
         return {
@@ -51,7 +60,10 @@ export const Brands = () => {
       });
       setBrands(enriched);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to load brands');
+      const message = err?.code === '42501'
+        ? 'Permission denied while loading brands. Check grants/RLS for brands table.'
+        : err?.message || 'Failed to load brands';
+      toast.error(message);
     } finally {
       setLoading(false);
     }

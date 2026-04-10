@@ -1,11 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Info, Check, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Info, Check, AlertTriangle, IndianRupee, Tag, User, ReceiptText, Building2, Calendar, FileText, ChevronRight } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -165,189 +165,269 @@ export const ReceiptEntry = () => {
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      <PageHeader
-        title="Receipt Entry"
-        subtitle="Record customer payment against invoice or advance"
-        actions={(
-          <Button variant="ghost" size="sm" onClick={handleCancel} className="gap-2">
-            <ArrowLeft size={16} />
-            Back
-          </Button>
-        )}
-      />
+    <div className="space-y-8 pb-20 animate-in fade-in duration-500 max-w-4xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between sticky top-0 z-20 bg-background/80 backdrop-blur-xl py-4 border-b border-border/40 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-6">
+        <div>
+          <button onClick={handleCancel} className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1 hover:text-primary transition-colors">
+            <ArrowLeft size={14} /> Back to Collection
+          </button>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50 flex items-center gap-3">
+            <ReceiptText className="h-8 w-8 text-primary opacity-80" />
+            Receipt Entry
+          </h1>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            Record customer payment allocations securely against invoices or as advances.
+          </p>
+        </div>
+      </div>
 
-      <FormCard>
-        <form onSubmit={handleSubmit} className="space-y-8">
-
-          <FormSection title="Receipt Details" subtitle="Start with legal entity and payment mode before tagging customer allocation.">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-1.5"><Label>Company <span className="text-destructive">*</span></Label>
-                <Select value={company} onValueChange={setCompany}>
-                  <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
-                  <SelectContent><SelectItem value="LLP">LLP</SelectItem><SelectItem value="YES YES">YES YES</SelectItem><SelectItem value="Zekon">Zekon</SelectItem></SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5"><Label>Mode of Receipt <span className="text-destructive">*</span></Label>
-                  <Select value={modeOfReceipt} onValueChange={(value) => setModeOfReceipt(value as PaymentModeEnum)}>
-                    <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
-                  <SelectContent><SelectItem value="Cash">Cash</SelectItem><SelectItem value="Cheque">Cheque</SelectItem><SelectItem value="Bank Transfer">Bank Transfer</SelectItem><SelectItem value="UPI">UPI</SelectItem></SelectContent>
-                </Select>
-              </div>
+      <form onSubmit={handleSubmit} className="space-y-8 relative">
+        
+        {/* Section 1: Entity & Mode */}
+        <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/50 dark:bg-slate-900/40 backdrop-blur-md shadow-sm overflow-hidden transition-all hover:border-slate-300/80 dark:hover:border-slate-700">
+          <div className="px-6 py-5 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-xl">
+              <Building2 size={20} />
             </div>
-          </FormSection>
-
-          <FormSection title="Brand Assignment" subtitle="Assign internal brand reference for downstream reporting.">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-1.5"><Label>Ref Brand <span className="text-destructive">*</span></Label>
-                <Select value={brand} onValueChange={setBrand}>
-                  <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
-                  <SelectContent>{brands.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              {brand === 'Other' && (
-                <div className="space-y-1.5"><Label>Custom Brand <span className="text-destructive">*</span></Label>
-                  <Input value={otherBrand} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOtherBrand(e.target.value)} placeholder="Enter details..." required />
-                </div>
-              )}
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Transaction Routing</h3>
+              <p className="text-xs text-slate-500">Legal entity and payment medium</p>
             </div>
-          </FormSection>
-
-          <FormSection title="Customer Info" action={
-            <div className="flex gap-2">
-              <Pill active={customerType === 'existing'} onClick={() => handleCustomerTypeChange('existing')}>Existing</Pill>
-              <Pill active={customerType === 'new'} onClick={() => handleCustomerTypeChange('new')}>New</Pill>
-            </div>
-          }>
-            <div className="space-y-5">
-              {customerType === 'existing' ? (
-                <div className="space-y-1.5">
-                  <Label>Select Customer <span className="text-destructive">*</span></Label>
-                  <Select value={selectedCustomerId} onValueChange={handleCustomerSelect}>
-                    <SelectTrigger><SelectValue placeholder="Search customers..." /></SelectTrigger>
-                    <SelectContent>{customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-1.5">
-                    <Label>Customer Name <span className="text-destructive">*</span></Label>
-                    <Input value={customerName} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomerName(e.target.value)} placeholder="Enter name" required />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div className="space-y-1.5">
-                      <Label>Phone <span className="text-destructive">*</span></Label>
-                      <div className="relative">
-                        <Input type="tel" value={customerPhone} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }}
-                          placeholder="Enter mobile..." required className={phoneAutoFilled ? 'bg-primary/5 border-primary/20' : ''} />
-                        {phoneAutoFilled && <Info size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-primary" />}
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>GST / PAN</Label>
-                      <div className="relative">
-                        <Input value={customerGst} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setCustomerGst(e.target.value); setGstAutoFilled(false); }}
-                          placeholder="Optional" className={gstAutoFilled ? 'bg-primary/5 border-primary/20' : ''} />
-                        {gstAutoFilled && <Info size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-primary" />}
-                      </div>
-                    </div>
-                    <div className="space-y-1.5 md:col-span-2">
-                      <Label>Billing Address <span className="text-destructive">*</span></Label>
-                      <div className="relative">
-                        <Textarea value={customerAddress} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }}
-                          placeholder="Enter address..." rows={2} required className={`resize-none ${addressAutoFilled ? 'bg-primary/5 border-primary/20' : ''}`} />
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </FormSection>
-
-          <FormSection title="Financial Allocation" subtitle="Map received amount either against an invoice or as advance.">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="space-y-1.5">
-                <Label>Amount Received (₹) <span className="text-destructive">*</span></Label>
-                <Input type="number" value={receivedAmount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedAmount(e.target.value)} placeholder="0.00" required className="font-mono text-lg" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Received Date <span className="text-destructive">*</span></Label>
-                <Input type="date" value={receivedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedDate(e.target.value)} required />
-              </div>
-
-              <div className="space-y-1.5 md:col-span-2"><Label>On Account Of <span className="text-destructive">*</span></Label>
-                <Select value={onAccountOf} onValueChange={v => { setOnAccountOf(v as 'Invoice' | 'Advance'); setSelectedOrderId(''); }}>
-                  <SelectTrigger><SelectValue placeholder="Invoice or Advance?" /></SelectTrigger>
-                  <SelectContent><SelectItem value="Invoice">Against Invoice/Order</SelectItem><SelectItem value="Advance">Advance Payment</SelectItem></SelectContent>
-                </Select>
-              </div>
-
-              {onAccountOf === 'Invoice' && invoiceCustomerId && (
-                <div className="space-y-1.5 md:col-span-2"><Label>Select Invoice <span className="text-destructive">*</span></Label>
-                  <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
-                    <SelectTrigger className="h-auto py-2"><SelectValue placeholder="Select an approved invoice..." /></SelectTrigger>
-                    <SelectContent>
-                      {customerFilteredOrders.map(o => (
-                        <SelectItem key={o.id} value={o.id}>
-                          <div className="flex flex-col py-0.5 space-y-0.5">
-                            <span className="font-semibold text-foreground">{o.invoice_number ?? o.order_number}</span>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground w-full">
-                              <span className="truncate max-w-[120px]">{o.customers?.name}</span>
-                              <span className="shrink-0">•</span>
-                              <span className="font-mono text-primary font-medium">₹{o.grand_total?.toLocaleString('en-IN')}</span>
-                              <span className="shrink-0">•</span>
-                              <span className="font-mono">{new Date(o.created_at).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                      {customerFilteredOrders.length === 0 && (
-                        <SelectItem value="none" disabled>No pending invoices for this customer</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {onAccountOf === 'Invoice' && !invoiceCustomerId && (
-                <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                  Select an existing customer first to load invoice options.
-                </div>
-              )}
-            </div>
-          </FormSection>
-
-          {modeOfReceipt === 'Cheque' && (
-            <FormSection title="Cheque Details">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-1.5"><Label>Cheque/Ref Number <span className="text-destructive">*</span></Label>
-                  <Input value={chequeNumber} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setChequeNumber(e.target.value)} placeholder="Enter ref..." required />
-                </div>
-                <div className="space-y-1.5"><Label>Cheque/Transfer Date <span className="text-destructive">*</span></Label>
-                  <Input type="date" value={chequeDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setChequeDate(e.target.value)} required />
-                </div>
-              </div>
-            </FormSection>
-          )}
-
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 flex items-start gap-2">
-            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-            <span>Before saving, verify invoice selection and amount. Receipt records are financial entries and should not be duplicated.</span>
           </div>
+          <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+            <div className="space-y-2 group">
+              <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Company Entity <span className="text-rose-500">*</span></Label>
+              <Select value={company} onValueChange={setCompany}>
+                <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20"><SelectValue placeholder="Select company branch" /></SelectTrigger>
+                <SelectContent className="rounded-xl"><SelectItem value="LLP">LLP</SelectItem><SelectItem value="YES YES">YES YES</SelectItem><SelectItem value="Zekon">Zekon</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 group">
+              <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Mode of Receipt <span className="text-rose-500">*</span></Label>
+              <Select value={modeOfReceipt} onValueChange={(value) => setModeOfReceipt(value as PaymentModeEnum)}>
+                <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20"><SelectValue placeholder="Select payment channel" /></SelectTrigger>
+                <SelectContent className="rounded-xl"><SelectItem value="Cash">Cash Currency</SelectItem><SelectItem value="Cheque">Bank Cheque</SelectItem><SelectItem value="Bank Transfer">NEFT / RTGS</SelectItem><SelectItem value="UPI">UPI / Digital</SelectItem></SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
 
-          <div className="sticky bottom-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 rounded-xl border border-border p-3 flex flex-col-reverse sm:flex-row gap-3 sm:items-center sm:justify-between">
-            <p className="text-xs text-muted-foreground">Required fields are marked with *. Use Cancel to safely discard this draft.</p>
-            <div className="flex gap-3">
-            <Button type="submit" disabled={loading} className="w-full sm:w-auto min-w-[160px]">
-              {loading ? 'Saving...' : 'Save Receipt'}
-            </Button>
-            <Button type="button" variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
+        {/* Section 2: Financial Amount */}
+        <div className="rounded-3xl border border-teal-200/50 dark:border-teal-900/30 bg-gradient-to-br from-teal-50/30 to-cyan-50/10 dark:from-teal-950/20 dark:to-cyan-950/10 backdrop-blur-md shadow-sm overflow-hidden relative">
+          <div className="absolute right-0 top-0 w-64 h-64 bg-teal-400/10 dark:bg-teal-400/5 blur-3xl opacity-50 pointer-events-none rounded-full" />
+          <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+            <div className="space-y-3 md:col-span-2 lg:col-span-1">
+              <Label className="text-xs uppercase tracking-wider text-teal-700 dark:text-teal-400 font-bold">Principal Amount <span className="text-rose-500">*</span></Label>
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors">
+                  <IndianRupee size={24} />
+                </div>
+                <Input type="number" value={receivedAmount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedAmount(e.target.value)} placeholder="0.00" required className="pl-12 h-16 text-3xl font-bold font-mono bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-inner rounded-2xl focus-visible:ring-teal-500/30" />
+              </div>
+            </div>
+            <div className="space-y-3">
+               <Label className="text-xs uppercase tracking-wider text-teal-700 dark:text-teal-400 font-bold">Realization Date <span className="text-rose-500">*</span></Label>
+               <div className="relative group">
+                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors">
+                   <Calendar size={18} />
+                 </div>
+                 <Input type="date" value={receivedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedDate(e.target.value)} required className="pl-12 h-16 text-lg font-medium bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-inner rounded-2xl focus-visible:ring-teal-500/30 [&::-webkit-calendar-picker-indicator]:opacity-50" />
+               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Brand */}
+        <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/50 dark:bg-slate-900/40 backdrop-blur-md shadow-sm overflow-hidden transition-all hover:border-slate-300/80 dark:hover:border-slate-700">
+          <div className="px-6 py-5 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-3">
+            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-xl">
+              <Tag size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Brand Assignment</h3>
+              <p className="text-xs text-slate-500">Internal metrics tagging</p>
+            </div>
+          </div>
+          <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+            <div className="space-y-2 group">
+              <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Ref Brand <span className="text-rose-500">*</span></Label>
+              <Select value={brand} onValueChange={setBrand}>
+                <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"><SelectValue placeholder="Select primary brand" /></SelectTrigger>
+                <SelectContent className="rounded-xl">{brands.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            {brand === 'Other' && (
+              <div className="space-y-2 group animate-in slide-in-from-left-4 duration-300">
+                <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Custom Brand <span className="text-rose-500">*</span></Label>
+                <Input value={otherBrand} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOtherBrand(e.target.value)} placeholder="Type manually..." required className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section 4: Customer Details */}
+        <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/50 dark:bg-slate-900/40 backdrop-blur-md shadow-sm overflow-hidden transition-all hover:border-slate-300/80 dark:hover:border-slate-700">
+          <div className="px-6 py-5 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl">
+                <User size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Customer Profile</h3>
+                <p className="text-xs text-slate-500">Target identity for ledger entry</p>
+              </div>
+            </div>
+            <div className="flex p-1 bg-slate-200/50 dark:bg-slate-800 rounded-xl">
+              <button type="button" onClick={() => handleCustomerTypeChange('existing')} className={`flex-1 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${customerType === 'existing' ? 'bg-white dark:bg-slate-700 text-primary scale-100 ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 scale-95'}`}>Database</button>
+              <button type="button" onClick={() => handleCustomerTypeChange('new')} className={`flex-1 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${customerType === 'new' ? 'bg-white dark:bg-slate-700 text-primary scale-100 ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 scale-95'}`}>New Entry</button>
+            </div>
+          </div>
+          
+          <div className="p-6 md:p-8 animate-in fade-in duration-300">
+            {customerType === 'existing' ? (
+              <div className="space-y-3 group max-w-xl">
+                <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Lookup Directory <span className="text-rose-500">*</span></Label>
+                <div className="relative">
+                  <Select value={selectedCustomerId} onValueChange={handleCustomerSelect}>
+                    <SelectTrigger className="h-14 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border-slate-200 dark:border-slate-700 text-base"><SelectValue placeholder="Search by name or phone..." /></SelectTrigger>
+                    <SelectContent className="rounded-2xl max-h-[300px]">{customers.map(c => <SelectItem key={c.id} value={c.id} className="py-3 font-medium">{c.name} <span className="text-slate-400 text-xs ml-2 font-mono">({c.phone})</span></SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                <div className="space-y-2 md:col-span-2 group">
+                  <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Legal Name <span className="text-rose-500">*</span></Label>
+                  <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Full business or personal name" required className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50" />
+                </div>
+                <div className="space-y-2 group">
+                  <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Contact Number <span className="text-rose-500">*</span></Label>
+                  <div className="relative">
+                    <Input type="tel" value={customerPhone} onChange={(e) => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }} placeholder="Primary phone" required className={`h-12 rounded-xl ${phoneAutoFilled ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 dark:bg-slate-800/50'}`} />
+                    {phoneAutoFilled && <Info size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary" />}
+                  </div>
+                </div>
+                <div className="space-y-2 group">
+                  <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Tax ID (GST/PAN)</Label>
+                  <div className="relative">
+                    <Input value={customerGst} onChange={(e) => { setCustomerGst(e.target.value); setGstAutoFilled(false); }} placeholder="Optional tax reference" className={`h-12 rounded-xl ${gstAutoFilled ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 dark:bg-slate-800/50'}`} />
+                    {gstAutoFilled && <Info size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary" />}
+                  </div>
+                </div>
+                <div className="space-y-2 md:col-span-2 group">
+                  <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Billing/Shipping Address <span className="text-rose-500">*</span></Label>
+                  <Textarea value={customerAddress} onChange={(e) => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }} placeholder="Complete regional address..." rows={3} required className={`resize-none rounded-xl ${addressAutoFilled ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 dark:bg-slate-800/50'}`} />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section 5: Target Allocation */}
+        <div className="rounded-3xl border border-rose-200/50 dark:border-rose-900/30 bg-gradient-to-tr from-rose-50/20 to-orange-50/10 dark:from-rose-950/10 dark:to-orange-950/10 backdrop-blur-md shadow-sm overflow-hidden">
+          <div className="px-6 py-5 border-b border-rose-200/40 dark:border-rose-800/40 bg-white/40 dark:bg-slate-900/40 flex items-center gap-3">
+            <div className="p-2 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 rounded-xl">
+              <FileText size={20} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Fund Allocation</h3>
+              <p className="text-xs text-slate-500">Settle against ledger invoice or hold as advance</p>
+            </div>
+          </div>
+          
+          <div className="p-6 md:p-8 space-y-6">
+            <div className="space-y-2 max-w-sm group">
+              <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-rose-600">Allocation Type <span className="text-rose-500">*</span></Label>
+              <Select value={onAccountOf} onValueChange={v => { setOnAccountOf(v as 'Invoice' | 'Advance'); setSelectedOrderId(''); }}>
+                <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900"><SelectValue placeholder="Declare intent" /></SelectTrigger>
+                <SelectContent className="rounded-xl"><SelectItem value="Invoice">Against Pending Invoice</SelectItem><SelectItem value="Advance">Credit as Advance Hold</SelectItem></SelectContent>
+              </Select>
+            </div>
+
+            {onAccountOf === 'Invoice' && invoiceCustomerId && (
+              <div className="space-y-2 group animate-in fade-in slide-in-from-bottom-2">
+                <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-rose-600">Select Unpaid Invoice <span className="text-rose-500">*</span></Label>
+                <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
+                  <SelectTrigger className="h-auto py-3 rounded-xl bg-white dark:bg-slate-900 shadow-inner border-slate-200 dark:border-slate-700">
+                    <SelectValue placeholder="Choose target document..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl max-h-[300px]">
+                    {customerFilteredOrders.map(o => (
+                      <SelectItem key={o.id} value={o.id} className="py-2.5">
+                        <div className="flex flex-col gap-1 w-full text-left">
+                          <span className="font-bold text-foreground text-sm uppercase tracking-wide">{o.invoice_number ?? o.order_number}</span>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground w-full">
+                           <span className="truncate max-w-[150px] font-medium">{o.customers?.name}</span>
+                            <span className="shrink-0 opacity-40">•</span>
+                            <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/30 px-1.5 rounded">₹{o.grand_total?.toLocaleString('en-IN')}</span>
+                            <span className="shrink-0 opacity-40">•</span>
+                            <span className="font-mono">{new Date(o.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                    {customerFilteredOrders.length === 0 && <SelectItem value="none" disabled>No pending documents linked to this identity</SelectItem>}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            {onAccountOf === 'Invoice' && !invoiceCustomerId && (
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 dark:bg-amber-950/20 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber-500 flex items-center gap-3">
+                <Info size={18} />
+                Map a Customer Identity first to query outstanding records.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section 6: Cheque Options */}
+        {modeOfReceipt === 'Cheque' && (
+          <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/50 dark:bg-slate-900/40 backdrop-blur-md shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4">
+             <div className="px-6 py-5 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50">
+               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Cheque Parameters</h3>
+             </div>
+             <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2 group">
+                  <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Reference ID <span className="text-rose-500">*</span></Label>
+                  <Input value={chequeNumber} onChange={(e) => setChequeNumber(e.target.value)} placeholder="000123" required className="h-12 rounded-xl bg-slate-50 font-mono text-lg" />
+                </div>
+                <div className="space-y-2 group">
+                  <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Instrument Date <span className="text-rose-500">*</span></Label>
+                  <Input type="date" value={chequeDate} onChange={(e) => setChequeDate(e.target.value)} required className="h-12 rounded-xl bg-slate-50 font-medium" />
+                </div>
+             </div>
+          </div>
+        )}
+
+        <div className="rounded-2xl border border-amber-200/60 bg-amber-50/50 dark:bg-amber-950/20 px-4 py-3 text-xs text-amber-700 dark:text-amber-500 flex items-start gap-3 w-max max-w-full">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0 opacity-80" />
+          <span className="font-medium leading-relaxed">Cross-check selected invoice and nominal values. Receipt finalization permanently impacts customer ledger balance.</span>
+        </div>
+
+        {/* Floating Action Controller */}
+        <div className="sticky bottom-4 z-30 bg-background/90 backdrop-blur-xl shadow-2xl rounded-2xl border border-slate-200/80 dark:border-slate-700 p-4 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between transform transition-all hover:bg-background/95">
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-2">Fields dotted directly with <span className="text-rose-500">*</span> are mandatory.</p>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button type="button" variant="outline" onClick={handleCancel} className="flex-1 sm:flex-none h-12 px-6 rounded-xl border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold transition-all">
               Cancel
             </Button>
-            </div>
+            <Button type="submit" disabled={loading} className="flex-1 sm:flex-none h-12 px-8 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold tracking-wide shadow-lg hover:shadow-primary/25 transition-all w-full sm:min-w-[180px] text-sm">
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Committing...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  Confirm Receipt <ChevronRight size={16} />
+                </div>
+              )}
+            </Button>
           </div>
-        </form>
-      </FormCard>
+        </div>
+
+      </form>
     </div>
   );
 };
