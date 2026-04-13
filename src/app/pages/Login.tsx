@@ -7,6 +7,7 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { cloneCompanyProfiles, getPrimaryCompanyName, loadCompanyProfiles } from '@/app/companyProfiles';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
@@ -15,8 +16,16 @@ export const Login = () => {
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetCooldown, setResetCooldown] = useState(0);
+  const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
   const { login } = useAuth();
   const navigate = useNavigate();
+  const primaryCompanyName = getPrimaryCompanyName(companyProfiles);
+
+  React.useEffect(() => {
+    void loadCompanyProfiles()
+      .then(setCompanyProfiles)
+      .catch(() => undefined);
+  }, []);
 
   React.useEffect(() => {
     if (resetCooldown <= 0) return;
@@ -76,10 +85,10 @@ export const Login = () => {
               className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5 shadow-lg"
               style={{ background: 'linear-gradient(135deg, #3bbfb6, #2a9d94)' }}
             >
-              <img src="/logo.jpg" alt="YES YES" className="w-8 h-8 object-contain rounded-lg" />
+              <img src="/logo.jpg" alt={primaryCompanyName} className="w-8 h-8 object-contain rounded-lg" />
             </div>
             <h1 className="text-xl font-bold text-[#0d1117] tracking-tight">Welcome back</h1>
-            <p className="text-sm text-[#6b7a8d] mt-1">Sign in to YES YES ERP</p>
+            <p className="text-sm text-[#6b7a8d] mt-1">Sign in to {primaryCompanyName} ERP</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -92,7 +101,7 @@ export const Login = () => {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="name@yesyes.com"
+                placeholder="name@company.com"
                 required
                 className="h-11 bg-[#f5f7fa] border-[#dde2ea] focus:border-[#34b0a7] focus:ring-2 focus:ring-[#34b0a7]/20 transition-all rounded-xl text-sm"
               />
@@ -153,7 +162,7 @@ export const Login = () => {
         </div>
 
         <p className="text-center text-[10px] font-bold tracking-widest text-[#6b7a8d] mt-6 uppercase">
-          YES YES MARKETING · ERP
+          {primaryCompanyName} · ERP
         </p>
       </div>
     </div>

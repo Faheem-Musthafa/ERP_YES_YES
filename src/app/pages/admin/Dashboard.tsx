@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { fmt, fmtK, isCollectedReceiptStatus } from '@/app/utils';
+import { loadStockHealthSummary } from '@/app/stockHealth';
 import { Link } from 'react-router';
 import { PageHeader, DataCard, Spinner, StatusBadge, EmptyState, ErrorState } from '@/app/components/ui/primitives';
 
@@ -108,8 +109,8 @@ interface RecentOrder {
 interface LowStockProduct {
   id: string;
   name: string;
-  stock_qty: number;
-  brands: { name: string } | null;
+  totalStock: number;
+  brandName: string | null;
 }
 
 // ── Chart configs ─────────────────────────────────────────────────────────────
@@ -148,7 +149,7 @@ export const AdminDashboard = () => {
       let ordersQuery = supabase.from('orders').select('id, status, grand_total, created_by, created_at, order_number, customers(name)').order('created_at', { ascending: false });
       if (rangeStart) ordersQuery = ordersQuery.gte('created_at', rangeStart.toISOString());
 
-      let receiptsQuery = supabase.from('receipts').select('id, amount, payment_status');
+      let receiptsQuery = supabase.from('receipts').select('id, amount, payment_status').or('payment_status.is.null,payment_status.neq.Voided');
       if (rangeStart) receiptsQuery = receiptsQuery.gte('created_at', rangeStart.toISOString());
 
       const [
@@ -159,20 +160,20 @@ export const AdminDashboard = () => {
         { data: monthReceipts, error: monthReceiptsError },
         { data: chartReceipts, error: chartReceiptsError },
         { data: allUsers, error: allUsersError },
-        { data: products, error: productsError },
         { data: customers, error: customersError },
+        stockHealth,
       ] = await Promise.all([
         ordersQuery,
         supabase.from('orders').select('id, status, grand_total, created_by').gte('created_at', monthStart),
         supabase.from('orders').select('id, status, grand_total').gte('created_at', prevMonthStart).lte('created_at', prevMonthEnd),
         receiptsQuery,
-        supabase.from('receipts').select('id, amount, payment_status').gte('created_at', monthStart),
-        supabase.from('receipts').select('id, amount, payment_status, created_at').gte('created_at', chartStart),
+        supabase.from('receipts').select('id, amount, payment_status').or('payment_status.is.null,payment_status.neq.Voided').gte('created_at', monthStart),
+        supabase.from('receipts').select('id, amount, payment_status, created_at').or('payment_status.is.null,payment_status.neq.Voided').gte('created_at', chartStart),
         supabase.from('users').select('id, full_name, role, is_active'),
-        supabase.from('products').select('id, name, stock_qty, brands(name)').eq('is_active', true),
         supabase.from('customers').select('id', { count: 'exact' }),
+        loadStockHealthSummary(5, 6),
       ]);
-      const fetchError = allOrdersError || monthOrdersError || prevMonthOrdersError || allReceiptsError || monthReceiptsError || chartReceiptsError || allUsersError || productsError || customersError;
+      const fetchError = allOrdersError || monthOrdersError || prevMonthOrdersError || allReceiptsError || monthReceiptsError || chartReceiptsError || allUsersError || customersError;
       if (fetchError) throw new Error(fetchError.message);
 
       const validStatuses = ['Approved', 'Billed', 'Delivered'];
@@ -220,8 +221,7 @@ export const AdminDashboard = () => {
       });
       setTopSalesmen(Object.values(salesByUser).sort((a, b) => b.total - a.total).slice(0, 5));
 
-      const lowStockProds = (products ?? []).filter(p => p.stock_qty <= 5);
-      setLowStockItems(lowStockProds.slice(0, 6) as LowStockProduct[]);
+      setLowStockItems(stockHealth.lowStockItems as LowStockProduct[]);
       setRecentOrders((allOrders ?? []).slice(0, 8) as RecentOrder[]);
 
       const all = allOrders ?? [];
@@ -236,8 +236,8 @@ export const AdminDashboard = () => {
         rejectedOrders: all.filter(o => o.status === 'Rejected').length,
         totalStaff: (allUsers ?? []).length,
         activeStaff: (allUsers ?? []).filter(u => u.is_active).length,
-        totalProducts: (products ?? []).length,
-        lowStockCount: lowStockProds.length,
+        totalProducts: stockHealth.totalProducts,
+        lowStockCount: stockHealth.lowStockCount,
         totalCustomers: customers?.length ?? 0,
       });
     } catch (err: any) {
@@ -628,11 +628,11 @@ export const AdminDashboard = () => {
                       <TableRow key={p.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 border-0 group">
                         <TableCell className="pl-6">
                            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{p.name}</p>
-                           <p className="text-[11px] font-semibold text-slate-400 mt-0.5">{(p.brands as { name: string } | null)?.name ?? '—'}</p>
+                           <p className="text-[11px] font-semibold text-slate-400 mt-0.5">{p.brandName ?? '—'}</p>
                         </TableCell>
                         <TableCell className="text-right pr-6">
-                           <div className={`inline-flex px-3 py-1.5 rounded-lg text-sm font-black font-mono shadow-sm ${p.stock_qty === 0 ? 'bg-rose-500 text-white animate-pulse' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>
-                             {p.stock_qty === 0 ? 'DEPLETED' : `${p.stock_qty}x`}
+                           <div className={`inline-flex px-3 py-1.5 rounded-lg text-sm font-black font-mono shadow-sm ${p.totalStock === 0 ? 'bg-rose-500 text-white animate-pulse' : 'bg-amber-100 text-amber-700 border border-amber-200'}`}>
+                             {p.totalStock === 0 ? 'DEPLETED' : `${p.totalStock}x`}
                            </div>
                         </TableCell>
                       </TableRow>

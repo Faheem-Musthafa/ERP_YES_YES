@@ -61,7 +61,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
 | Table | Description |
 |-------|-------------|
-| `product_stock_locations` | **Stock per location** - Kottakkal or Chenakkal |
+| `product_stock_locations` | **Stock per location** - dynamic location names from settings (`godowns`) |
 | `stock_movements` | Audit trail for all stock changes |
 | `stock_transfers` | Records of stock moved between locations |
 | `stock_adjustments` | Manual stock corrections |
@@ -114,13 +114,28 @@ FROM stock_transfers;
 
 Expected: `product_stock_locations` should have rows (2x number of products if migration included both locations).
 
+### Step 4: Remove Enums and Enable Dynamic Master-Data CRUD
+
+Copy and run `docs/ENUM_TO_DYNAMIC_SETTINGS_MIGRATION.sql`.
+
+This migration:
+- Converts `district_enum`, `vehicle_type_enum`, and `godown_enum` columns to `text`
+- Drops those enum types from the public schema
+- Adds secure RPCs for settings-page CRUD:
+  - `create_master_setting_option`
+  - `update_master_setting_option`
+  - `delete_master_setting_option`
+- Rebuilds stock/order transactional RPCs to validate against settings values
+
+Run this migration before hardening/idempotency wrapper scripts.
+
 ## TypeScript Types
 
 The database types are defined in `src/app/types/database.ts`. Key types include:
 
 ```typescript
-// Location enum
-export type GodownEnum = 'Kottakkal' | 'Chenakkal';
+// Location values are now dynamic strings from settings
+export type GodownEnum = string;
 
 // Stock location tracking
 product_stock_locations: {
@@ -163,7 +178,7 @@ stock_transfers: {
 ### Automated Stock Updates
 
 1. **GRN Receipt** - When goods are received:
-   - User selects receiving location (Kottakkal/Chenakkal)
+  - User selects receiving location (from settings `godowns`)
    - Stock automatically added to that location
    - Movement logged as `grn_receipt`
 
@@ -205,11 +220,13 @@ const { data, error } = await supabase
 
 **Update stock at a location:**
 ```typescript
+const location = 'Configured Godown Name';
+
 const { error } = await supabase
   .from('product_stock_locations')
   .upsert({
     product_id: productId,
-    location: 'Kottakkal',
+    location,
     stock_qty: newQuantity
   }, {
     onConflict: 'product_id,location'
@@ -241,6 +258,7 @@ Recommended production baseline:
 - Keep privileged writes inside secured RPC functions
 
 Use this hardened migration for production policy/function setup:
+- `docs/ENUM_TO_DYNAMIC_SETTINGS_MIGRATION.sql`
 - `docs/SECURITY_TRANSACTION_HARDENING.sql`
 - `docs/RPC_IDEMPOTENCY_WRAPPERS.sql`
 - `docs/COMPANY_PROFILE_SETTINGS_MIGRATION.sql`
@@ -270,11 +288,15 @@ Use this hardened migration for production policy/function setup:
 
 2. **Missing location entries**
    ```sql
-   -- Create missing entries
+  -- Create missing entries for configured godowns
    INSERT INTO product_stock_locations (product_id, location, stock_qty)
    SELECT p.id, loc.location, 0
    FROM products p
-   CROSS JOIN (VALUES ('Kottakkal'), ('Chenakkal')) AS loc(location)
+  CROSS JOIN LATERAL (
+    SELECT jsonb_array_elements_text(s.value) AS location
+    FROM settings s
+    WHERE s.key = 'godowns'
+  ) AS loc
    WHERE p.is_active = true
    ON CONFLICT (product_id, location) DO NOTHING;
    ```

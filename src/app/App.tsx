@@ -27,6 +27,7 @@ const AdminSettings = lazy(() => import('@/app/pages/admin/Settings').then(m => 
 // Sales
 const SalesDashboard = lazy(() => import('@/app/pages/sales/Dashboard').then(m => ({ default: m.SalesDashboard })));
 const CreateOrder = lazy(() => import('@/app/pages/sales/CreateOrder').then(m => ({ default: m.CreateOrder })));
+const CreditNote = lazy(() => import('@/app/pages/sales/CreditNote').then(m => ({ default: m.CreditNote })));
 const MyOrders = lazy(() => import('@/app/pages/sales/MyOrders').then(m => ({ default: m.MyOrders })));
 const MyCustomers = lazy(() => import('@/app/pages/sales/MyCustomers').then(m => ({ default: m.MyCustomers })));
 const ReceiptEntry = lazy(() => import('@/app/pages/sales/ReceiptEntry').then(m => ({ default: m.ReceiptEntry })));
@@ -137,6 +138,7 @@ const AppRoutes = () => {
         {/* Sales Routes */}
         <Route path="/sales" element={<ProtectedRoute allowedRoles={['sales']}><SalesDashboard /></ProtectedRoute>} />
         <Route path="/sales/create-order" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><CreateOrder /></ProtectedRoute>} />
+        <Route path="/sales/credit-note" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><CreditNote /></ProtectedRoute>} />
         <Route path="/sales/my-orders" element={<ProtectedRoute allowedRoles={['sales']}><MyOrders /></ProtectedRoute>} />
         <Route path="/sales/my-customers" element={<ProtectedRoute allowedRoles={['sales']}><MyCustomers /></ProtectedRoute>} />
         <Route path="/sales/receipt" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><ReceiptEntry /></ProtectedRoute>} />
@@ -161,6 +163,7 @@ const AppRoutes = () => {
         <Route path="/inventory/products" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><Products /></ProtectedRoute>} />
         <Route path="/inventory/adjustment" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><StockAdjustment /></ProtectedRoute>} />
         <Route path="/inventory/transfer" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><StockTransfer /></ProtectedRoute>} />
+        <Route path="/sales/stock-transfer" element={<ProtectedRoute allowedRoles={['sales', 'admin', 'inventory']}><StockTransfer /></ProtectedRoute>} />
         <Route path="/inventory/reports" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><InventoryReports /></ProtectedRoute>} />
         <Route path="/inventory/delivery" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><DeliveryManagement /></ProtectedRoute>} />
 

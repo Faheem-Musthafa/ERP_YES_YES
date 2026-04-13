@@ -10,14 +10,14 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import { DataCard, EmptyState, FormSection, PageHeader, SearchBar } from '@/app/components/ui/primitives';
 import type { GodownEnum } from '@/app/types/database';
+import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
 
 interface ProductWithStock {
   id: string;
   name: string;
   sku: string;
   brands: { name: string } | null;
-  kottakkal_stock: number;
-  chenakkal_stock: number;
+  locationStocks: Record<string, number>;
   total_stock: number;
 }
 
@@ -36,8 +36,9 @@ export const StockTransfer = () => {
   const [products, setProducts] = useState<ProductWithStock[]>([]);
   const [recentTransfers, setRecentTransfers] = useState<TransferRow[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
-  const [fromLocation, setFromLocation] = useState<GodownEnum>('Kottakkal');
-  const [toLocation, setToLocation] = useState<GodownEnum>('Chenakkal');
+  const [fromLocation, setFromLocation] = useState('');
+  const [toLocation, setToLocation] = useState('');
+  const [locationOptions, setLocationOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.godowns);
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
@@ -45,7 +46,8 @@ export const StockTransfer = () => {
 
   const fetchData = async () => {
     try {
-      const [{ data: prod, error: prodError }, { data: transfers, error: transferError }] = await Promise.all([
+      const [settings, { data: prod, error: prodError }, { data: transfers, error: transferError }] = await Promise.all([
+        loadMasterDataSettings().catch(() => DEFAULT_MASTER_DATA_SETTINGS),
         supabase.from('products').select('id, name, sku, brands(name)').eq('is_active', true).order('name'),
         supabase
           .from('stock_transfers')
@@ -65,17 +67,55 @@ export const StockTransfer = () => {
 
       if (stockError) throw stockError;
 
+      const configuredLocations = Array.from(
+        new Set(
+          settings.godowns
+            .map((location) => location.trim())
+            .filter((location) => location.length > 0),
+        ),
+      );
+      const detectedLocations = Array.from(
+        new Set(
+          (stockData ?? [])
+            .map((row: any) => (typeof row.location === 'string' ? row.location.trim() : ''))
+            .filter((value: string) => value.length > 0),
+        ),
+      );
+      const nextLocationOptions = configuredLocations.length > 0
+        ? configuredLocations
+        : detectedLocations;
+      setLocationOptions(nextLocationOptions);
+      const defaultFrom = nextLocationOptions[0] || '';
+      const defaultTo = nextLocationOptions.find((location) => location !== defaultFrom) || defaultFrom;
+      setFromLocation((current) => {
+        if (current && nextLocationOptions.includes(current)) return current;
+        return defaultFrom;
+      });
+      setToLocation((current) => {
+        if (current && nextLocationOptions.includes(current)) return current;
+        return defaultTo;
+      });
+
+      const stockByProduct = new Map<string, Record<string, number>>();
+      (stockData ?? []).forEach((row: any) => {
+        const location = typeof row.location === 'string' ? row.location.trim() : '';
+        if (!location) return;
+        const existing = stockByProduct.get(row.product_id) ?? {};
+        existing[location] = row.stock_qty ?? 0;
+        stockByProduct.set(row.product_id, existing);
+      });
+
       const productsWithStock: ProductWithStock[] = (prod ?? []).map(p => {
-        const kottakkalStock = stockData?.find(s => s.product_id === p.id && s.location === 'Kottakkal');
-        const chenakkalStock = stockData?.find(s => s.product_id === p.id && s.location === 'Chenakkal');
-        const kottakkal_stock = kottakkalStock?.stock_qty ?? 0;
-        const chenakkal_stock = chenakkalStock?.stock_qty ?? 0;
+        const locationStocks = stockByProduct.get(p.id) ?? {};
+        const total_stock = nextLocationOptions.reduce(
+          (sum, location) => sum + (locationStocks[location] ?? 0),
+          0,
+        );
 
         return {
           ...p,
-          kottakkal_stock,
-          chenakkal_stock,
-          total_stock: kottakkal_stock + chenakkal_stock,
+          locationStocks,
+          total_stock,
         };
       });
 
@@ -90,12 +130,31 @@ export const StockTransfer = () => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (fromLocation && !locationOptions.includes(fromLocation)) {
+      setFromLocation('');
+    }
+    if (toLocation && !locationOptions.includes(toLocation)) {
+      setToLocation('');
+    }
+  }, [fromLocation, toLocation, locationOptions]);
+
+  const getLocationStock = (product: ProductWithStock, location: string) =>
+    product.locationStocks[location] ?? 0;
+
+  const formatProductLocationSummary = (product: ProductWithStock) =>
+    locationOptions.map((location) => `${location}: ${getLocationStock(product, location)}`).join(' | ');
+
   const selectedProduct = products.find(p => p.id === selectedProductId);
   const fromStock = selectedProduct
-    ? fromLocation === 'Kottakkal'
-      ? selectedProduct.kottakkal_stock
-      : selectedProduct.chenakkal_stock
+    ? getLocationStock(selectedProduct, fromLocation)
     : 0;
+
+  const getDefaultTransferLocations = (options: string[]) => {
+    const from = options[0] || '';
+    const to = options.find((location) => location !== from) || from;
+    return { from, to };
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,8 +186,8 @@ export const StockTransfer = () => {
     try {
       const { error: transferErr } = await supabase.rpc('transfer_stock', {
         p_product_id: selectedProductId,
-        p_from_location: fromLocation,
-        p_to_location: toLocation,
+        p_from_location: fromLocation as GodownEnum,
+        p_to_location: toLocation as GodownEnum,
         p_quantity: qty,
         p_reason: reason || null,
         p_user_id: user?.id ?? null,
@@ -142,8 +201,9 @@ export const StockTransfer = () => {
       setSelectedProductId('');
       setQuantity('');
       setReason('');
-      setFromLocation('Kottakkal');
-      setToLocation('Chenakkal');
+      const defaults = getDefaultTransferLocations(locationOptions);
+      setFromLocation(defaults.from);
+      setToLocation(defaults.to);
       fetchData();
     } catch (err: any) {
       toast.error(err.message || 'Transfer failed');
@@ -169,7 +229,7 @@ export const StockTransfer = () => {
     <div className="space-y-5">
       <PageHeader
         title="Stock Transfer"
-        subtitle="Transfer stock between Kottakkal and Chenakkal locations"
+        subtitle="Transfer stock between configured locations"
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <DataCard className="p-6">
@@ -188,7 +248,7 @@ export const StockTransfer = () => {
                     <SelectContent>
                       {products.map(p => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.name} ({p.sku}) — K: {p.kottakkal_stock} | C: {p.chenakkal_stock}
+                          {p.name} ({p.sku}) — {formatProductLocationSummary(p)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -197,13 +257,12 @@ export const StockTransfer = () => {
                 {selectedProduct && (
                   <div className="text-sm bg-blue-50 p-3 rounded border border-blue-200">
                     <p className="font-semibold text-blue-900 mb-1">Current Stock Levels:</p>
-                    <div className="grid grid-cols-2 gap-2 text-blue-700">
-                      <div>
-                        Kottakkal: <strong>{selectedProduct.kottakkal_stock} units</strong>
-                      </div>
-                      <div>
-                        Chenakkal: <strong>{selectedProduct.chenakkal_stock} units</strong>
-                      </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-blue-700">
+                      {locationOptions.map((location) => (
+                        <div key={location}>
+                          {location}: <strong>{getLocationStock(selectedProduct, location)} units</strong>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -212,14 +271,17 @@ export const StockTransfer = () => {
                     <Label>From Location *</Label>
                     <Select
                       value={fromLocation}
-                      onValueChange={(v) => setFromLocation(v as GodownEnum)}
+                      onValueChange={setFromLocation}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Kottakkal">Kottakkal</SelectItem>
-                        <SelectItem value="Chenakkal">Chenakkal</SelectItem>
+                        {locationOptions.map((location) => (
+                          <SelectItem key={location} value={location}>
+                            {location}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     {selectedProduct && (
@@ -242,14 +304,17 @@ export const StockTransfer = () => {
                     <Label>To Location *</Label>
                     <Select
                       value={toLocation}
-                      onValueChange={(v) => setToLocation(v as GodownEnum)}
+                      onValueChange={setToLocation}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Kottakkal">Kottakkal</SelectItem>
-                        <SelectItem value="Chenakkal">Chenakkal</SelectItem>
+                        {locationOptions.map((location) => (
+                          <SelectItem key={location} value={location}>
+                            {location}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -296,8 +361,9 @@ export const StockTransfer = () => {
                       setSelectedProductId('');
                       setQuantity('');
                       setReason('');
-                      setFromLocation('Kottakkal');
-                      setToLocation('Chenakkal');
+                      const defaults = getDefaultTransferLocations(locationOptions);
+                      setFromLocation(defaults.from);
+                      setToLocation(defaults.to);
                     }}
                   >
                     Reset Form
@@ -334,32 +400,30 @@ export const StockTransfer = () => {
                       <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">
                         Product
                       </th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                        Kottakkal
-                      </th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                        Chenakkal
-                      </th>
+                      {locationOptions.map((location) => (
+                        <th key={location} className="text-right px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                          {location}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {filtered.map(p => (
                       <tr key={p.id} className="hover:bg-gray-50/70 transition-colors">
                         <td className="px-3 py-2 font-medium text-xs">{p.name}</td>
-                        <td
-                          className={`px-3 py-2 text-right font-bold text-xs ${
-                            p.kottakkal_stock <= 5 ? 'text-amber-600' : ''
-                          }`}
-                        >
-                          {p.kottakkal_stock}
-                        </td>
-                        <td
-                          className={`px-3 py-2 text-right font-bold text-xs ${
-                            p.chenakkal_stock <= 5 ? 'text-amber-600' : ''
-                          }`}
-                        >
-                          {p.chenakkal_stock}
-                        </td>
+                        {locationOptions.map((location) => {
+                          const locationQty = getLocationStock(p, location);
+                          return (
+                            <td
+                              key={location}
+                              className={`px-3 py-2 text-right font-bold text-xs ${
+                                locationQty <= 5 ? 'text-amber-600' : ''
+                              }`}
+                            >
+                              {locationQty}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>

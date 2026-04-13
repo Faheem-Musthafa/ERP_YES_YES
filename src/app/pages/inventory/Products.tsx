@@ -8,9 +8,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
-import { Plus, Pencil, Package, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Package, Archive, RotateCcw } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
+import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
+import { archiveRecoverableRecord, restoreRecoverableRecord } from '@/app/recovery';
 import {
   PageHeader, SearchBar, DataCard, FilterBar, FilterField,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -52,7 +54,7 @@ export const Products = () => {
   const [editing, setEditing] = useState<ProductStockRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', brand_id: '', sku: '', dealer_price: '', stock_qty: '0' });
-  const [deleteTarget, setDeleteTarget] = useState<ProductStockRow | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<ProductStockRow | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
@@ -113,6 +115,15 @@ export const Products = () => {
           .eq('id', editing.id);
         if (error) throw error; toast.success('Product updated!');
       } else {
+        const masterSettings = await loadMasterDataSettings().catch(() => DEFAULT_MASTER_DATA_SETTINGS);
+        const godowns = masterSettings.godowns
+          .map((location) => location.trim())
+          .filter((location) => location.length > 0);
+
+        if (godowns.length === 0) {
+          throw new Error('No godown configured in Settings. Add at least one godown before creating products.');
+        }
+
         const { data: createdProduct, error } = await supabase
           .from('products')
           .insert({ ...payload, is_active: true })
@@ -120,13 +131,19 @@ export const Products = () => {
           .single();
         if (error) throw error; toast.success('Product added!');
         if (createdProduct?.id) {
+          const stockSeedRows = godowns.map((location, index) => ({
+            product_id: createdProduct.id,
+            location,
+            stock_qty: index === 0 ? initialStock : 0,
+          }));
+
           const { error: stockInitError } = await supabase
             .from('product_stock_locations')
-            .insert([
-              { product_id: createdProduct.id, location: 'Kottakkal', stock_qty: initialStock },
-              { product_id: createdProduct.id, location: 'Chenakkal', stock_qty: 0 },
-            ]);
-          if (stockInitError) throw stockInitError;
+            .insert(stockSeedRows);
+          if (stockInitError) {
+            await supabase.from('products').delete().eq('id', createdProduct.id);
+            throw stockInitError;
+          }
         }
       }
       setOpen(false); fetchData();
@@ -134,10 +151,36 @@ export const Products = () => {
     finally { setSaving(false); }
   };
 
-  const deleteProduct = async (p: ProductStockRow) => {
-    const { error } = await supabase.from('products').delete().eq('id', p.id);
-    if (error) toast.error('Failed to delete product');
-    else { toast.success('Product deleted'); setDeleteTarget(null); fetchData(); }
+  const archiveProduct = async (p: ProductStockRow) => {
+    try {
+      await archiveRecoverableRecord({
+        table: 'products',
+        id: p.id,
+        entityLabel: p.name,
+        reason: 'Archived from Products management',
+        metadata: { sku: p.sku },
+      });
+      toast.success('Product archived');
+      setArchiveTarget(null);
+      await fetchData();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to archive product');
+    }
+  };
+
+  const restoreProduct = async (p: ProductStockRow) => {
+    try {
+      await restoreRecoverableRecord({
+        table: 'products',
+        id: p.id,
+        entityLabel: p.name,
+        metadata: { sku: p.sku },
+      });
+      toast.success('Product restored');
+      await fetchData();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to restore product');
+    }
   };
 
   const filtered = products.filter(p => {
@@ -216,14 +259,18 @@ export const Products = () => {
                             {p.live_stock_qty}
                           </span>
                         </StyledTd>
-                        <StyledTd><StatusBadge status={p.is_active ? 'Active' : 'Inactive'} /></StyledTd>
+                        <StyledTd><StatusBadge status={p.is_active ? 'Active' : 'Archived'} /></StyledTd>
                         <StyledTd right>
                           <div className="flex items-center justify-end gap-1">
                             <CustomTooltip content={`Edit ${p.name}`} side="top">
                               <IconBtn onClick={() => openEdit(p)}><Pencil size={14} /></IconBtn>
                             </CustomTooltip>
-                            <CustomTooltip content={`Delete ${p.name}`} side="top">
-                              <IconBtn onClick={() => setDeleteTarget(p)} danger><Trash2 size={13} /></IconBtn>
+                            <CustomTooltip content={p.is_active ? `Archive ${p.name}` : `Restore ${p.name}`} side="top">
+                              {p.is_active ? (
+                                <IconBtn onClick={() => setArchiveTarget(p)} danger><Archive size={13} /></IconBtn>
+                              ) : (
+                                <IconBtn onClick={() => void restoreProduct(p)}><RotateCcw size={13} /></IconBtn>
+                              )}
                             </CustomTooltip>
                           </div>
                         </StyledTd>
@@ -298,21 +345,21 @@ export const Products = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={open => !open && setDeleteTarget(null)}>
+      <AlertDialog open={Boolean(archiveTarget)} onOpenChange={open => !open && setArchiveTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete product permanently?</AlertDialogTitle>
+            <AlertDialogTitle>Archive product?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteTarget ? `Delete "${deleteTarget.name}" permanently? This action cannot be undone.` : ''}
+              {archiveTarget ? `Archive "${archiveTarget.name}" from active inventory lists? You can restore it later from this screen.` : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deleteTarget && void deleteProduct(deleteTarget)}
+              onClick={() => archiveTarget && void archiveProduct(archiveTarget)}
             >
-              Delete
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -47,6 +47,7 @@ export const MyCollection = () => {
       const { data, error: fetchError } = await supabase
         .from('receipts')
         .select('id, receipt_number, amount, payment_mode, payment_status, company, brand, on_account_of, received_date, created_at, customers(name), orders(order_number, invoice_number, grand_total, customers(name))')
+        .or('payment_status.is.null,payment_status.neq.Voided')
         .eq('recorded_by', user.id)
         .order('created_at', { ascending: false });
       if (fetchError) {
@@ -117,6 +118,7 @@ export const MyCollection = () => {
             const { data, error: fetchError } = await supabase
               .from('receipts')
               .select('id, receipt_number, amount, payment_mode, payment_status, company, brand, on_account_of, received_date, created_at, customers(name), orders(order_number, invoice_number, grand_total, customers(name))')
+              .or('payment_status.is.null,payment_status.neq.Voided')
               .eq('recorded_by', user.id)
               .order('created_at', { ascending: false });
             if (fetchError) setError(fetchError.message);

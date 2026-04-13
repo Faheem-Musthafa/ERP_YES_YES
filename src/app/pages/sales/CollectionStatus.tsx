@@ -74,6 +74,7 @@ export const CollectionStatus = () => {
     const { data, error: fetchError } = await supabase
       .from('receipts')
       .select('id, receipt_number, amount, payment_mode, payment_status, bounce_reason, company, brand, on_account_of, received_date, created_at, customers(name), orders(id, order_number, invoice_number, status, customers(name))')
+      .or('payment_status.is.null,payment_status.neq.Voided')
       .order('created_at', { ascending: false });
     if (fetchError) setError(fetchError.message);
     else setReceipts((data ?? []) as ReceiptRow[]);

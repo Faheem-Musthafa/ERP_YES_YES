@@ -10,14 +10,14 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import { DataCard, EmptyState, FormSection, PageHeader, SearchBar } from '@/app/components/ui/primitives';
 import type { GodownEnum } from '@/app/types/database';
+import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
 
 interface ProductWithStock {
   id: string;
   name: string;
   sku: string;
   brands: { name: string } | null;
-  kottakkal_stock: number;
-  chenakkal_stock: number;
+  locationStocks: Record<string, number>;
   total_stock: number;
 }
 
@@ -35,7 +35,8 @@ export const StockAdjustment = () => {
   const [products, setProducts] = useState<ProductWithStock[]>([]);
   const [recentAdjustments, setRecentAdjustments] = useState<AdjustmentRow[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState<GodownEnum>('Kottakkal');
+  const [selectedLocation, setSelectedLocation] = useState('');
+  const [locationOptions, setLocationOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.godowns);
   const [quantity, setQuantity] = useState('');
   const [type, setType] = useState<'Addition' | 'Subtraction'>('Addition');
   const [reason, setReason] = useState('');
@@ -44,7 +45,8 @@ export const StockAdjustment = () => {
 
   const fetchData = async () => {
     try {
-      const [{ data: prod, error: prodError }, { data: adj, error: adjError }] = await Promise.all([
+      const [settings, { data: prod, error: prodError }, { data: adj, error: adjError }] = await Promise.all([
+        loadMasterDataSettings().catch(() => DEFAULT_MASTER_DATA_SETTINGS),
         supabase.from('products').select('id, name, sku, brands(name)').eq('is_active', true).order('name'),
         supabase.from('stock_adjustments').select('id, quantity, type, reason, created_at, products(name, sku)').order('created_at', { ascending: false }).limit(20),
       ]);
@@ -60,17 +62,49 @@ export const StockAdjustment = () => {
 
       if (stockError) throw stockError;
 
+      const configuredLocations = Array.from(
+        new Set(
+          settings.godowns
+            .map((location) => location.trim())
+            .filter((location) => location.length > 0),
+        ),
+      );
+      const detectedLocations = Array.from(
+        new Set(
+          (stockData ?? [])
+            .map((row: any) => (typeof row.location === 'string' ? row.location.trim() : ''))
+            .filter((value: string) => value.length > 0),
+        ),
+      );
+      const nextLocationOptions = configuredLocations.length > 0
+        ? configuredLocations
+        : detectedLocations;
+      setLocationOptions(nextLocationOptions);
+      setSelectedLocation((current) => {
+        if (current && nextLocationOptions.includes(current)) return current;
+        return nextLocationOptions[0] || '';
+      });
+
+      const stockByProduct = new Map<string, Record<string, number>>();
+      (stockData ?? []).forEach((row: any) => {
+        const location = typeof row.location === 'string' ? row.location.trim() : '';
+        if (!location) return;
+        const existing = stockByProduct.get(row.product_id) ?? {};
+        existing[location] = row.stock_qty ?? 0;
+        stockByProduct.set(row.product_id, existing);
+      });
+
       const productsWithStock: ProductWithStock[] = (prod ?? []).map(p => {
-        const kottakkalStock = stockData?.find(s => s.product_id === p.id && s.location === 'Kottakkal');
-        const chenakkalStock = stockData?.find(s => s.product_id === p.id && s.location === 'Chenakkal');
-        const kottakkal_stock = kottakkalStock?.stock_qty ?? 0;
-        const chenakkal_stock = chenakkalStock?.stock_qty ?? 0;
+        const locationStocks = stockByProduct.get(p.id) ?? {};
+        const total_stock = nextLocationOptions.reduce(
+          (sum, location) => sum + (locationStocks[location] ?? 0),
+          0,
+        );
         
         return {
           ...p,
-          kottakkal_stock,
-          chenakkal_stock,
-          total_stock: kottakkal_stock + chenakkal_stock,
+          locationStocks,
+          total_stock,
         };
       });
 
@@ -82,9 +116,21 @@ export const StockAdjustment = () => {
   };
   useEffect(() => { fetchData(); }, []);
 
+  useEffect(() => {
+    if (selectedLocation && !locationOptions.includes(selectedLocation)) {
+      setSelectedLocation('');
+    }
+  }, [selectedLocation, locationOptions]);
+
+  const getLocationStock = (product: ProductWithStock, location: string) =>
+    product.locationStocks[location] ?? 0;
+
+  const formatProductLocationSummary = (product: ProductWithStock) =>
+    locationOptions.map((location) => `${location}: ${getLocationStock(product, location)}`).join(' | ');
+
   const selectedProduct = products.find(p => p.id === selectedProductId);
   const currentLocationStock = selectedProduct 
-    ? (selectedLocation === 'Kottakkal' ? selectedProduct.kottakkal_stock : selectedProduct.chenakkal_stock)
+    ? getLocationStock(selectedProduct, selectedLocation)
     : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,7 +150,7 @@ export const StockAdjustment = () => {
     try {
       const { data: adjustmentId, error: adjustmentErr } = await supabase.rpc('create_stock_adjustment_atomic', {
         p_product_id: selectedProductId,
-        p_location: selectedLocation,
+        p_location: selectedLocation as GodownEnum,
         p_quantity: qty,
         p_type: type,
         p_reason: reason,
@@ -117,7 +163,10 @@ export const StockAdjustment = () => {
       setSelectedProductId(''); 
       setQuantity(''); 
       setReason('');
-      setSelectedLocation('Kottakkal');
+      setSelectedLocation((current) => {
+        if (current && locationOptions.includes(current)) return current;
+        return locationOptions[0] || '';
+      });
       fetchData();
     } catch (err: any) {
       toast.error(err.message || 'Adjustment failed');
@@ -146,15 +195,16 @@ export const StockAdjustment = () => {
                   <Label>Product *</Label>
                   <Select value={selectedProductId} onValueChange={setSelectedProductId}>
                     <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
-                    <SelectContent>{products.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.sku}) — K: {p.kottakkal_stock} | C: {p.chenakkal_stock}</SelectItem>)}</SelectContent>
+                    <SelectContent>{products.map(p => <SelectItem key={p.id} value={p.id}>{p.name} ({p.sku}) — {formatProductLocationSummary(p)}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 {selectedProduct && (
                   <div className="text-sm bg-teal-50 p-3 rounded border border-teal-200">
                     <p className="font-semibold text-teal-900 mb-1">Current Stock Levels:</p>
-                    <div className="grid grid-cols-2 gap-2 text-teal-700">
-                      <div>Kottakkal: <strong>{selectedProduct.kottakkal_stock} units</strong></div>
-                      <div>Chenakkal: <strong>{selectedProduct.chenakkal_stock} units</strong></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-teal-700">
+                      {locationOptions.map((location) => (
+                        <div key={location}>{location}: <strong>{getLocationStock(selectedProduct, location)} units</strong></div>
+                      ))}
                     </div>
                     <div className="mt-1 pt-1 border-t border-teal-200">
                       Total: <strong>{selectedProduct.total_stock} units</strong>
@@ -163,11 +213,15 @@ export const StockAdjustment = () => {
                 )}
                 <div className="space-y-2">
                   <Label>Location *</Label>
-                  <Select value={selectedLocation} onValueChange={(v) => setSelectedLocation(v as GodownEnum)}>
+                  <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Kottakkal">Kottakkal {selectedProduct && `(Current: ${selectedProduct.kottakkal_stock})`}</SelectItem>
-                      <SelectItem value="Chenakkal">Chenakkal {selectedProduct && `(Current: ${selectedProduct.chenakkal_stock})`}</SelectItem>
+                      {locationOptions.map((location) => (
+                        <SelectItem key={location} value={location}>
+                          {location}
+                          {selectedProduct ? ` (Current: ${getLocationStock(selectedProduct, location)})` : ''}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -213,7 +267,7 @@ export const StockAdjustment = () => {
                       setQuantity('');
                       setReason('');
                       setType('Addition');
-                      setSelectedLocation('Kottakkal');
+                      setSelectedLocation(locationOptions[0] || '');
                     }}
                   >
                     Reset Form
@@ -249,8 +303,9 @@ export const StockAdjustment = () => {
                     <tr>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Product</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Brand</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Kottakkal</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Chenakkal</th>
+                      {locationOptions.map((location) => (
+                        <th key={location} className="text-right px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">{location}</th>
+                      ))}
                       <th className="text-right px-3 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Total</th>
                     </tr>
                   </thead>
@@ -259,8 +314,12 @@ export const StockAdjustment = () => {
                       <tr key={p.id} className="hover:bg-gray-50/70 transition-colors">
                         <td className="px-3 py-2 font-medium text-xs">{p.name}</td>
                         <td className="px-3 py-2 text-gray-500 text-xs">{p.brands?.name}</td>
-                        <td className={`px-3 py-2 text-right font-bold text-xs ${p.kottakkal_stock <= 5 ? 'text-amber-600' : ''}`}>{p.kottakkal_stock}</td>
-                        <td className={`px-3 py-2 text-right font-bold text-xs ${p.chenakkal_stock <= 5 ? 'text-amber-600' : ''}`}>{p.chenakkal_stock}</td>
+                        {locationOptions.map((location) => {
+                          const locationQty = getLocationStock(p, location);
+                          return (
+                            <td key={location} className={`px-3 py-2 text-right font-bold text-xs ${locationQty <= 5 ? 'text-amber-600' : ''}`}>{locationQty}</td>
+                          );
+                        })}
                         <td className={`px-3 py-2 text-right font-bold text-xs ${p.total_stock <= 5 ? 'text-amber-600' : 'text-emerald-700'}`}>{p.total_stock}</td>
                       </tr>
                     ))}

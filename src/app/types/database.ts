@@ -18,29 +18,15 @@ export type InvoiceTypeEnum =
   | 'Credit Note';
 export type OrderStatusEnum = 'Pending' | 'Approved' | 'Rejected' | 'Billed' | 'Delivered';
 export type PaymentModeEnum = 'Cash' | 'Cheque' | 'UPI' | 'Bank Transfer';
-export type CollectionStatusEnum = 'Pending' | 'Collected' | 'Overdue';
+export type CollectionStatusEnum = 'Pending' | 'Collected' | 'Overdue' | 'Voided';
 export type DeliveryStatusEnum = 'Pending' | 'In Transit' | 'Delivered' | 'Failed';
 export type StockAdjustmentTypeEnum = 'Addition' | 'Subtraction';
 export type SupplierStatusEnum = 'Active' | 'Inactive';
 export type PoStatusEnum = 'Draft' | 'Pending' | 'Approved' | 'Received' | 'Cancelled';
 export type GrnStatusEnum = 'Pending' | 'Verified' | 'Completed';
-export type DistrictEnum =
-  | 'Kasaragod'
-  | 'Kannur'
-  | 'Wayanad'
-  | 'Kozhikode'
-  | 'Malappuram'
-  | 'Palakkad'
-  | 'Thrissur'
-  | 'Ernakulam'
-  | 'Idukki'
-  | 'Kottayam'
-  | 'Alappuzha'
-  | 'Pathanamthitta'
-  | 'Kollam'
-  | 'Thiruvananthapuram';
-export type VehicleTypeEnum = '2-Wheeler' | '3-Wheeler' | '4-Wheeler' | 'Truck' | 'Others';
-export type GodownEnum = 'Kottakkal' | 'Chenakkal';
+export type DistrictEnum = string;
+export type VehicleTypeEnum = string;
+export type GodownEnum = string;
 
 type TableDef<Row, Insert, Update = Partial<Insert>, Relationships extends readonly unknown[] = []> = {
   Row: Row;
@@ -60,6 +46,11 @@ export interface Database {
           email: string;
           role: UserRole;
           is_active: boolean;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          delete_reason: string | null;
+          restored_at: string | null;
+          restored_by: string | null;
           must_change_password: boolean;
           created_at: string;
           updated_at: string;
@@ -71,6 +62,11 @@ export interface Database {
           email: string;
           role: UserRole;
           is_active?: boolean;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          delete_reason?: string | null;
+          restored_at?: string | null;
+          restored_by?: string | null;
           must_change_password?: boolean;
         },
         Partial<{
@@ -80,6 +76,11 @@ export interface Database {
           email: string;
           role: UserRole;
           is_active?: boolean;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          delete_reason?: string | null;
+          restored_at?: string | null;
+          restored_by?: string | null;
           must_change_password?: boolean;
         }>,
         []
@@ -89,12 +90,22 @@ export interface Database {
           id: string;
           name: string;
           is_active: boolean;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          delete_reason: string | null;
+          restored_at: string | null;
+          restored_by: string | null;
           created_at: string;
           updated_at: string;
         },
         {
           name: string;
           is_active?: boolean;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          delete_reason?: string | null;
+          restored_at?: string | null;
+          restored_by?: string | null;
         }
       >;
       products: TableDef<
@@ -109,6 +120,11 @@ export interface Database {
           stock_qty: number;
           location: string | null;
           is_active: boolean;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          delete_reason: string | null;
+          restored_at: string | null;
+          restored_by: string | null;
           created_at: string;
           updated_at: string;
         },
@@ -122,6 +138,11 @@ export interface Database {
           stock_qty?: number;
           location?: string | null;
           is_active?: boolean;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          delete_reason?: string | null;
+          restored_at?: string | null;
+          restored_by?: string | null;
         },
         Partial<{
           name: string;
@@ -133,6 +154,11 @@ export interface Database {
           stock_qty?: number;
           location?: string | null;
           is_active?: boolean;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          delete_reason?: string | null;
+          restored_at?: string | null;
+          restored_by?: string | null;
         }>,
         [
           {
@@ -157,6 +183,11 @@ export interface Database {
           opening_balance: number;
           assigned_to: string | null;
           is_active: boolean;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          delete_reason: string | null;
+          restored_at: string | null;
+          restored_by: string | null;
           created_at: string;
           updated_at: string;
         },
@@ -171,6 +202,11 @@ export interface Database {
           opening_balance?: number;
           assigned_to?: string | null;
           is_active?: boolean;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          delete_reason?: string | null;
+          restored_at?: string | null;
+          restored_by?: string | null;
         },
         Partial<{
           name: string;
@@ -183,6 +219,11 @@ export interface Database {
           opening_balance?: number;
           assigned_to?: string | null;
           is_active?: boolean;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          delete_reason?: string | null;
+          restored_at?: string | null;
+          restored_by?: string | null;
         }>,
         [
           {
@@ -567,6 +608,11 @@ export interface Database {
           vehicle_type_other: string | null;
           phone: string | null;
           is_active: boolean;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          delete_reason: string | null;
+          restored_at: string | null;
+          restored_by: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -578,6 +624,11 @@ export interface Database {
           vehicle_type_other?: string | null;
           phone?: string | null;
           is_active?: boolean;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          delete_reason?: string | null;
+          restored_at?: string | null;
+          restored_by?: string | null;
           created_by?: string | null;
         },
         Partial<{
@@ -587,6 +638,11 @@ export interface Database {
           vehicle_type_other?: string | null;
           phone?: string | null;
           is_active?: boolean;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          delete_reason?: string | null;
+          restored_at?: string | null;
+          restored_by?: string | null;
           created_by?: string | null;
         }>,
         [
@@ -1014,6 +1070,49 @@ export interface Database {
           value?: Json | null;
         }
       >;
+      data_recovery_events: TableDef<
+        {
+          id: string;
+          entity_table: string;
+          entity_id: string;
+          entity_label: string;
+          action: 'archived' | 'restored' | 'voided' | 'reversed';
+          actor_id: string | null;
+          actor_name: string | null;
+          reason: string | null;
+          metadata: Json | null;
+          created_at: string;
+        },
+        {
+          entity_table: string;
+          entity_id: string;
+          entity_label: string;
+          action: 'archived' | 'restored' | 'voided' | 'reversed';
+          actor_id?: string | null;
+          actor_name?: string | null;
+          reason?: string | null;
+          metadata?: Json | null;
+        },
+        Partial<{
+          entity_table: string;
+          entity_id: string;
+          entity_label: string;
+          action: 'archived' | 'restored' | 'voided' | 'reversed';
+          actor_id?: string | null;
+          actor_name?: string | null;
+          reason?: string | null;
+          metadata?: Json | null;
+        }>,
+        [
+          {
+            foreignKeyName: 'data_recovery_events_actor_id_fkey';
+            columns: ['actor_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ]
+      >;
       billing_reversal_requests: TableDef<
         {
           id: string;
@@ -1109,6 +1208,38 @@ export interface Database {
       get_company_profiles: {
         Args: Record<PropertyKey, never>;
         Returns: Json;
+      };
+      get_master_settings: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      get_master_setting_options: {
+        Args: {
+          p_key: string;
+        };
+        Returns: string[];
+      };
+      create_master_setting_option: {
+        Args: {
+          p_key: string;
+          p_value: string;
+        };
+        Returns: string[];
+      };
+      update_master_setting_option: {
+        Args: {
+          p_key: string;
+          p_old_value: string;
+          p_new_value: string;
+        };
+        Returns: string[];
+      };
+      delete_master_setting_option: {
+        Args: {
+          p_key: string;
+          p_value: string;
+        };
+        Returns: string[];
       };
       create_order: {
         Args: {
@@ -1273,8 +1404,6 @@ export interface Database {
       collection_status_enum: CollectionStatusEnum;
       company_enum: CompanyEnum;
       delivery_status_enum: DeliveryStatusEnum;
-      district_enum: DistrictEnum;
-      godown_enum: GodownEnum;
       grn_status_enum: GrnStatusEnum;
       invoice_type_enum: InvoiceTypeEnum;
       order_status_enum: OrderStatusEnum;
@@ -1283,7 +1412,6 @@ export interface Database {
       stock_adjustment_type_enum: StockAdjustmentTypeEnum;
       supplier_status_enum: SupplierStatusEnum;
       user_role: UserRole;
-      vehicle_type_enum: VehicleTypeEnum;
     };
     CompositeTypes: Record<string, never>;
   };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, CheckCircle, AlertTriangle, Tag, Boxes } from 'lucide-react';
 import { supabase } from '@/app/supabase';
+import { loadStockHealthSummary } from '@/app/stockHealth';
 import {
   PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd, EmptyState, Spinner, ErrorState,
 } from '@/app/components/ui/primitives';
@@ -16,23 +17,19 @@ export const InventoryDashboard = () => {
       setLoading(true);
       setError('');
       try {
-        const [{ data: products, error: productsError }, { data: brands, error: brandsError }] = await Promise.all([
-          supabase.from('products').select('id, name, stock_qty, brands(name)').eq('is_active', true),
+        const [stockHealth, { data: brands, error: brandsError }] = await Promise.all([
+          loadStockHealthSummary(5, 10),
           supabase.from('brands').select('id').eq('is_active', true),
         ]);
-        const fetchError = productsError || brandsError;
-        if (fetchError) throw new Error(fetchError.message);
+        if (brandsError) throw new Error(brandsError.message);
 
-        if (products) {
-          const low = products.filter(p => p.stock_qty <= 5);
-          setLowStockItems(low.slice(0, 10));
-          setStats({
-            totalProducts: products.length,
-            inStock: products.filter(p => p.stock_qty > 5).length,
-            lowStock: low.length,
-            totalBrands: (brands ?? []).length,
-          });
-        }
+        setLowStockItems(stockHealth.lowStockItems);
+        setStats({
+          totalProducts: stockHealth.totalProducts,
+          inStock: stockHealth.inStockCount,
+          lowStock: stockHealth.lowStockCount,
+          totalBrands: (brands ?? []).length,
+        });
       } catch (err: any) {
         setError(err?.message || 'Unable to load inventory dashboard');
       } finally {
@@ -101,20 +98,20 @@ export const InventoryDashboard = () => {
                 {lowStockItems.map(p => (
                   <StyledTr key={p.id}>
                     <StyledTd className="font-semibold text-foreground">{p.name}</StyledTd>
-                    <StyledTd className="text-muted-foreground">{(p.brands as { name: string } | null)?.name ?? '-'}</StyledTd>
+                    <StyledTd className="text-muted-foreground">{p.brandName ?? '-'}</StyledTd>
                     <StyledTd right className="font-bold">
-                      {p.stock_qty}
+                      {p.totalStock}
                       <span className="text-muted-foreground font-normal text-xs ml-1">units</span>
                     </StyledTd>
                     <StyledTd className="text-center">
                       <span
                         className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                          p.stock_qty === 0
+                          p.totalStock === 0
                             ? 'bg-red-50 text-red-700 border-red-200/80'
                             : 'bg-amber-50 text-amber-700 border-amber-200/80'
                         }`}
                       >
-                        {p.stock_qty === 0 ? 'Out of Stock' : 'Low Stock'}
+                        {p.totalStock === 0 ? 'Out of Stock' : 'Low Stock'}
                       </span>
                     </StyledTd>
                   </StyledTr>

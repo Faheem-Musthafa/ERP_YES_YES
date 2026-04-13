@@ -12,10 +12,11 @@ import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
-import { Plus, Copy, Check, UserPlus, Eye, EyeOff, Shield, Trash2, Pencil, KeyRound } from 'lucide-react';
+import { Plus, Copy, Check, UserPlus, Eye, EyeOff, Shield, Pencil, KeyRound, Archive, RotateCcw } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 import { isValidEmail } from '@/app/utils';
+import { archiveRecoverableRecord, restoreRecoverableRecord } from '@/app/recovery';
 import {
     PageHeader, SearchBar, DataCard,
     StyledThead, StyledTh, StyledTr, StyledTd,
@@ -49,6 +50,71 @@ const ROLE_STYLES: Record<string, string> = {
     inventory: 'bg-sky-50 text-sky-700 border border-sky-200',
     procurement: 'bg-rose-50 text-rose-700 border border-rose-200',
 };
+
+async function resolveFunctionError(fnError: unknown, result: unknown, fallback: string): Promise<string> {
+    const messages: string[] = [];
+
+    if (result && typeof result === 'object') {
+        const payload = result as Record<string, unknown>;
+        const valueCandidates = [payload.error, payload.message, payload.details, payload.hint];
+        for (const candidate of valueCandidates) {
+            if (typeof candidate === 'string' && candidate.trim()) messages.push(candidate.trim());
+        }
+    }
+
+    if (fnError && typeof fnError === 'object') {
+        const err = fnError as {
+            name?: string;
+            message?: string;
+            context?: Record<string, unknown>;
+            status?: number;
+            statusCode?: number;
+        };
+        if (typeof err.message === 'string' && err.message.trim()) messages.push(err.message.trim());
+
+        const context = err.context;
+        if (context) {
+            const contextCandidates = [context.error, context.message, context.details, context.hint];
+            for (const candidate of contextCandidates) {
+                if (typeof candidate === 'string' && candidate.trim()) messages.push(candidate.trim());
+            }
+
+            // FunctionsHttpError keeps the raw Response in `context`.
+            const maybeContext = context as {
+                json?: () => Promise<unknown>;
+                text?: () => Promise<string>;
+            };
+            if (typeof maybeContext.json === 'function') {
+                try {
+                    const parsed = await maybeContext.json();
+                    if (parsed && typeof parsed === 'object') {
+                        const payload = parsed as Record<string, unknown>;
+                        const bodyCandidates = [payload.error, payload.message, payload.details, payload.hint];
+                        for (const candidate of bodyCandidates) {
+                            if (typeof candidate === 'string' && candidate.trim()) messages.push(candidate.trim());
+                        }
+                    }
+                } catch {
+                    // Fall back to .text() if body is not JSON.
+                    if (typeof maybeContext.text === 'function') {
+                        try {
+                            const raw = await maybeContext.text();
+                            if (raw.trim()) messages.push(raw.trim());
+                        } catch {
+                            // ignore parse failures
+                        }
+                    }
+                }
+            }
+        }
+
+        const status = err.statusCode ?? err.status;
+        if (typeof status === 'number') messages.push(`HTTP ${status}`);
+    }
+
+    const first = messages.find((m) => m.length > 0 && m !== 'Edge Function returned a non-2xx status code');
+    return first ?? fallback;
+}
 
 function generatePassword(length = 12): string {
     const u = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', l = 'abcdefghijklmnopqrstuvwxyz',
@@ -106,19 +172,39 @@ export const StaffManagement = () => {
         setCreating(true);
         const generatedPassword = generatePassword(12);
         try {
+            const [{ data: { session } }, { data: { user: authUser } }] = await Promise.all([
+                supabase.auth.getSession(),
+                supabase.auth.getUser(),
+            ]);
+            if (!session || !authUser) {
+                throw new Error('Session expired. Please log in again.');
+            }
+
+            const { data: callerProfile, error: callerProfileError } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', authUser.id)
+                .single();
+            if (callerProfileError || callerProfile?.role !== 'admin') {
+                throw new Error('Only admin users can create staff accounts.');
+            }
+
             const { data: result, error: fnError } = await supabase.functions.invoke('invite-user', {
                 body: {
                     email: form.email.trim().toLowerCase(), full_name: form.full_name.trim(),
                     role: form.role, password: generatedPassword, employee_id: form.employee_id.trim() || null,
                 },
             });
-            if (fnError || result?.error) throw new Error(result?.error || fnError?.message || 'Failed to create user');
+            if (fnError || result?.error) {
+                throw new Error(await resolveFunctionError(fnError, result, 'Failed to create user'));
+            }
             setCreatedUser({ name: form.full_name, email: form.email, password: generatedPassword });
             setCreateOpen(false);
             setSuccessOpen(true);
             setForm({ full_name: '', email: '', role: '', employee_id: '' });
             fetchUsers();
         } catch (err: any) {
+            console.error('Staff create failed:', err);
             toast.error(err.message || 'Failed to create user');
         } finally { setCreating(false); }
     };
@@ -130,17 +216,37 @@ export const StaffManagement = () => {
         }
     };
 
-    const handleToggleActive = async (u: StaffUser) => {
-        const { error } = await supabase.from('users').update({ is_active: !u.is_active }).eq('id', u.id);
-        if (error) toast.error(error.message);
-        else { toast.success(`${u.full_name} ${!u.is_active ? 'activated' : 'deactivated'}`); fetchUsers(); }
+    const handleRestoreStaff = async (u: StaffUser) => {
+        try {
+            await restoreRecoverableRecord({
+                table: 'users',
+                id: u.id,
+                entityLabel: u.full_name,
+                metadata: { role: u.role, email: u.email },
+            });
+            toast.success(`${u.full_name} restored`);
+            await fetchUsers();
+        } catch (error: any) {
+            toast.error(error?.message || 'Failed to restore staff member');
+        }
     };
 
     const handleDeleteStaff = async (u: StaffUser) => {
-        if (u.role === 'admin') { toast.error('Cannot deactivate admin accounts'); return; }
-        const { error } = await supabase.from('users').update({ is_active: false }).eq('id', u.id);
-        if (error) toast.error('Failed to deactivate staff');
-        else { toast.success(`${u.full_name} deactivated`); setDeleteTarget(null); fetchUsers(); }
+        if (u.role === 'admin') { toast.error('Cannot archive admin accounts'); return; }
+        try {
+            await archiveRecoverableRecord({
+                table: 'users',
+                id: u.id,
+                entityLabel: u.full_name,
+                reason: 'Archived from Team Management',
+                metadata: { role: u.role, email: u.email },
+            });
+            toast.success(`${u.full_name} archived`);
+            setDeleteTarget(null);
+            await fetchUsers();
+        } catch (error: any) {
+            toast.error(error?.message || 'Failed to archive staff member');
+        }
     };
 
     const openEdit = (u: StaffUser) => {
@@ -168,6 +274,23 @@ export const StaffManagement = () => {
         setResetting(true);
         const newPassword = generatePassword(12);
         try {
+            const [{ data: { session } }, { data: { user: authUser } }] = await Promise.all([
+                supabase.auth.getSession(),
+                supabase.auth.getUser(),
+            ]);
+            if (!session || !authUser) {
+                throw new Error('Session expired. Please log in again.');
+            }
+
+            const { data: callerProfile, error: callerProfileError } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', authUser.id)
+                .single();
+            if (callerProfileError || callerProfile?.role !== 'admin') {
+                throw new Error('Only admin users can reset staff passwords.');
+            }
+
             const { data: result, error: fnError } = await supabase.functions.invoke('invite-user', {
                 body: {
                     email: editTarget.email,
@@ -178,13 +301,16 @@ export const StaffManagement = () => {
                     reset_password: true,
                 },
             });
-            if (fnError || result?.error) throw new Error(result?.error || fnError?.message || 'Failed to reset password');
+            if (fnError || result?.error) {
+                throw new Error(await resolveFunctionError(fnError, result, 'Failed to reset password'));
+            }
             await supabase.from('users').update({ must_change_password: true }).eq('id', editTarget.id);
             setCreatedUser({ name: editTarget.full_name, email: editTarget.email, password: newPassword });
             setEditOpen(false);
             setSuccessOpen(true);
             fetchUsers();
         } catch (err: any) {
+            console.error('Staff password reset failed:', err);
             toast.error(err.message || 'Failed to reset password');
         } finally { setResetting(false); }
     };
@@ -303,7 +429,7 @@ export const StaffManagement = () => {
                                                         </Select>
                                                     )}
                                                 </StyledTd>
-                                                <StyledTd><StatusBadge status={u.is_active ? 'Active' : 'Inactive'} /></StyledTd>
+                                                <StyledTd><StatusBadge status={u.is_active ? 'Active' : 'Archived'} /></StyledTd>
                                                 <StyledTd>
                                                     <StatusBadge status={u.must_change_password ? 'Pending' : 'Approved'} />
                                                 </StyledTd>
@@ -317,27 +443,23 @@ export const StaffManagement = () => {
                                                                 <Pencil size={13} />
                                                             </IconBtn>
                                                         </CustomTooltip>
-                                                        <CustomTooltip content={u.is_active ? 'Deactivate staff member' : 'Activate staff member'} side="top">
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => handleToggleActive(u)}
-                                                                disabled={u.role === 'admin'}
-                                                                className={`h-6 text-[10px] px-2 rounded-full ${u.is_active
-                                                                    ? 'text-red-600 border-red-200 hover:bg-red-50'
-                                                                    : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
-                                                            >
-                                                                {u.is_active ? 'Deactivate' : 'Activate'}
-                                                            </Button>
-                                                        </CustomTooltip>
-                                                        <CustomTooltip content={u.role === 'admin' ? 'Cannot delete admin accounts' : `Delete ${u.full_name}`} side="top">
-                                                            <IconBtn
-                                                                onClick={() => u.role !== 'admin' && setDeleteTarget(u)}
-                                                                danger
-                                                                disabled={u.role === 'admin'}
-                                                            >
-                                                                <Trash2 size={13} />
-                                                            </IconBtn>
+                                                        <CustomTooltip content={u.role === 'admin' ? 'Cannot archive admin accounts' : u.is_active ? `Archive ${u.full_name}` : `Restore ${u.full_name}`} side="top">
+                                                            {u.is_active ? (
+                                                                <IconBtn
+                                                                    onClick={() => u.role !== 'admin' && setDeleteTarget(u)}
+                                                                    danger
+                                                                    disabled={u.role === 'admin'}
+                                                                >
+                                                                    <Archive size={13} />
+                                                                </IconBtn>
+                                                            ) : (
+                                                                <IconBtn
+                                                                    onClick={() => void handleRestoreStaff(u)}
+                                                                    disabled={u.role === 'admin'}
+                                                                >
+                                                                    <RotateCcw size={13} />
+                                                                </IconBtn>
+                                                            )}
                                                         </CustomTooltip>
                                                     </div>
                                                 </StyledTd>
@@ -376,7 +498,7 @@ export const StaffManagement = () => {
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Email Address <span className="text-destructive">*</span></Label>
-                            <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="e.g. rahul@yesyes.com" />
+                            <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="e.g. rahul@company.com" />
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Role <span className="text-destructive">*</span></Label>
@@ -523,9 +645,9 @@ export const StaffManagement = () => {
             <AlertDialog open={Boolean(deleteTarget)} onOpenChange={open => !open && setDeleteTarget(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete staff account permanently?</AlertDialogTitle>
+                        <AlertDialogTitle>Archive staff account?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {deleteTarget ? `Delete "${deleteTarget.full_name}" permanently? This action cannot be undone.` : ''}
+                            {deleteTarget ? `Archive "${deleteTarget.full_name}" and disable their login access? You can restore the account later from this screen.` : ''}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -534,7 +656,7 @@ export const StaffManagement = () => {
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             onClick={() => deleteTarget && void handleDeleteStaff(deleteTarget)}
                         >
-                            Delete
+                            Archive
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

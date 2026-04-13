@@ -1,7 +1,7 @@
 # Stock Location Migration Guide
 
 ## Overview
-This migration implements location-based stock tracking for your ERP system, allowing separate inventory management for Kottakkal and Chenakkal locations.
+This migration implements location-based stock tracking for your ERP system, allowing separate inventory management for KOTTAKKAL  and Chenakkal locations.
 
 ## What's New
 
@@ -14,7 +14,7 @@ This migration implements location-based stock tracking for your ERP system, all
 
 ### 2. UI Updates
 - **StockManagement** (`/stock`) - Now shows stock split by location with location filters
-- **InventoryStock** (`/inventory/stock`) - Displays Kottakkal and Chenakkal stock side by side
+- **InventoryStock** (`/inventory/stock`) - Displays KOTTAKKAL  and Chenakkal stock side by side
 - **StockAdjustment** (`/inventory/adjustment`) - Now requires location selection for adjustments
 - **StockTransfer** (`/inventory/transfer`) - New page for transferring stock between locations
 
@@ -22,7 +22,7 @@ This migration implements location-based stock tracking for your ERP system, all
 - ✅ View stock levels for each location separately or combined
 - ✅ Filter by location in stock views
 - ✅ Adjust stock at specific locations
-- ✅ Transfer stock between Kottakkal and Chenakkal
+- ✅ Transfer stock between KOTTAKKAL  and Chenakkal
 - ✅ Complete audit trail for all stock movements
 - ✅ Automatic stock movement logging
 - ✅ Rollback protection on failed transactions
@@ -74,14 +74,14 @@ The following files have been updated:
 1. Go to **Stock View** (`/stock`)
 2. Use the **Location** filter to view:
    - All Locations (combined view)
-   - Kottakkal only
+   - KOTTAKKAL  only
    - Chenakkal only
 3. Table shows stock quantities for each location
 
 ### Adjusting Stock
 1. Go to **Stock Adjustment** (`/inventory/adjustment`)
 2. Select a product
-3. Choose the location (Kottakkal or Chenakkal)
+3. Choose the location (KOTTAKKAL  or Chenakkal)
 4. Select adjustment type (Addition/Subtraction)
 5. Enter quantity and reason
 6. Submit - stock will be updated at the selected location
@@ -169,7 +169,7 @@ The old `stock_qty` field in the `products` table is **preserved** for backward 
 INSERT INTO product_stock_locations (product_id, location, stock_qty)
 SELECT 
     id,
-    COALESCE(location, 'Kottakkal') as location,
+    COALESCE(location, 'KOTTAKKAL ') as location,
     stock_qty
 FROM products
 WHERE is_active = true
@@ -187,7 +187,7 @@ SELECT
     loc.location,
     0
 FROM products p
-CROSS JOIN (VALUES ('Kottakkal'), ('Chenakkal')) AS loc(location)
+CROSS JOIN (VALUES ('KOTTAKKAL '), ('Chenakkal')) AS loc(location)
 WHERE p.is_active = true
 ON CONFLICT (product_id, location) DO NOTHING;
 ```

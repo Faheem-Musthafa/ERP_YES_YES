@@ -42,6 +42,15 @@ $$;
 GRANT EXECUTE ON FUNCTION current_user_role() TO authenticated;
 GRANT EXECUTE ON FUNCTION has_role(user_role[]) TO authenticated;
 
+DO $$
+BEGIN
+  IF to_regprocedure('validate_master_setting_option(text,text,text,boolean)') IS NULL
+     OR to_regprocedure('default_master_setting_option(text)') IS NULL THEN
+    RAISE EXCEPTION 'Missing settings master-data helpers. Run docs/ENUM_TO_DYNAMIC_SETTINGS_MIGRATION.sql first.';
+  END IF;
+END
+$$;
+
 -- ----------------------------------------------------------------------------
 -- Concurrency-safe document number generators
 -- ----------------------------------------------------------------------------
@@ -222,7 +231,7 @@ CREATE OR REPLACE FUNCTION create_order(
   p_company company_enum,
   p_invoice_type invoice_type_enum,
   p_customer_id uuid,
-  p_godown godown_enum,
+  p_godown text,
   p_site_address text,
   p_items jsonb,
   p_remarks text DEFAULT NULL,
@@ -243,6 +252,7 @@ DECLARE
   v_item_amount numeric;
   v_item_discount numeric;
   v_actor uuid := COALESCE(p_created_by, auth.uid());
+  v_godown text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required';
@@ -257,6 +267,13 @@ BEGIN
     RAISE EXCEPTION 'At least one order item is required';
   END IF;
 
+  v_godown := validate_master_setting_option(
+    'godowns',
+    COALESCE(NULLIF(BTRIM(p_godown), ''), default_master_setting_option('godowns')),
+    'godown',
+    true
+  );
+
   v_order_number := generate_order_number();
 
   INSERT INTO orders (
@@ -264,7 +281,7 @@ BEGIN
     site_address, remarks, delivery_date, created_by, status
   )
   VALUES (
-    v_order_number, p_company, p_invoice_type, p_customer_id, p_godown,
+    v_order_number, p_company, p_invoice_type, p_customer_id, v_godown,
     p_site_address, p_remarks, p_delivery_date, v_actor, 'Pending'
   )
   RETURNING id INTO v_order_id;
@@ -432,6 +449,7 @@ DECLARE
   v_invoice_number text;
   v_current_stock integer;
   v_actor uuid := COALESCE(p_billed_by, auth.uid());
+  v_location text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required';
@@ -460,6 +478,13 @@ BEGIN
     RAISE EXCEPTION 'Order must be Approved to bill. Current status: %', v_order.status;
   END IF;
 
+  v_location := validate_master_setting_option(
+    'godowns',
+    COALESCE(NULLIF(BTRIM(v_order.godown), ''), default_master_setting_option('godowns')),
+    'order godown',
+    true
+  );
+
   v_invoice_number := COALESCE(v_order.invoice_number, generate_invoice_number(v_order.company));
 
   FOR v_item IN
@@ -471,12 +496,12 @@ BEGIN
     INTO v_current_stock
     FROM product_stock_locations
     WHERE product_id = v_item.product_id
-      AND location = COALESCE(v_order.godown, 'Kottakkal')
+      AND location = v_location
     FOR UPDATE;
 
     IF v_current_stock IS NULL THEN
       INSERT INTO product_stock_locations (product_id, location, stock_qty)
-      VALUES (v_item.product_id, COALESCE(v_order.godown, 'Kottakkal'), 0)
+      VALUES (v_item.product_id, v_location, 0)
       ON CONFLICT (product_id, location) DO NOTHING;
       v_current_stock := 0;
     END IF;
@@ -484,7 +509,7 @@ BEGIN
     IF v_current_stock < v_item.quantity THEN
       RAISE EXCEPTION 'Insufficient stock for product % at % (available %, required %)',
         v_item.product_id,
-        COALESCE(v_order.godown, 'Kottakkal'),
+        v_location,
         v_current_stock,
         v_item.quantity;
     END IF;
@@ -493,7 +518,7 @@ BEGIN
     SET stock_qty = stock_qty - v_item.quantity,
         updated_at = NOW()
     WHERE product_id = v_item.product_id
-      AND location = COALESCE(v_order.godown, 'Kottakkal');
+      AND location = v_location;
 
     INSERT INTO stock_movements (
       product_id,
@@ -510,7 +535,7 @@ BEGIN
       'order_billed',
       'orders',
       p_order_id,
-      COALESCE(v_order.godown, 'Kottakkal'),
+      v_location,
       v_actor
     );
   END LOOP;
@@ -529,7 +554,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION create_stock_adjustment_atomic(
   p_product_id uuid,
-  p_location godown_enum,
+  p_location text,
   p_quantity integer,
   p_type stock_adjustment_type_enum,
   p_reason text DEFAULT NULL,
@@ -545,6 +570,7 @@ DECLARE
   v_current_qty integer;
   v_new_qty integer;
   v_actor uuid := COALESCE(p_user_id, auth.uid());
+  v_location text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required';
@@ -556,16 +582,18 @@ BEGIN
     RAISE EXCEPTION 'Insufficient role to adjust stock';
   END IF;
 
+  v_location := validate_master_setting_option('godowns', p_location, 'location', true);
+
   SELECT stock_qty
   INTO v_current_qty
   FROM product_stock_locations
   WHERE product_id = p_product_id
-    AND location = p_location
+    AND location = v_location
   FOR UPDATE;
 
   IF v_current_qty IS NULL THEN
     INSERT INTO product_stock_locations (product_id, location, stock_qty)
-    VALUES (p_product_id, p_location, 0)
+    VALUES (p_product_id, v_location, 0)
     ON CONFLICT (product_id, location) DO NOTHING;
     v_current_qty := 0;
   END IF;
@@ -576,18 +604,18 @@ BEGIN
   END;
 
   IF v_new_qty < 0 THEN
-    RAISE EXCEPTION 'Stock cannot go below zero at %', p_location;
+    RAISE EXCEPTION 'Stock cannot go below zero at %', v_location;
   END IF;
 
   INSERT INTO stock_adjustments (product_id, quantity, type, reason, location, adjusted_by)
-  VALUES (p_product_id, p_quantity, p_type, p_reason, p_location, v_actor)
+  VALUES (p_product_id, p_quantity, p_type, p_reason, v_location, v_actor)
   RETURNING id INTO v_adjustment_id;
 
   UPDATE product_stock_locations
   SET stock_qty = v_new_qty,
       updated_at = NOW()
   WHERE product_id = p_product_id
-    AND location = p_location;
+    AND location = v_location;
 
   INSERT INTO stock_movements (
     product_id,
@@ -604,7 +632,7 @@ BEGIN
     'adjustment',
     'stock_adjustment',
     v_adjustment_id,
-    p_location,
+    v_location,
     v_actor
   );
 
@@ -614,8 +642,8 @@ $$;
 
 CREATE OR REPLACE FUNCTION transfer_stock(
   p_product_id uuid,
-  p_from_location godown_enum,
-  p_to_location godown_enum,
+  p_from_location text,
+  p_to_location text,
   p_quantity integer,
   p_reason text DEFAULT NULL,
   p_user_id uuid DEFAULT NULL
@@ -629,6 +657,8 @@ DECLARE
   v_from_stock integer;
   v_transfer_id uuid;
   v_actor uuid := COALESCE(p_user_id, auth.uid());
+  v_from_location text;
+  v_to_location text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required';
@@ -642,7 +672,11 @@ BEGIN
   IF p_quantity <= 0 THEN
     RAISE EXCEPTION 'Transfer quantity must be greater than zero';
   END IF;
-  IF p_from_location = p_to_location THEN
+
+  v_from_location := validate_master_setting_option('godowns', p_from_location, 'from location', true);
+  v_to_location := validate_master_setting_option('godowns', p_to_location, 'to location', true);
+
+  IF v_from_location = v_to_location THEN
     RAISE EXCEPTION 'Cannot transfer to same location';
   END IF;
 
@@ -650,33 +684,33 @@ BEGIN
   INTO v_from_stock
   FROM product_stock_locations
   WHERE product_id = p_product_id
-    AND location = p_from_location
+    AND location = v_from_location
   FOR UPDATE;
 
   IF v_from_stock IS NULL OR v_from_stock < p_quantity THEN
-    RAISE EXCEPTION 'Insufficient stock at % (available: %)', p_from_location, COALESCE(v_from_stock, 0);
+    RAISE EXCEPTION 'Insufficient stock at % (available: %)', v_from_location, COALESCE(v_from_stock, 0);
   END IF;
 
   INSERT INTO stock_transfers (product_id, from_location, to_location, quantity, reason, transferred_by)
-  VALUES (p_product_id, p_from_location, p_to_location, p_quantity, p_reason, v_actor)
+  VALUES (p_product_id, v_from_location, v_to_location, p_quantity, p_reason, v_actor)
   RETURNING id INTO v_transfer_id;
 
   UPDATE product_stock_locations
   SET stock_qty = stock_qty - p_quantity,
       updated_at = NOW()
   WHERE product_id = p_product_id
-    AND location = p_from_location;
+    AND location = v_from_location;
 
   INSERT INTO product_stock_locations (product_id, location, stock_qty)
-  VALUES (p_product_id, p_to_location, p_quantity)
+  VALUES (p_product_id, v_to_location, p_quantity)
   ON CONFLICT (product_id, location)
   DO UPDATE SET stock_qty = product_stock_locations.stock_qty + p_quantity,
                 updated_at = NOW();
 
   INSERT INTO stock_movements (product_id, quantity, movement_type, reference_type, reference_id, location, created_by)
   VALUES
-    (p_product_id, -p_quantity, 'transfer_out', 'stock_transfers', v_transfer_id, p_from_location, v_actor),
-    (p_product_id, p_quantity, 'transfer_in', 'stock_transfers', v_transfer_id, p_to_location, v_actor);
+    (p_product_id, -p_quantity, 'transfer_out', 'stock_transfers', v_transfer_id, v_from_location, v_actor),
+    (p_product_id, p_quantity, 'transfer_in', 'stock_transfers', v_transfer_id, v_to_location, v_actor);
 
   RETURN TRUE;
 END;
@@ -763,7 +797,7 @@ AS $$
 DECLARE
   v_delivery record;
   v_item record;
-  v_location godown_enum;
+  v_location text;
   v_actor uuid := COALESCE(p_updated_by, auth.uid());
 BEGIN
   IF auth.uid() IS NULL THEN
@@ -776,7 +810,7 @@ BEGIN
     RAISE EXCEPTION 'Insufficient role to update delivery status';
   END IF;
 
-  SELECT d.id, d.order_id, d.status AS current_status, o.status AS order_status, COALESCE(o.godown, 'Kottakkal') AS godown
+  SELECT d.id, d.order_id, d.status AS current_status, o.status AS order_status, o.godown
   INTO v_delivery
   FROM deliveries d
   JOIN orders o ON o.id = d.order_id
@@ -787,7 +821,12 @@ BEGIN
     RAISE EXCEPTION 'Delivery not found: %', p_delivery_id;
   END IF;
 
-  v_location := v_delivery.godown;
+  v_location := validate_master_setting_option(
+    'godowns',
+    COALESCE(NULLIF(BTRIM(v_delivery.godown), ''), default_master_setting_option('godowns')),
+    'delivery godown',
+    true
+  );
 
   IF p_status = 'Delivered' AND v_delivery.current_status <> 'Delivered' THEN
     IF v_delivery.order_status NOT IN ('Billed', 'Delivered') THEN
@@ -865,6 +904,7 @@ DECLARE
   v_item jsonb;
   v_net_qty integer;
   v_actor uuid := COALESCE(p_received_by, auth.uid());
+  v_item_location text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required';
@@ -887,6 +927,7 @@ BEGIN
 
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
   LOOP
+    v_item_location := validate_master_setting_option('godowns', v_item->>'location', 'GRN location', true);
     v_net_qty := (v_item->>'received_qty')::integer - COALESCE((v_item->>'damaged_qty')::integer, 0);
 
     IF v_net_qty < 0 THEN
@@ -911,13 +952,13 @@ BEGIN
       COALESCE((v_item->>'expected_qty')::integer, 0),
       (v_item->>'received_qty')::integer,
       COALESCE((v_item->>'damaged_qty')::integer, 0),
-      (v_item->>'location')::godown_enum,
+      v_item_location,
       'Completed',
       CURRENT_DATE
     );
 
     INSERT INTO product_stock_locations (product_id, location, stock_qty)
-    VALUES ((v_item->>'product_id')::uuid, (v_item->>'location')::godown_enum, v_net_qty)
+    VALUES ((v_item->>'product_id')::uuid, v_item_location, v_net_qty)
     ON CONFLICT (product_id, location)
     DO UPDATE SET stock_qty = product_stock_locations.stock_qty + v_net_qty,
                   updated_at = NOW();
@@ -929,7 +970,7 @@ BEGIN
       'grn_receipt',
       'grn',
       v_grn_id,
-      (v_item->>'location')::godown_enum,
+      v_item_location,
       v_actor
     );
   END LOOP;
@@ -946,12 +987,12 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION create_order(company_enum, invoice_type_enum, uuid, godown_enum, text, jsonb, text, date, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION create_order(company_enum, invoice_type_enum, uuid, text, text, jsonb, text, date, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION approve_order_atomic(uuid, uuid, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION reject_order(uuid, uuid, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION bill_order_atomic(uuid, uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION create_stock_adjustment_atomic(uuid, godown_enum, integer, stock_adjustment_type_enum, text, uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION transfer_stock(uuid, godown_enum, godown_enum, integer, text, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION create_stock_adjustment_atomic(uuid, text, integer, stock_adjustment_type_enum, text, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION transfer_stock(uuid, text, text, integer, text, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION create_delivery(uuid, uuid, uuid, text, text, text, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION update_delivery_status(uuid, delivery_status_enum, text, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION create_grn(jsonb, uuid, uuid, uuid, text) TO authenticated;

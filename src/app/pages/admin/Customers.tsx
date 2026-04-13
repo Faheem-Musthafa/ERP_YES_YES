@@ -6,10 +6,11 @@ import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
-import { Plus, Phone, MapPin, Edit2, ToggleLeft, ToggleRight, UserCircle, Trash2, UserCheck } from 'lucide-react';
+import { Plus, Phone, MapPin, Edit2, UserCircle, UserCheck, Archive, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Label } from '@/app/components/ui/label';
+import { archiveRecoverableRecord, restoreRecoverableRecord } from '@/app/recovery';
 import {
     PageHeader, SearchBar, DataCard,
     StyledThead, StyledTh, StyledTr, StyledTd,
@@ -80,19 +81,37 @@ export const Customers = () => {
         })();
     }, []);
 
-    const toggleActive = async (id: string, current: boolean) => {
-        const { error } = await supabase.from('customers').update({ is_active: !current }).eq('id', id);
-        if (error) toast.error('Failed to update status');
-        else { toast.success(`Customer ${current ? 'deactivated' : 'activated'}`); fetchCustomers(); }
+    const restoreCustomer = async (id: string, name: string) => {
+        try {
+            await restoreRecoverableRecord({
+                table: 'customers',
+                id,
+                entityLabel: name,
+            });
+            toast.success('Customer restored');
+            await fetchCustomers();
+        } catch (error: any) {
+            toast.error(error?.message || 'Failed to restore customer');
+        }
     };
 
     const deleteCustomer = async (id: string) => {
-        const { error } = await supabase.from('customers').update({ is_active: false }).eq('id', id);
-        if (error) toast.error('Failed to deactivate customer');
-        else {
-            toast.success('Customer deactivated');
+        const target = customers.find((customer) => customer.id === id);
+        if (!target) return;
+
+        try {
+            await archiveRecoverableRecord({
+                table: 'customers',
+                id,
+                entityLabel: target.name,
+                reason: 'Archived from Customers management',
+                metadata: { phone: target.phone, assigned_to: target.assigned_to },
+            });
+            toast.success('Customer archived');
             setDeleteTarget(null);
-            fetchCustomers();
+            await fetchCustomers();
+        } catch (error: any) {
+            toast.error(error?.message || 'Failed to archive customer');
         }
     };
 
@@ -205,7 +224,7 @@ export const Customers = () => {
                                                     )}
                                                 </StyledTd>
                                                 <StyledTd>
-                                                    <StatusBadge status={c.is_active ? 'Active' : 'Inactive'} />
+                                                    <StatusBadge status={c.is_active ? 'Active' : 'Archived'} />
                                                 </StyledTd>
                                                 <StyledTd right>
                                                     <div className="flex items-center justify-end gap-2">
@@ -227,20 +246,19 @@ export const Customers = () => {
                                                                 <IconBtn><Edit2 size={14} /></IconBtn>
                                                             </CustomTooltip>
                                                         </Link>
-                                                        <CustomTooltip content={c.is_active ? 'Deactivate customer' : 'Activate customer'} side="top">
-                                                            <IconBtn
-                                                                onClick={() => toggleActive(c.id, c.is_active)}
-                                                            >
-                                                                {c.is_active ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                                                            </IconBtn>
-                                                        </CustomTooltip>
-                                                        <CustomTooltip content="Delete customer" side="top">
-                                                            <IconBtn
-                                                                onClick={() => setDeleteTarget({ id: c.id, name: c.name })}
-                                                                danger
-                                                            >
-                                                                <Trash2 size={14} />
-                                                            </IconBtn>
+                                                        <CustomTooltip content={c.is_active ? `Archive ${c.name}` : `Restore ${c.name}`} side="top">
+                                                            {c.is_active ? (
+                                                                <IconBtn
+                                                                    onClick={() => setDeleteTarget({ id: c.id, name: c.name })}
+                                                                    danger
+                                                                >
+                                                                    <Archive size={14} />
+                                                                </IconBtn>
+                                                            ) : (
+                                                                <IconBtn onClick={() => void restoreCustomer(c.id, c.name)}>
+                                                                    <RotateCcw size={14} />
+                                                                </IconBtn>
+                                                            )}
                                                         </CustomTooltip>
                                                     </div>
                                                 </StyledTd>
@@ -263,9 +281,9 @@ export const Customers = () => {
             <AlertDialog open={Boolean(deleteTarget)} onOpenChange={open => !open && setDeleteTarget(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete customer permanently?</AlertDialogTitle>
+                        <AlertDialogTitle>Archive customer?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {deleteTarget ? `Delete "${deleteTarget.name}" permanently? This action cannot be undone.` : ''}
+                            {deleteTarget ? `Archive "${deleteTarget.name}" from active customer lists? You can restore the record later from this screen.` : ''}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -274,7 +292,7 @@ export const Customers = () => {
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             onClick={() => deleteTarget && void deleteCustomer(deleteTarget.id)}
                         >
-                            Delete
+                            Archive
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

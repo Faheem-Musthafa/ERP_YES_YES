@@ -9,7 +9,7 @@ import {
 import { Badge } from '@/app/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Input } from '@/app/components/ui/input';
-import { FileText, ShoppingCart, Package, Truck } from 'lucide-react';
+import { FileText, ShoppingCart, Package, Truck, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ActivityEvent {
@@ -18,19 +18,21 @@ interface ActivityEvent {
     action: string;
     performedBy: string;
     details: string;
-    category: 'order' | 'stock' | 'delivery';
+    category: 'order' | 'stock' | 'delivery' | 'recovery';
 }
 
 const CATEGORY_BADGE: Record<string, { label: string; className: string }> = {
     order: { label: 'Order', className: 'bg-blue-100 text-blue-700 border-blue-200' },
     stock: { label: 'Stock', className: 'bg-amber-100 text-amber-700 border-amber-200' },
     delivery: { label: 'Delivery', className: 'bg-purple-100 text-purple-700 border-purple-200' },
+    recovery: { label: 'Recovery', className: 'bg-slate-100 text-slate-700 border-slate-200' },
 };
 
 const CATEGORY_ICON: Record<string, React.ElementType> = {
     order: ShoppingCart,
     stock: Package,
     delivery: Truck,
+    recovery: RotateCcw,
 };
 
 const formatTime = (iso: string) => {
@@ -57,7 +59,7 @@ export const ActivityLog = () => {
         setLoading(true);
         setError('');
         try {
-            const [usersRes, ordersRes, stockRes, deliveriesRes] = await Promise.all([
+            const [usersRes, ordersRes, stockRes, deliveriesRes, recoveryRes] = await Promise.all([
                 supabase.from('users').select('id, full_name'),
                 supabase
                     .from('orders')
@@ -74,6 +76,11 @@ export const ActivityLog = () => {
                     .select('id, delivery_number, order_id, status, initiated_by, initiated_by_name, created_by, created_at, dispatched_at, delivered_at')
                     .order('created_at', { ascending: false })
                     .limit(100),
+                supabase
+                    .from('data_recovery_events')
+                    .select('id, entity_table, entity_label, action, actor_name, reason, created_at')
+                    .order('created_at', { ascending: false })
+                    .limit(150),
             ]);
 
             if (usersRes.error) throw usersRes.error;
@@ -139,6 +146,20 @@ export const ActivityLog = () => {
                 });
             }
 
+            if (!recoveryRes.error) {
+                for (const event of recoveryRes.data ?? []) {
+                    const actionLabel = String(event.action ?? '').replace(/^\w/, (char) => char.toUpperCase());
+                    allEvents.push({
+                        id: `recovery-${event.id}`,
+                        timestamp: event.created_at,
+                        action: actionLabel || 'Recovery Event',
+                        performedBy: event.actor_name ?? 'Unknown',
+                        details: `${event.entity_label} (${event.entity_table})${event.reason ? ` - ${event.reason}` : ''}`,
+                        category: 'recovery',
+                    });
+                }
+            }
+
             // Sort descending by timestamp
             allEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
@@ -188,7 +209,7 @@ export const ActivityLog = () => {
         { label: 'Total Events', value: filtered.length, color: 'text-primary', icon: FileText },
         { label: 'Orders', value: filtered.filter(e => e.category === 'order').length, color: 'text-blue-600', icon: ShoppingCart },
         { label: 'Stock Changes', value: filtered.filter(e => e.category === 'stock').length, color: 'text-amber-600', icon: Package },
-        { label: 'Deliveries', value: filtered.filter(e => e.category === 'delivery').length, color: 'text-purple-600', icon: Truck },
+        { label: 'Recoveries', value: filtered.filter(e => e.category === 'recovery').length, color: 'text-slate-600', icon: RotateCcw },
     ];
 
     return (
@@ -227,6 +248,7 @@ export const ActivityLog = () => {
                                 <SelectItem value="order">Orders</SelectItem>
                                 <SelectItem value="stock">Stock</SelectItem>
                                 <SelectItem value="delivery">Deliveries</SelectItem>
+                                <SelectItem value="recovery">Recovery</SelectItem>
                             </SelectContent>
                         </Select>
                     </FilterField>

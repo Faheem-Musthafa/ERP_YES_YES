@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { fmt, downloadCSV } from '@/app/utils';
+import { cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import type { OrderStatusEnum } from '@/app/types/database';
 import {
     PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd,
@@ -83,6 +84,13 @@ export const AdminReports = () => {
     const [custData, setCustData] = useState<CustomerRow[]>([]);
     const [custSearch, setCustSearch] = useState('');
     const [custPage, setCustPage] = useState(1);
+    const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
+
+    useEffect(() => {
+        void loadCompanyProfiles()
+            .then(setCompanyProfiles)
+            .catch(() => undefined);
+    }, []);
 
     // ── Item-wise fetch ──
     useEffect(() => { fetchItemData(); }, [statusFilter, dateFrom, dateTo]);
@@ -228,7 +236,7 @@ export const AdminReports = () => {
             ['Date', 'Order No', 'Customer', 'Company', 'Product', 'Brand', 'Qty', 'DP', 'Discount %', 'Amount', 'Status'],
             filteredItems.map(item => [
                 new Date(item.orders?.created_at ?? '').toLocaleDateString(), item.orders?.order_number ?? '',
-                item.orders?.customers?.name ?? '', item.orders?.company ?? '',
+                item.orders?.customers?.name ?? '', getCompanyDisplayName(item.orders?.company, companyProfiles, ''),
                 item.products?.name ?? '', item.products?.brands?.name ?? '',
                 item.quantity, item.dealer_price, item.discount_pct, item.amount, item.orders?.status ?? '',
             ]),

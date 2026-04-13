@@ -7,9 +7,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
-import { Plus, Pencil, Tag, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Tag, Archive, RotateCcw } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
+import { archiveRecoverableRecord, restoreRecoverableRecord } from '@/app/recovery';
 import {
   PageHeader, SearchBar, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -23,7 +24,7 @@ export const Brands = () => {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<any | null>(null);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,25 +93,36 @@ export const Brands = () => {
     finally { setSaving(false); }
   };
 
-  const toggleActive = async (b: any) => {
+  const restoreBrand = async (b: any) => {
     try {
-      const { error } = await supabase.from('brands').update({ is_active: !b.is_active }).eq('id', b.id);
-      if (error) {
-        toast.error('Failed to update brand status');
-      } else {
-        toast.success(b.is_active ? 'Brand deactivated' : 'Brand activated');
-        await fetchBrands();
-      }
+      await restoreRecoverableRecord({
+        table: 'brands',
+        id: b.id,
+        entityLabel: b.name,
+      });
+      toast.success('Brand restored');
+      await fetchBrands();
     } catch (err) {
-      console.error('Toggle active error:', err);
-      toast.error('Failed to update brand status');
+      console.error('Restore brand error:', err);
+      toast.error('Failed to restore brand');
     }
   };
 
-  const deleteBrand = async (b: any) => {
-    const { error } = await supabase.from('brands').delete().eq('id', b.id);
-    if (error) toast.error('Failed to delete brand');
-    else { toast.success('Brand deleted'); setDeleteTarget(null); fetchBrands(); }
+  const archiveBrand = async (b: any) => {
+    try {
+      await archiveRecoverableRecord({
+        table: 'brands',
+        id: b.id,
+        entityLabel: b.name,
+        reason: 'Archived from Brands management',
+      });
+      toast.success('Brand archived');
+      setArchiveTarget(null);
+      await fetchBrands();
+    } catch (error) {
+      console.error('Archive brand error:', error);
+      toast.error('Failed to archive brand');
+    }
   };
 
   const filtered = brands.filter(b => !search || b.name.toLowerCase().includes(search.toLowerCase()));
@@ -186,7 +198,7 @@ export const Brands = () => {
                             <span className="font-semibold text-primary">₹{b.stockValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
                           ) : <span className="text-muted-foreground opacity-50">—</span>}
                         </StyledTd>
-                        <StyledTd><StatusBadge status={b.is_active ? 'Active' : 'Inactive'} /></StyledTd>
+                        <StyledTd><StatusBadge status={b.is_active ? 'Active' : 'Archived'} /></StyledTd>
                         <StyledTd mono className="text-xs text-muted-foreground">
                           {new Date(b.created_at).toLocaleDateString()}
                         </StyledTd>
@@ -195,16 +207,12 @@ export const Brands = () => {
                             <CustomTooltip content={`Edit ${b.name}`} side="top">
                               <IconBtn onClick={() => openEdit(b)}><Pencil size={14} /></IconBtn>
                             </CustomTooltip>
-                            <CustomTooltip content={b.is_active ? 'Deactivate brand' : 'Activate brand'} side="top">
-                              <Button
-                                size="sm" variant="outline" onClick={() => toggleActive(b)}
-                                className={`h-6 text-[10px] px-2 rounded-full mx-1 ${b.is_active ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-emerald-600 border-emerald-200 hover:bg-emerald-50'}`}
-                              >
-                                {b.is_active ? 'Deactivate' : 'Activate'}
-                              </Button>
-                            </CustomTooltip>
-                            <CustomTooltip content={`Delete ${b.name}`} side="top">
-                              <IconBtn onClick={() => setDeleteTarget(b)} danger><Trash2 size={13} /></IconBtn>
+                            <CustomTooltip content={b.is_active ? `Archive ${b.name}` : `Restore ${b.name}`} side="top">
+                              {b.is_active ? (
+                                <IconBtn onClick={() => setArchiveTarget(b)} danger><Archive size={13} /></IconBtn>
+                              ) : (
+                                <IconBtn onClick={() => void restoreBrand(b)}><RotateCcw size={13} /></IconBtn>
+                              )}
                             </CustomTooltip>
                           </div>
                         </StyledTd>
@@ -249,21 +257,21 @@ export const Brands = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={open => !open && setDeleteTarget(null)}>
+      <AlertDialog open={Boolean(archiveTarget)} onOpenChange={open => !open && setArchiveTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete brand permanently?</AlertDialogTitle>
+            <AlertDialogTitle>Archive brand?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteTarget ? `Delete brand "${deleteTarget.name}" permanently? This action cannot be undone.` : ''}
+              {archiveTarget ? `Archive "${archiveTarget.name}" from active brand lists? You can restore it later from this screen.` : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => deleteTarget && void deleteBrand(deleteTarget)}
+              onClick={() => archiveTarget && void archiveBrand(archiveTarget)}
             >
-              Delete
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

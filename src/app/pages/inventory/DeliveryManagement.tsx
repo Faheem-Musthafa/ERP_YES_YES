@@ -143,7 +143,8 @@ export const DeliveryManagement = () => {
         supabase
           .from('orders')
           .select('id, order_number, invoice_number, customers(name)')
-          .in('status', ['Approved', 'Billed']),
+          .eq('status', 'Billed')
+          .neq('invoice_type', 'Credit Note'),
         supabase.from('users').select('id, full_name, role').eq('is_active', true).order('full_name'),
       ]);
 
@@ -443,14 +444,14 @@ export const DeliveryManagement = () => {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Verify order, initiator, and driver before creating. Delivery assignment updates operational tracking instantly.
+              Verify billed invoice, initiator, and driver before creating. Only billed orders can enter delivery tracking.
             </div>
 
             {/* Order */}
             <div className="space-y-2">
-              <Label>Invoice / Order *</Label>
+              <Label>Billed Invoice / Order *</Label>
               <Select value={form.order_id} onValueChange={v => setForm(f => ({ ...f, order_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select order" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select billed invoice" /></SelectTrigger>
                 <SelectContent>
                   {orders.map(o => (
                     <SelectItem key={o.id} value={o.id}>

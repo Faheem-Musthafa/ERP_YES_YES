@@ -18,7 +18,6 @@ interface CustomerAnalysis {
     phone: string;
     location: string | null;
     place: string | null;
-    openingBalance: number;
     totalOrders: number;
     totalRevenue: number;
     totalCollected: number;
@@ -34,7 +33,6 @@ interface CustomerRow {
     phone: string;
     location: string | null;
     place: string | null;
-    opening_balance: number | null;
     is_active: boolean;
 }
 
@@ -64,7 +62,7 @@ export const CustomerAnalysisReport = () => {
         try {
             const { data: customers, error: custErr } = await supabase
                 .from('customers')
-                .select('id, name, phone, location, place, opening_balance, is_active');
+                .select('id, name, phone, location, place, is_active');
 
             if (custErr) throw custErr;
 
@@ -76,7 +74,8 @@ export const CustomerAnalysisReport = () => {
 
             const { data: receipts, error: receiptErr } = await supabase
                 .from('receipts')
-                .select('customer_id, amount, payment_status');
+                .select('customer_id, amount, payment_status')
+                .or('payment_status.is.null,payment_status.neq.Voided');
 
             if (receiptErr) throw receiptErr;
 
@@ -102,7 +101,6 @@ export const CustomerAnalysisReport = () => {
 
             const analysis = (customers as CustomerRow[] | null)?.map(c => {
                 const orderInfo = orderMap.get(c.id) || { count: 0, revenue: 0, lastDate: null };
-                const openingBalance = c.opening_balance ?? 0;
                 const totalCollected = receiptsMap.get(c.id) ?? 0;
                 return {
                     id: c.id,
@@ -110,11 +108,10 @@ export const CustomerAnalysisReport = () => {
                     phone: c.phone,
                     location: c.location,
                     place: c.place,
-                    openingBalance,
                     totalOrders: orderInfo.count,
                     totalRevenue: orderInfo.revenue,
                     totalCollected,
-                    outstanding: openingBalance + orderInfo.revenue - totalCollected,
+                    outstanding: orderInfo.revenue - totalCollected,
                     averageOrderValue: orderInfo.count > 0 ? orderInfo.revenue / orderInfo.count : 0,
                     lastOrderDate: orderInfo.lastDate,
                     status: c.is_active ? 'Active' : 'Inactive',
@@ -151,8 +148,7 @@ export const CustomerAnalysisReport = () => {
         revenue: filtered.filter(c => c.location === loc).reduce((s, c) => s + c.totalRevenue, 0),
     })).filter(item => item.customers > 0 || item.revenue > 0);
 
-    const totalOpeningBalance = filtered.reduce((s, c) => s + c.openingBalance, 0);
-    const totalDue = totalOpeningBalance + filtered.reduce((s, c) => s + c.totalRevenue, 0);
+    const totalDue = filtered.reduce((s, c) => s + c.totalRevenue, 0);
     const collectionRate = totalDue > 0 ? Math.min((filtered.reduce((s, c) => s + c.totalCollected, 0) / totalDue) * 100, 100) : 0;
     const topCustomers = filtered.slice(0, 5);
     const topLocation = [...locationData].sort((a, b) => b.revenue - a.revenue)[0] ?? null;
@@ -178,7 +174,7 @@ export const CustomerAnalysisReport = () => {
                         Customer Analytics
                     </h1>
                     <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
-                        Track customer health, geographical spread, and outstanding movements across active districts.
+                        Track customer health, geographical spread, and invoice-based outstanding movements across active districts.
                     </p>
                 </div>
                 
@@ -186,13 +182,12 @@ export const CustomerAnalysisReport = () => {
                     <Button
                         size="sm"
                         onClick={() => downloadCSV(
-                            ['Name', 'Phone', 'Location', 'Place', 'Opening Balance', 'Total Orders', 'Total Revenue', 'Collected', 'Outstanding', 'Avg Order Value', 'Last Order', 'Status'],
+                            ['Name', 'Phone', 'Location', 'Place', 'Total Orders', 'Total Revenue', 'Collected', 'Outstanding', 'Avg Order Value', 'Last Order', 'Status'],
                             paginated.map(c => [
                                 c.name,
                                 c.phone,
                                 c.location || '-',
                                 c.place || '-',
-                                c.openingBalance,
                                 c.totalOrders,
                                 c.totalRevenue,
                                 c.totalCollected,
@@ -214,7 +209,7 @@ export const CustomerAnalysisReport = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
                 {[
                     { label: 'Total Base', metric: 'Total Customers', value: stats.totalCustomers, sub: `${stats.activeCustomers} active accounts`, icon: Users, accent: 'blue' },
-                    { label: 'Gross', metric: 'Total Revenue', value: fmt(stats.totalRevenue), sub: `Opening due ${fmt(totalOpeningBalance)}`, icon: TrendingUp, accent: 'teal' },
+                    { label: 'Gross', metric: 'Total Revenue', value: fmt(stats.totalRevenue), sub: 'Based on approved billed orders', icon: TrendingUp, accent: 'teal' },
                     { label: 'Yield', metric: 'Collected', value: fmt(stats.totalCollected), sub: `${collectionRate.toFixed(1)}% collection rate`, icon: Wallet, accent: 'emerald' },
                     { label: 'Risk', metric: 'Outstanding', value: fmt(stats.totalOutstanding), sub: `${atRiskCustomers} pending dues`, icon: AlertTriangle, accent: 'amber' },
                 ].map((stat, i) => {
@@ -270,7 +265,7 @@ export const CustomerAnalysisReport = () => {
                                     Customer footprint centers around <span className="text-primary">{topLocation?.name ?? 'active zones'}</span>
                                 </h3>
                                 <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                                    This perspective aggregates opening dues with active sales velocity. We calculate collection efficiency dynamically to highlight accounts requiring immediate resolution interventions.
+                                    This perspective is based on order revenue and collected receipts only. Collection efficiency highlights accounts requiring immediate resolution interventions.
                                 </p>
                             </div>
                             
@@ -313,7 +308,7 @@ export const CustomerAnalysisReport = () => {
                                         <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
                                     </div>
                                 </div>
-                                <p className="text-[10px] text-slate-500 mt-2 font-medium">Yield vs outstanding baseline</p>
+                                <p className="text-[10px] text-slate-500 mt-2 font-medium">Collected vs invoice revenue</p>
                             </div>
                         </div>
                     </div>
@@ -492,7 +487,6 @@ export const CustomerAnalysisReport = () => {
                                         <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Portfolio Identity</th>
                                         <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Contact</th>
                                         <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Zone</th>
-                                        <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 text-right">Opening Δ</th>
                                         <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 text-right">Volume</th>
                                         <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 text-right text-emerald-600 dark:text-emerald-500">Realized</th>
                                         <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 text-right text-amber-600 dark:text-amber-500">Unsettled</th>
@@ -524,9 +518,6 @@ export const CustomerAnalysisReport = () => {
                                                         <MapPin size={12} className="opacity-60" /> {c.location}
                                                     </div>
                                                 ) : <span className="text-slate-400 text-xs">—</span>}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right font-mono text-sm text-slate-500 dark:text-slate-400">
-                                                {c.openingBalance > 0 ? `₹${c.openingBalance.toLocaleString('en-IN')}` : '-'}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right">
                                                 <p className="font-mono text-sm font-bold text-slate-900 dark:text-slate-100">₹{c.totalRevenue.toLocaleString('en-IN')}</p>

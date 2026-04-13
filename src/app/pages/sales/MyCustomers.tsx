@@ -4,7 +4,8 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { Button } from '@/app/components/ui/button';
 import { Download, Users, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
-import { fmt, downloadCSV, LOCATIONS } from '@/app/utils';
+import { fmt, downloadCSV } from '@/app/utils';
+import { loadMasterDataSettings } from '@/app/settings';
 import {
     PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd,
     SearchBar, Spinner, EmptyState, TablePagination, FilterBar, FilterField,
@@ -28,6 +29,7 @@ interface CustomerData {
 export const MyCustomers = () => {
     const { user } = useAuth();
     const [customers, setCustomers] = useState<CustomerData[]>([]);
+    const [locationOptions, setLocationOptions] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [locationFilter, setLocationFilter] = useState('all');
@@ -83,6 +85,24 @@ export const MyCustomers = () => {
             }) || [];
 
             setCustomers(data.sort((a, b) => b.totalRevenue - a.totalRevenue));
+
+                        const settings = await loadMasterDataSettings().catch(() => null);
+                        const configured = settings?.districts ?? [];
+                        const discovered = Array.from(
+                            new Set(
+                                data
+                                    .map((row) => row.location)
+                                    .filter((row): row is string => typeof row === 'string' && row.trim().length > 0),
+                            ),
+                        );
+
+                        const merged = [...configured];
+                        discovered.forEach((value) => {
+                            if (!merged.includes(value)) {
+                                merged.push(value);
+                            }
+                        });
+                        setLocationOptions(merged);
         } catch (err: any) {
             toast.error(err.message || 'Failed to fetch customers');
         } finally {
@@ -99,10 +119,16 @@ export const MyCustomers = () => {
     });
 
     useEffect(() => { setCurrentPage(1); }, [search, locationFilter]);
+        useEffect(() => {
+            if (locationFilter !== 'all' && !locationOptions.includes(locationFilter)) {
+                setLocationFilter('all');
+            }
+        }, [locationFilter, locationOptions]);
+
     const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
     const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-    const locationData = LOCATIONS.map(loc => ({
+    const locationData = locationOptions.map(loc => ({
         name: loc,
         customers: customers.filter(c => c.location === loc).length,
         revenue: customers.filter(c => c.location === loc).reduce((s, c) => s + c.totalRevenue, 0),
@@ -218,7 +244,7 @@ export const MyCustomers = () => {
                         <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Locations</SelectItem>
-                            {LOCATIONS.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
+                            {locationOptions.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
                         </SelectContent>
                     </Select>
                 </FilterField>

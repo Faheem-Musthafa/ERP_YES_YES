@@ -9,6 +9,7 @@ import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { VehicleTypeEnum } from '@/app/types/database';
+import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
 import {
   PageHeader, SearchBar, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -27,7 +28,7 @@ interface Agent {
   created_at: string;
 }
 
-const DEFAULT_VEHICLE_TYPES: VehicleTypeEnum[] = ['2-Wheeler', '3-Wheeler', '4-Wheeler', 'Truck', 'Others'];
+const DEFAULT_VEHICLE_TYPES = [...DEFAULT_MASTER_DATA_SETTINGS.vehicleTypes];
 const isDefaultVehicleType = (value: string): value is VehicleTypeEnum =>
   DEFAULT_VEHICLE_TYPES.includes(value as VehicleTypeEnum);
 
@@ -48,23 +49,17 @@ export const DeliveryDrivers = () => {
   const pageSize = 10;
 
   const fetchVehicleTypes = async () => {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'vehicle_types')
-      .maybeSingle();
+    try {
+      const settings = await loadMasterDataSettings();
+      const configured = settings.vehicleTypes
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
 
-    if (error) {
-      toast.error(error.message);
+      setVehicleTypes(configured.length > 0 ? configured : DEFAULT_VEHICLE_TYPES);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to load vehicle types');
       setVehicleTypes(DEFAULT_VEHICLE_TYPES);
-      return;
     }
-
-    const configured = Array.isArray(data?.value)
-      ? data.value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-      : [];
-
-    setVehicleTypes(configured.length > 0 ? configured : DEFAULT_VEHICLE_TYPES);
   };
 
   const fetchAgents = async () => {

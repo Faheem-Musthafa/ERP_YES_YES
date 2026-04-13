@@ -4,7 +4,7 @@ All requested features have been successfully implemented and deployed. Build ve
 
 ---
 
-## 1. ✅ LOCATION FIELD FOR CUSTOMERS (Kottakkal/Chenakkal)
+## 1. ✅ LOCATION FIELD FOR CUSTOMERS (KOTTAKKAL /Chenakkal)
 
 ### Database Changes
 - **Migration Applied**: Added `location` column to `customers` table
@@ -13,7 +13,7 @@ All requested features have been successfully implemented and deployed. Build ve
 
 ### Implementation
 - **CustomerForm**:
-  - Added location selector (dropdown: Kottakkal/Chenakkal)
+  - Added location selector (dropdown: KOTTAKKAL /Chenakkal)
   - Persists location when creating/editing customers
   - Optional field with "— None —" option
 
@@ -43,7 +43,7 @@ Optional: place, location, pincode, gst_pan
 
 Expected CSV Header:
 name,phone,address,place,location,pincode,gst_pan
-Acme Corp,9876543210,"123 Main St",Kochi,Kottakkal,682001,
+Acme Corp,9876543210,"123 Main St",Kochi,KOTTAKKAL ,682001,
 Tech Ltd,9123456789,"456 Oak Ave",Trivandrum,Chenakkal,695001,
 ```
 
@@ -71,7 +71,7 @@ Tech Ltd,9123456789,"456 Oak Ave",Trivandrum,Chenakkal,695001,
 - Average Order Value
 
 #### Charts & Visualizations
-- **Pie Chart**: Customers by Location (Kottakkal vs Chenakkal)
+- **Pie Chart**: Customers by Location (KOTTAKKAL  vs Chenakkal)
 - **Bar Chart**: Revenue by Location comparison
 
 #### Detailed Table with Columns
@@ -79,7 +79,7 @@ Tech Ltd,9123456789,"456 Oak Ave",Trivandrum,Chenakkal,695001,
 |--------|------|
 | Customer Name | Full name |
 | Phone | Contact number |
-| Location | Kottakkal/Chenakkal |
+| Location | KOTTAKKAL /Chenakkal |
 | Orders | Total order count |
 | Revenue | Total amount in ₹ |
 | Avg Order Value | Average per order in ₹ |
@@ -87,7 +87,7 @@ Tech Ltd,9123456789,"456 Oak Ave",Trivandrum,Chenakkal,695001,
 
 #### Features
 - **Search**: By customer name or phone
-- **Location Filter**: Dropdown (All/Kottakkal/Chenakkal)
+- **Location Filter**: Dropdown (All/KOTTAKKAL /Chenakkal)
 - **Pagination**: 10 customers per page
 - **Export**: CSV download button includes all visible data
 - **Real-time Data**: Aggregates from orders table
@@ -101,12 +101,12 @@ Tech Ltd,9123456789,"456 Oak Ave",Trivandrum,Chenakkal,695001,
 
 ---
 
-## 4. ✅ STOCK LOCATION FILTERING (Kottakkal/Chenakkal)
+## 4. ✅ STOCK LOCATION FILTERING (KOTTAKKAL /Chenakkal)
 
 ### Stock Management Page Updates
 - **Route**: `/stock` (shared across all eligible roles)
 - **New Filter**: "Location" dropdown
-- **Options**: All Locations / Kottakkal / Chenakkal
+- **Options**: All Locations / KOTTAKKAL  / Chenakkal
 
 ### Display Updates
 - **Location Column**: Added between Brand and SKU columns
@@ -166,7 +166,7 @@ Tech Ltd,9123456789,"456 Oak Ave",Trivandrum,Chenakkal,695001,
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS location varchar(50);
 ```
 - Optional field
-- Accepts: NULL, "Kottakkal", "Chenakkal", or custom values
+- Accepts: NULL, "KOTTAKKAL ", "Chenakkal", or custom values
 - Indexed for performance
 
 ### products table (NEW COLUMN)
@@ -174,7 +174,7 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS location varchar(50);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS location varchar(50);
 ```
 - Optional field (for stock location tracking)
-- Accepts: NULL, "Kottakkal", "Chenakkal", or custom values
+- Accepts: NULL, "KOTTAKKAL ", "Chenakkal", or custom values
 
 ---
 
@@ -208,7 +208,7 @@ All features are production-ready. Verify:
 - [ ] **CSV Import**: Test with sample CSV file
   ```csv
   name,phone,address,place,location,pincode,gst_pan
-  Test Co,9876543210,123 Main St,Kochi,Kottakkal,682001,22AAAAA0000A1Z5
+  Test Co,9876543210,123 Main St,Kochi,KOTTAKKAL ,682001,22AAAAA0000A1Z5
   ```
 - [ ] **Customer Analysis Report**: Navigate to `/admin/customer-analysis`
 - [ ] **Location Filtering**:
@@ -237,7 +237,7 @@ All features are production-ready. Verify:
 
 ### Analytics
 1. Admin views `/admin/customer-analysis`
-2. Sees breakdown by location (Kottakkal vs Chenakkal)
+2. Sees breakdown by location (KOTTAKKAL  vs Chenakkal)
 3. Can search, filter, and export
 4. Tracks revenue and order counts per location
 

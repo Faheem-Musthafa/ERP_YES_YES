@@ -4,7 +4,7 @@
 
 ### Core Features
 1. **Location-Based Stock Tracking**
-   - Separate stock quantities for Kottakkal and Chenakkal
+   - Separate stock quantities for KOTTAKKAL  and Chenakkal
    - Real-time stock visibility by location
    - Automatic stock movement logging
 
@@ -45,7 +45,7 @@
 product_stock_locations
 ├── id (UUID, PK)
 ├── product_id (UUID, FK → products)
-├── location (Kottakkal | Chenakkal)
+├── location (KOTTAKKAL  | Chenakkal)
 ├── stock_qty (Integer, >= 0)
 ├── created_at (Timestamp)
 └── updated_at (Timestamp)
@@ -53,8 +53,8 @@ product_stock_locations
 stock_transfers
 ├── id (UUID, PK)
 ├── product_id (UUID, FK → products)
-├── from_location (Kottakkal | Chenakkal)
-├── to_location (Kottakkal | Chenakkal)
+├── from_location (KOTTAKKAL  | Chenakkal)
+├── to_location (KOTTAKKAL  | Chenakkal)
 ├── quantity (Integer, > 0)
 ├── reason (Text, nullable)
 ├── transferred_by (UUID, FK → users)
@@ -134,7 +134,7 @@ User initiates transfer
 Update GRN to specify receiving location:
 ```typescript
 // In GRN component, add location selector
-const [receivingLocation, setReceivingLocation] = useState<'Kottakkal' | 'Chenakkal'>('Kottakkal');
+const [receivingLocation, setReceivingLocation] = useState<'KOTTAKKAL ' | 'Chenakkal'>('KOTTAKKAL ');
 
 // When receiving goods, update stock at specific location
 await supabase
@@ -174,12 +174,12 @@ for (const item of order.order_items) {
 
 ### Manual Testing
 - [ ] View stock with "All Locations" filter
-- [ ] View stock with "Kottakkal" filter only
+- [ ] View stock with "KOTTAKKAL " filter only
 - [ ] View stock with "Chenakkal" filter only
-- [ ] Create stock adjustment (Addition) at Kottakkal
+- [ ] Create stock adjustment (Addition) at KOTTAKKAL 
 - [ ] Create stock adjustment (Subtraction) at Chenakkal
-- [ ] Transfer stock from Kottakkal to Chenakkal
-- [ ] Transfer stock from Chenakkal to Kottakkal
+- [ ] Transfer stock from KOTTAKKAL  to Chenakkal
+- [ ] Transfer stock from Chenakkal to KOTTAKKAL 
 - [ ] Verify low stock alerts work by location
 - [ ] Check stock movement history is logged
 - [ ] Verify transfer history is visible
@@ -226,7 +226,7 @@ Apply `docs/SECURITY_TRANSACTION_HARDENING.sql` before production go-live.
 
 ### Key Concepts
 - Each product now has TWO stock numbers (one per location)
-- Total stock = Kottakkal stock + Chenakkal stock
+- Total stock = KOTTAKKAL  stock + Chenakkal stock
 - Adjustments and transfers are location-specific
 - Stock transfers don't create new stock, they move it
 

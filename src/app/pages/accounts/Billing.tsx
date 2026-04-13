@@ -7,10 +7,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Search, Download, ReceiptText, ShieldAlert, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { COMPANY_LIST, cloneCompanyProfiles } from '@/app/companyProfiles';
 import {
   DataCard,
   EmptyState,
@@ -27,6 +26,8 @@ import {
   TablePagination,
 } from '@/app/components/ui/primitives';
 import type { CompanyEnum, Json } from '@/app/types/database';
+import { downloadCSV } from '@/app/utils';
+import type { jsPDF } from 'jspdf';
 
 type BillableOrder = {
   id: string;
@@ -101,25 +102,25 @@ type BillingReversalRequest = {
 
 type CompanyInvoiceSettings = Record<CompanyEnum, InvoiceSettings>;
 
-const COMPANY_LIST: CompanyEnum[] = ['LLP', 'YES YES', 'Zekon'];
+const DEFAULT_COMPANY_PROFILES = cloneCompanyProfiles();
 
 const DEFAULT_INVOICE_SETTINGS: CompanyInvoiceSettings = {
   LLP: {
-    companyName: 'LLP',
+    companyName: DEFAULT_COMPANY_PROFILES.LLP.company_name,
     companyGstin: '',
     companyAddress: '',
     companyPhone: '',
     companyEmail: '',
   },
   'YES YES': {
-    companyName: 'YES YES MARKETING',
+    companyName: DEFAULT_COMPANY_PROFILES['YES YES'].company_name,
     companyGstin: '',
     companyAddress: '',
     companyPhone: '',
     companyEmail: '',
   },
   Zekon: {
-    companyName: 'Zekon',
+    companyName: DEFAULT_COMPANY_PROFILES.Zekon.company_name,
     companyGstin: '',
     companyAddress: '',
     companyPhone: '',
@@ -133,13 +134,51 @@ const cloneDefaultInvoiceSettings = (): CompanyInvoiceSettings => ({
   Zekon: { ...DEFAULT_INVOICE_SETTINGS.Zekon },
 });
 
+const getInvoiceSettingsForCompany = (
+  company: string,
+  settings: CompanyInvoiceSettings,
+): InvoiceSettings => {
+  if (COMPANY_LIST.includes(company as CompanyEnum)) {
+    return settings[company as CompanyEnum] ?? DEFAULT_INVOICE_SETTINGS[company as CompanyEnum];
+  }
+
+  return {
+    companyName: company || 'Company',
+    companyGstin: '',
+    companyAddress: '',
+    companyPhone: '',
+    companyEmail: '',
+  };
+};
+
 const normalize = (value: string) => value.toLowerCase().trim();
 const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const formatDate = (value: string | null) => value ? new Date(value).toLocaleDateString('en-IN') : '—';
+const createCreditNoteInvoiceNumber = () => `CN-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Date.now().toString().slice(-5)}`;
 const readSettingString = (value: Json | null, fallback = '') => typeof value === 'string' ? value : fallback;
 const readNullableString = (value: Json | null): string | null => typeof value === 'string' ? value : null;
 const isJsonObject = (value: Json | null): value is Record<string, Json> =>
   !!value && typeof value === 'object' && !Array.isArray(value);
+let jsPdfModulePromise: Promise<typeof import('jspdf')> | null = null;
+let html2CanvasModulePromise: Promise<typeof import('html2canvas')> | null = null;
+
+const loadJsPdf = async () => {
+  if (!jsPdfModulePromise) {
+    jsPdfModulePromise = import('jspdf');
+  }
+
+  const module = await jsPdfModulePromise;
+  return module.jsPDF;
+};
+
+const loadHtml2Canvas = async () => {
+  if (!html2CanvasModulePromise) {
+    html2CanvasModulePromise = import('html2canvas');
+  }
+
+  const module = await html2CanvasModulePromise;
+  return module.default;
+};
 
 const readReversalStatus = (value: Json | null): ReversalStatus => {
   const raw = readSettingString(value, 'Pending');
@@ -251,15 +290,10 @@ const numberToWordsIndian = (value: number) => {
   return parts.join(' ').trim();
 };
 
-const addLine = (doc: jsPDF, text: string, y: number, opts?: { bold?: boolean; right?: string }) => {
-  if (opts?.bold) doc.setFont('helvetica', 'bold');
-  else doc.setFont('helvetica', 'normal');
-  doc.text(text, 12, y);
-  if (opts?.right) doc.text(opts.right, 198, y, { align: 'right' });
-};
-
-const renderInvoicePdf = (order: BillableOrder, lines: OrderLine[], invoiceNo: string, settings: InvoiceSettings) => {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+const renderInvoicePdf = async (order: BillableOrder, lines: OrderLine[], invoiceNo: string, settings: InvoiceSettings) => {
+  const JsPDF = await loadJsPdf();
+  const doc = new JsPDF({ unit: 'mm', format: 'a4' });
+  const displayCompanyName = settings.companyName.trim() || 'Company';
   
   // PAGE DIMENSIONS & MARGINS
   const pageWidth = 210;
@@ -283,7 +317,7 @@ const renderInvoicePdf = (order: BillableOrder, lines: OrderLine[], invoiceNo: s
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(24);
-  doc.text(settings.companyName || 'YES YES MARKETING', margin + 2, 15);
+  doc.text(displayCompanyName, margin + 2, 15);
 
   // Tagline or subtitle (optional)
   doc.setFontSize(8.5);
@@ -292,10 +326,11 @@ const renderInvoicePdf = (order: BillableOrder, lines: OrderLine[], invoiceNo: s
   doc.text('Professional Invoicing & Billing', margin + 2, 20);
 
   // INVOICE LABEL (right aligned, prominent)
+  const documentLabel = order.invoice_type === 'Credit Note' ? 'CREDIT NOTE' : 'INVOICE';
   doc.setTextColor(6, 182, 212); // cyan accent
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(32);
-  doc.text('INVOICE', pageWidth - margin, 18, { align: 'right' });
+  doc.setFontSize(order.invoice_type === 'Credit Note' ? 24 : 32);
+  doc.text(documentLabel, pageWidth - margin, 18, { align: 'right' });
 
   y = 48;
 
@@ -364,7 +399,7 @@ const renderInvoicePdf = (order: BillableOrder, lines: OrderLine[], invoiceNo: s
   doc.setTextColor(51, 65, 85); // slate-700
 
   const sellerLines = [
-    settings.companyName || 'YES YES MARKETING',
+    displayCompanyName,
     settings.companyAddress || '',
     settings.companyPhone ? `T: ${settings.companyPhone}` : '',
     settings.companyEmail ? `E: ${settings.companyEmail}` : '',
@@ -557,7 +592,7 @@ const renderInvoicePdf = (order: BillableOrder, lines: OrderLine[], invoiceNo: s
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(51, 65, 85);
-  const amountWords = `${numberToWordsIndian(order.grand_total)} Rupees Only`;
+  const amountWords = `${order.grand_total < 0 ? 'Minus ' : ''}${numberToWordsIndian(order.grand_total)} Rupees Only`;
   doc.text(splitText(doc, amountWords, 95), margin, wordsY + 5);
 
   if (order.remarks?.trim()) {
@@ -595,7 +630,7 @@ const renderInvoicePdf = (order: BillableOrder, lines: OrderLine[], invoiceNo: s
   doc.setFontSize(8);
   doc.setTextColor(15, 23, 42);
   doc.text(
-    `Authorized by: ${settings.companyName || 'YES YES MARKETING'}`,
+    `Authorized by: ${displayCompanyName}`,
     pageWidth - margin,
     footerY + 2,
     { align: 'right' }
@@ -788,19 +823,40 @@ export const Billing = () => {
     return (data ?? []) as OrderLine[];
   };
 
-  const generateInvoice = async (order: BillableOrder) => {
-    if (order.status === 'Approved') {
-      const shouldBill = window.confirm('Do you want to bill this order now and generate the invoice PDF?');
-      if (!shouldBill) return;
-    }
+  const billOrder = async (order: BillableOrder) => {
+    const isCreditNote = order.invoice_type === 'Credit Note';
+
+    const shouldBill = window.confirm(
+      isCreditNote
+        ? 'Issue this credit note now?'
+        : 'Do you want to bill this order now?'
+    );
+    if (!shouldBill) return;
 
     setBusyOrderId(order.id);
     try {
       let invoiceNo = order.invoice_number;
-      if (order.status === 'Approved') {
-        const idempotencyKey = `bill:${order.id}`;
-        let billedInvoiceNo: string | null = null;
+      let billedInvoiceNo: string | null = null;
 
+      if (isCreditNote) {
+        const nextInvoiceNo = order.invoice_number ?? createCreditNoteInvoiceNumber();
+        const { data: billedOrder, error: billErr } = await supabase
+          .from('orders')
+          .update({
+            status: 'Billed',
+            billed_by: user?.id ?? null,
+            billed_at: new Date().toISOString(),
+            invoice_number: nextInvoiceNo,
+          })
+          .eq('id', order.id)
+          .eq('status', 'Approved')
+          .select('invoice_number')
+          .maybeSingle();
+
+        if (billErr) throw billErr;
+        billedInvoiceNo = billedOrder?.invoice_number ?? nextInvoiceNo;
+      } else {
+        const idempotencyKey = `bill:${order.id}`;
         const { data: idempotentInvoiceNo, error: idempotentErr } = await supabase.rpc('bill_order_idempotent', {
           p_order_id: order.id,
           p_billed_by: user?.id ?? null,
@@ -818,14 +874,29 @@ export const Billing = () => {
         } else {
           billedInvoiceNo = idempotentInvoiceNo;
         }
-
-        invoiceNo = billedInvoiceNo || invoiceNo;
       }
+
+      invoiceNo = billedInvoiceNo || invoiceNo;
       if (!invoiceNo) throw new Error('Invoice number generation failed');
 
+      toast.success(`${invoiceNo} billed successfully. Download the PDF whenever needed.`);
+      await Promise.all([fetchOrders(), loadBillingReversalRequests()]);
+    } catch (error: any) {
+      toast.error(error?.message ?? 'Unable to bill order');
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  const downloadInvoicePdf = async (order: BillableOrder) => {
+    setBusyOrderId(order.id);
+    try {
+      const invoiceNo = order.invoice_number;
+      if (!invoiceNo) throw new Error('Invoice number is not available yet');
+
       const lines = await fetchOrderLines(order.id);
-      const settingsForCompany = invoiceSettings[order.company as CompanyEnum] ?? DEFAULT_INVOICE_SETTINGS['YES YES'];
-      renderInvoicePdf(order, lines, invoiceNo, settingsForCompany);
+      const settingsForCompany = getInvoiceSettingsForCompany(order.company, invoiceSettings);
+      await renderInvoicePdf(order, lines, invoiceNo, settingsForCompany);
 
       const { error: markPdfErr } = await supabase
         .from('orders')
@@ -833,13 +904,30 @@ export const Billing = () => {
         .eq('id', order.id);
       if (markPdfErr) throw markPdfErr;
 
-      toast.success(`${invoiceNo} generated successfully.`);
-      await Promise.all([fetchOrders(), loadBillingReversalRequests()]);
+      toast.success(`${invoiceNo} downloaded successfully.`);
     } catch (error: any) {
-      toast.error(error?.message ?? 'Unable to generate invoice');
+      toast.error(error?.message ?? 'Unable to download invoice PDF');
     } finally {
       setBusyOrderId(null);
     }
+  };
+
+  const exportOrders = () => {
+    downloadCSV(
+      ['Order No', 'Invoice No', 'Customer', 'Company', 'Invoice Type', 'Status', 'Total', 'Approved Date', 'Billed Date'],
+      filtered.map((order) => [
+        order.order_number,
+        order.invoice_number ?? '',
+        order.customers?.name ?? '—',
+        getInvoiceSettingsForCompany(order.company, invoiceSettings).companyName,
+        order.invoice_type,
+        order.status,
+        order.grand_total,
+        formatDate(order.approved_at ?? order.created_at),
+        formatDate(order.billed_at),
+      ]),
+      `billing-orders-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
   };
 
   const submitBillingReversalRequest = async () => {
@@ -881,6 +969,23 @@ export const Billing = () => {
     setReviewDialogOpen(true);
   };
 
+  const moveReversedOrderToBackOrderQueue = async (orderId: string) => {
+    const { error } = await supabase
+      .from('orders')
+      .update({
+        status: 'Pending',
+        approved_by: null,
+        approved_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId)
+      .eq('status', 'Approved');
+
+    if (error) {
+      throw error;
+    }
+  };
+
   const submitAdminReview = async (action: 'approve' | 'reject') => {
     if (!reviewRequest || !user || !isAdmin) return;
     if (!adminPassword.trim()) {
@@ -906,7 +1011,13 @@ export const Billing = () => {
         throw new Error('Request is no longer pending');
       }
 
-      toast.success(action === 'approve' ? 'Billing reversal approved' : 'Billing reversal request rejected');
+      if (action === 'approve') {
+        await moveReversedOrderToBackOrderQueue(reviewRequest.order_id);
+      }
+
+      toast.success(action === 'approve'
+        ? 'Billing reversal approved and moved to Back Orders'
+        : 'Billing reversal request rejected');
       setReviewDialogOpen(false);
       setReviewRequest(null);
       setAdminPassword('');
@@ -923,6 +1034,7 @@ export const Billing = () => {
     const target = snapshotRef.current;
     if (!target) return;
     try {
+      const html2canvas = await loadHtml2Canvas();
       const canvas = await html2canvas(target, {
         useCORS: true,
         backgroundColor: '#ffffff',
@@ -952,9 +1064,15 @@ export const Billing = () => {
         title="Billing & Invoices"
         subtitle="Create invoices from approved orders and export GST invoice PDFs"
         actions={
-          <Button size="sm" variant="outline" onClick={() => void captureScreenshot()}>
-            Capture Screenshot
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={exportOrders}>
+              <Download size={14} />
+              Export Orders
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => void captureScreenshot()}>
+              Capture Screenshot
+            </Button>
+          </div>
         }
       />
 
@@ -1033,11 +1151,11 @@ export const Billing = () => {
                           <Button
                             size="sm"
                             className="h-8 gap-1.5"
-                            onClick={() => void generateInvoice(order)}
+                            onClick={() => void (order.status === 'Approved' ? billOrder(order) : downloadInvoicePdf(order))}
                             disabled={busyOrderId === order.id}
                           >
                             {order.status === 'Approved' ? <ReceiptText size={14} /> : <Download size={14} />}
-                            {busyOrderId === order.id ? 'Processing...' : order.status === 'Approved' ? 'Bill & PDF' : 'Download PDF'}
+                            {busyOrderId === order.id ? 'Processing...' : order.status === 'Approved' ? (order.invoice_type === 'Credit Note' ? 'Issue CN' : 'Bill') : 'Download PDF'}
                           </Button>
                           {canRequestReversal && order.status === 'Billed' && (
                             <Button
@@ -1079,6 +1197,7 @@ export const Billing = () => {
         <ul className="mt-1 list-disc pl-4 space-y-1">
           <li>Accounts generates invoice from <strong>Approved</strong> orders.</li>
           <li>System assigns invoice number and transitions order to <strong>Billed</strong>.</li>
+          <li><strong>Credit Note</strong> billing is financial only and does not trigger stock deduction.</li>
           <li>For mistaken billing, raise a <strong>Request Revert</strong> and wait for admin approval.</li>
         </ul>
       </DataCard>

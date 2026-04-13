@@ -10,12 +10,7 @@ import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { PageHeader, FormCard, FormSection, Spinner, CustomTooltip } from '@/app/components/ui/primitives';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
-import type { DistrictEnum } from '@/app/types/database';
-
-const DISTRICT_OPTIONS: DistrictEnum[] = [
-    'Kasaragod', 'Kannur', 'Wayanad', 'Kozhikode', 'Malappuram', 'Palakkad', 'Thrissur',
-    'Ernakulam', 'Idukki', 'Kottayam', 'Alappuzha', 'Pathanamthitta', 'Kollam', 'Thiruvananthapuram',
-];
+import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
 
 export const CustomerForm = () => {
     const navigate = useNavigate();
@@ -23,13 +18,22 @@ export const CustomerForm = () => {
     const isEdit = Boolean(id);
 
     const [form, setForm] = useState({
-        name: '', place: '', address: '', phone: '', pincode: '', gst_pan: '', location: null as DistrictEnum | null, assigned_to: null as string | null, opening_balance: 0,
+        name: '', place: '', address: '', phone: '', pincode: '', gst_pan: '', location: null as string | null, assigned_to: null as string | null, opening_balance: 0,
     });
+    const [districtOptions, setDistrictOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.districts);
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(isEdit);
     const [uploadOpen, setUploadOpen] = useState(false);
     const [uploadLoading, setUploadLoading] = useState(false);
     const [salesReps, setSalesReps] = useState<any[]>([]);
+
+    useEffect(() => {
+        void loadMasterDataSettings()
+            .then((settings) => setDistrictOptions(settings.districts))
+            .catch(() => {
+                // Keep default districts if settings read fails.
+            });
+    }, []);
 
     useEffect(() => {
         if (!isEdit || !id) return;
@@ -75,7 +79,7 @@ export const CustomerForm = () => {
                 name: form.name.trim(), place: form.place.trim() || null,
                 address: form.address.trim(), phone: form.phone.trim(),
                 pincode: form.pincode.trim() || null, gst_pan: form.gst_pan.trim() || null,
-                location: form.location || null,
+                location: (form.location || null) as any,
                 assigned_to: form.assigned_to?.trim() || null,
                 opening_balance: parseFloat(form.opening_balance?.toString() || '0') || 0,
             };
@@ -158,8 +162,8 @@ export const CustomerForm = () => {
                     phone: cols[phoneIdx] || '',
                     address: cols[addressIdx] || '',
                     place: placeIdx >= 0 ? cols[placeIdx] || null : null,
-                    location: locationIdx >= 0 && DISTRICT_OPTIONS.includes(cols[locationIdx] as DistrictEnum)
-                        ? (cols[locationIdx] as DistrictEnum)
+                    location: locationIdx >= 0 && districtOptions.includes(cols[locationIdx])
+                        ? (cols[locationIdx] as any)
                         : null,
                     pincode: pincodeIdx >= 0 ? cols[pincodeIdx] || null : null,
                     gst_pan: gstIdx >= 0 ? cols[gstIdx] || null : null,
@@ -233,10 +237,10 @@ export const CustomerForm = () => {
                         </div>
                         <div className="space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">District Zone</Label>
-                            <Select value={form.location ?? ''} onValueChange={(v) => setForm(f => ({ ...f, location: (v || null) as DistrictEnum | null }))}>
+                            <Select value={form.location ?? ''} onValueChange={(v) => setForm(f => ({ ...f, location: v || null }))}>
                                 <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50"><SelectValue placeholder="Allocate operation sector" /></SelectTrigger>
                                 <SelectContent className="rounded-xl">
-                                    {DISTRICT_OPTIONS.map((district) => (
+                                    {districtOptions.map((district) => (
                                         <SelectItem key={district} value={district}>{district}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -306,7 +310,7 @@ export const CustomerForm = () => {
                             <Input value={form.gst_pan} onChange={field('gst_pan')} placeholder="Enter verified tax code" className="h-12 rounded-xl bg-white dark:bg-slate-900 uppercase font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
                         </div>
                         <div className="space-y-2 group">
-                            <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">Capital Opening Balance</Label>
+                            <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">Opening Reference Amount</Label>
                             <Input type="number" value={form.opening_balance} onChange={(e) => setForm(f => ({ ...f, opening_balance: parseFloat(e.target.value) || 0 }))} placeholder="0.00" step="0.01" min="0" className="h-12 rounded-xl bg-white dark:bg-slate-900 font-mono tracking-widest text-lg shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
                         </div>
                     </div>

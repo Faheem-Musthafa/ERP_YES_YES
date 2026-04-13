@@ -1,7 +1,10 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { FileText } from 'lucide-react';
+import { Download, FileText } from 'lucide-react';
 import { supabase } from '@/app/supabase';
+import { downloadCSV } from '@/app/utils';
+import { Button } from '@/app/components/ui/button';
+import { cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import {
   PageHeader, SearchBar, DataCard, FilterBar, FilterField,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -14,6 +17,7 @@ export const SalesRecords = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
   const pageSize = 10;
 
   useEffect(() => {
@@ -29,6 +33,12 @@ export const SalesRecords = () => {
     })();
   }, []);
 
+  useEffect(() => {
+    void loadCompanyProfiles()
+      .then(setCompanyProfiles)
+      .catch(() => undefined);
+  }, []);
+
   const filtered = orders.filter(o => {
     const matchSearch = !search ||
       o.order_number.toLowerCase().includes(search.toLowerCase()) ||
@@ -41,12 +51,33 @@ export const SalesRecords = () => {
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const total = filtered.reduce((s, o) => s + (o.grand_total ?? 0), 0);
+  const exportOrders = () => {
+    downloadCSV(
+      ['Order No', 'Customer', 'Company', 'Invoice Type', 'Status', 'Grand Total', 'Approved Date'],
+      filtered.map((order) => [
+        order.order_number,
+        order.customers?.name ?? '—',
+        getCompanyDisplayName(order.company, companyProfiles),
+        order.invoice_type ?? '—',
+        order.status ?? '—',
+        order.grand_total ?? 0,
+        order.approved_at ? new Date(order.approved_at).toLocaleDateString('en-IN') : '—',
+      ]),
+      `sales-records-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+  };
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Sales Records"
         subtitle="All approved, billed, and delivered orders"
+        actions={
+          <Button size="sm" variant="outline" onClick={exportOrders} className="gap-2">
+            <Download size={15} />
+            Export Orders
+          </Button>
+        }
       />
 
       <FilterBar>
@@ -95,7 +126,7 @@ export const SalesRecords = () => {
                       <StyledTr key={o.id}>
                         <StyledTd mono className="text-primary font-semibold">{o.order_number}</StyledTd>
                         <StyledTd className="text-foreground">{o.customers?.name ?? '—'}</StyledTd>
-                        <StyledTd className="text-muted-foreground">{o.company}</StyledTd>
+                        <StyledTd className="text-muted-foreground">{getCompanyDisplayName(o.company, companyProfiles)}</StyledTd>
                         <StyledTd className="text-muted-foreground">{o.invoice_type}</StyledTd>
                         <StyledTd><StatusBadge status={o.status} /></StyledTd>
                         <StyledTd right mono className="font-semibold text-foreground">

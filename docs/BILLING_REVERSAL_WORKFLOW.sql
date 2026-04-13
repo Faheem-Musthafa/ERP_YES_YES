@@ -161,7 +161,7 @@ DECLARE
   v_request RECORD;
   v_order RECORD;
   v_item RECORD;
-  v_location godown_enum;
+  v_location text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required';
@@ -200,7 +200,12 @@ BEGIN
     RAISE EXCEPTION 'Order must be in Billed status to reverse';
   END IF;
 
-  v_location := COALESCE(v_order.godown, 'Kottakkal');
+  v_location := validate_master_setting_option(
+    'godowns',
+    COALESCE(NULLIF(BTRIM(v_order.godown), ''), default_master_setting_option('godowns')),
+    'billing reversal location',
+    true
+  );
 
   FOR v_item IN
     SELECT oi.product_id, oi.quantity
@@ -237,8 +242,45 @@ BEGIN
     );
   END LOOP;
 
+  UPDATE public.receipts
+  SET payment_status = 'Voided',
+      bounce_reason = CASE
+        WHEN COALESCE(TRIM(p_admin_note), '') = '' THEN bounce_reason
+        ELSE CONCAT('Voided during billing reversal: ', TRIM(p_admin_note))
+      END
+  WHERE order_id = v_order.id
+    AND COALESCE(payment_status, '') <> 'Voided';
+
+  UPDATE public.collections
+  SET status = 'Voided',
+      updated_at = NOW()
+  WHERE order_id = v_order.id
+    AND status <> 'Voided';
+
+  INSERT INTO public.data_recovery_events (
+    entity_table,
+    entity_id,
+    entity_label,
+    action,
+    actor_id,
+    reason,
+    metadata
+  )
+  VALUES
+    (
+      'orders',
+      v_order.id,
+      v_order.order_number,
+      'reversed',
+      v_actor,
+      NULLIF(TRIM(p_admin_note), ''),
+      jsonb_build_object('request_id', p_request_id, 'invoice_number', v_order.invoice_number)
+    );
+
   UPDATE public.orders
-  SET status = 'Approved',
+  SET status = 'Pending',
+      approved_by = NULL,
+      approved_at = NULL,
       invoice_number = NULL,
       billed_by = NULL,
       billed_at = NULL,

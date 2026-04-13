@@ -9,6 +9,7 @@ const migrationTargets = [
   'RPC_IDEMPOTENCY_WRAPPERS.sql',
   'COMPANY_PROFILE_SETTINGS_MIGRATION.sql',
   'BILLING_REVERSAL_WORKFLOW.sql',
+  'SAFE_RECOVERY_AND_AUDIT_MIGRATION.sql',
 ];
 
 const prohibitedPatterns = [

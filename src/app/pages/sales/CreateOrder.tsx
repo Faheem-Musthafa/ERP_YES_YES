@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Textarea } from '@/app/components/ui/textarea';
@@ -6,12 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/app/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/app/components/ui/popover';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Plus, Trash2, Info, ChevronRight, AlertTriangle, Check, ChevronsUpDown, Package, Building2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Info, ChevronRight, AlertTriangle, Check, ChevronsUpDown, Package, Building2, ArrowRightLeft } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import { PageHeader } from '@/app/components/ui/primitives';
 import { cn } from '@/app/components/ui/utils';
+import { COMPANY_LIST, cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
+import { DEFAULT_ORDER_FORM_SETTINGS, loadOrderFormSettings } from '@/app/settings';
 import type { CompanyEnum, InvoiceTypeEnum, GodownEnum, Json } from '@/app/types/database';
 
 interface OrderItem {
@@ -20,7 +22,7 @@ interface OrderItem {
   lastEdited?: 'discount' | 'amount' | 'quantity' | 'dp';
 }
 interface Customer { id: string; name: string; phone: string; address: string; gst_pan: string | null; }
-interface Product { id: string; name: string; sku: string; dealer_price: number; mrp: number; brand_name: string; kottakkal_stock: number; chenakkal_stock: number; searchStr: string; }
+interface Product { id: string; name: string; sku: string; dealer_price: number; mrp: number; brand_name: string; locationStocks: Record<string, number>; searchStr: string; }
 
 export const CreateOrder = () => {
   const navigate = useNavigate();
@@ -29,11 +31,14 @@ export const CreateOrder = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
+  const [godownOptions, setGodownOptions] = useState<string[]>(DEFAULT_ORDER_FORM_SETTINGS.godowns);
+  const [maxDiscountPercentage, setMaxDiscountPercentage] = useState(DEFAULT_ORDER_FORM_SETTINGS.maxDiscountPercentage);
 
   // Form State
   const [company, setCompany] = useState<CompanyEnum | ''>('');
   const [invoiceType, setInvoiceType] = useState<InvoiceTypeEnum | ''>('');
-  const [godown, setGodown] = useState<GodownEnum | ''>('');
+  const [godown, setGodown] = useState('');
   const [customerType, setCustomerType] = useState('existing');
   
   // Combobox Selectors State
@@ -58,14 +63,42 @@ export const CreateOrder = () => {
   const [deliveryOption, setDeliveryOption] = useState('today');
   const [customDate, setCustomDate] = useState('');
 
+  const getStockAtLocation = (product: Product | undefined, location: string) => {
+    if (!product || !location) return 0;
+    return product.locationStocks[location] ?? 0;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [{ data: custData, error: custError }, { data: prodData, error: prodError }, { data: stockData, error: stockError }] = await Promise.all([
+        const [{ data: custData, error: custError }, { data: prodData, error: prodError }, { data: stockData, error: stockError }, profiles, orderSettings] = await Promise.all([
           supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
           supabase.from('products').select('id, name, sku, dealer_price, mrp, brands(name)').eq('is_active', true).order('name'),
           supabase.from('product_stock_locations').select('product_id, location, stock_qty'),
+          loadCompanyProfiles().catch(() => null),
+          loadOrderFormSettings().catch(() => null),
         ]);
+
+        if (profiles) {
+          setCompanyProfiles(profiles);
+        }
+
+        if (orderSettings) {
+          const configuredGodowns = Array.from(
+            new Set(
+              orderSettings.godowns
+                .map((location) => location.trim())
+                .filter((location) => location.length > 0),
+            ),
+          );
+          setGodownOptions(configuredGodowns);
+          setMaxDiscountPercentage(orderSettings.maxDiscountPercentage);
+          setInvoiceType((current) => current || orderSettings.defaultInvoiceType);
+          setGodown((current) => {
+            if (current && configuredGodowns.includes(current)) return current;
+            return configuredGodowns[0] ?? '';
+          });
+        }
         
         if (custError) {
           toast.error('Could not load customers');
@@ -76,19 +109,45 @@ export const CreateOrder = () => {
         if (prodError || stockError) {
           toast.error('Could not load products');
         } else if (prodData) {
-          const stockMap = new Map<string, { kottakkal: number; chenakkal: number }>();
+          const stockMap = new Map<string, Record<string, number>>();
           (stockData ?? []).forEach((s: any) => {
-            const existing = stockMap.get(s.product_id) || { kottakkal: 0, chenakkal: 0 };
-            if (s.location === 'Kottakkal') existing.kottakkal = s.stock_qty ?? 0;
-            if (s.location === 'Chenakkal') existing.chenakkal = s.stock_qty ?? 0;
+            const location = typeof s.location === 'string' ? s.location.trim() : '';
+            if (!location) return;
+            const existing = stockMap.get(s.product_id) || {};
+            existing[location] = s.stock_qty ?? 0;
             stockMap.set(s.product_id, existing);
+          });
+
+          const detectedLocations = Array.from(
+            new Set(
+              (stockData ?? [])
+                .map((row: any) => (typeof row.location === 'string' ? row.location.trim() : ''))
+                .filter((location: string) => location.length > 0),
+            ),
+          );
+          const configuredGodowns = Array.from(
+            new Set(
+              (orderSettings?.godowns ?? DEFAULT_ORDER_FORM_SETTINGS.godowns)
+                .map((location) => location.trim())
+                .filter((location) => location.length > 0),
+            ),
+          );
+          const nextGodownOptions = configuredGodowns.length > 0
+            ? configuredGodowns
+            : detectedLocations;
+
+          setGodownOptions(nextGodownOptions);
+          setGodown((current) => {
+            if (current && nextGodownOptions.includes(current)) return current;
+            return configuredGodowns[0]
+              ?? nextGodownOptions[0]
+              ?? '';
           });
           
           setProducts(prodData.map((p: any) => ({
             id: p.id, name: p.name, sku: p.sku, dealer_price: p.dealer_price, mrp: p.mrp ?? 0,
             brand_name: p.brands?.name ?? '',
-            kottakkal_stock: stockMap.get(p.id)?.kottakkal ?? 0,
-            chenakkal_stock: stockMap.get(p.id)?.chenakkal ?? 0,
+            locationStocks: stockMap.get(p.id) ?? {},
             searchStr: `${p.name} ${p.brands?.name ?? ''} ${p.sku}`.toLowerCase()
           })));
         }
@@ -118,7 +177,7 @@ export const CreateOrder = () => {
 
   const handleProductChange = (id: string, productId: string) => {
     const p = products.find(pr => pr.id === productId);
-    const stock = godown === 'Chenakkal' ? (p?.chenakkal_stock ?? 0) : (p?.kottakkal_stock ?? 0);
+    const stock = getStockAtLocation(p, godown);
     setOrderItems(items => items.map(item =>
       item.id === id ? { ...item, productId, product: p?.name ?? '', brand: p?.brand_name ?? '', sku: p?.sku ?? '', stock, dp: p?.dealer_price ?? 0, mrp: p?.mrp ?? 0, amount: '', discount: '' } : item
     ));
@@ -135,16 +194,22 @@ export const CreateOrder = () => {
     setOrderItems(prev => prev.map(item => {
       if (!item.productId) return item;
       const p = products.find(pr => pr.id === item.productId);
-      const stock = godown === 'Chenakkal' ? (p?.chenakkal_stock ?? 0) : (p?.kottakkal_stock ?? 0);
+      const stock = getStockAtLocation(p, godown);
       return { ...item, stock };
     }));
   }, [godown, products]);
+
+  useEffect(() => {
+    if (godown && !godownOptions.includes(godown)) {
+      setGodown('');
+    }
+  }, [godown, godownOptions]);
 
   const clampDiscountInput = (value: string): string => {
     if (value === '') return '';
     const parsed = Number(value);
     if (Number.isNaN(parsed)) return '';
-    return String(Math.max(0, Math.min(100, parsed)));
+    return String(Math.max(0, Math.min(maxDiscountPercentage, parsed)));
   };
 
   useEffect(() => {
@@ -153,13 +218,21 @@ export const CreateOrder = () => {
       if (!qty || !dp) return item;
       if (item.lastEdited === 'amount' && item.amount !== '') {
         const maxAmount = dp * qty;
-        if (maxAmount > 0) return { ...item, discount: Math.max(0, Math.min(100, ((maxAmount - (Number(item.amount) || 0)) / maxAmount) * 100)).toFixed(2), lastEdited: undefined };
+        if (maxAmount > 0) return { ...item, discount: Math.max(0, Math.min(maxDiscountPercentage, ((maxAmount - (Number(item.amount) || 0)) / maxAmount) * 100)).toFixed(2), lastEdited: undefined };
       }
       if (item.lastEdited === 'discount' || item.lastEdited === 'quantity' || item.lastEdited === 'dp')
         return { ...item, amount: (dp * qty * (1 - (Number(item.discount) || 0) / 100)).toFixed(2), lastEdited: undefined };
       return item;
     }));
   }, [orderItems.map(i => `${i.id}-${i.quantity}-${i.discount}-${i.amount}-${i.dp}-${i.lastEdited}`).join(',')]);
+
+  useEffect(() => {
+    setOrderItems((prev) => prev.map((item) => {
+      if (!item.discount) return item;
+      const clamped = clampDiscountInput(item.discount);
+      return clamped === item.discount ? item : { ...item, discount: clamped, lastEdited: 'discount' };
+    }));
+  }, [maxDiscountPercentage]);
 
   const subtotal = Math.round(orderItems.reduce((s, i) => s + (i.dp * (Number(i.quantity) || 0)), 0) * 100) / 100;
   const totalDiscount = Math.round(orderItems.reduce((s, i) => s + (i.dp * (Number(i.quantity) || 0) * (Number(i.discount) || 0) / 100), 0) * 100) / 100;
@@ -208,7 +281,7 @@ export const CreateOrder = () => {
         p_company: company as CompanyEnum,
         p_invoice_type: invoiceType as InvoiceTypeEnum,
         p_customer_id: customerId,
-        p_godown: godown,
+        p_godown: godown as GodownEnum,
         p_site_address: siteAddress,
         p_items: itemsPayload as unknown as Json,
         p_remarks: remarks || null,
@@ -224,7 +297,7 @@ export const CreateOrder = () => {
         const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
         const { data: legacyOrder, error: legacyOrderErr } = await supabase.from('orders').insert({
             order_number: orderNumber, company: company as CompanyEnum, invoice_type: invoiceType as InvoiceTypeEnum,
-            customer_id: customerId, godown: godown, site_address: siteAddress, remarks: remarks || null, delivery_date: deliveryDate || null,
+            customer_id: customerId, godown: godown as GodownEnum, site_address: siteAddress, remarks: remarks || null, delivery_date: deliveryDate || null,
             subtotal, total_discount: totalDiscount, grand_total: grandTotal, status: 'Pending', created_by: user?.id ?? null,
           }).select('id').single();
         if (legacyOrderErr) throw legacyOrderErr;
@@ -280,9 +353,17 @@ export const CreateOrder = () => {
         title="New Sales Order"
         subtitle="Fill in the fields and submit"
         actions={(
-          <Button type="button" variant="ghost" size="sm" onClick={handleCancel} className="gap-2">
-            <ArrowLeft size={16} /> Cancel
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => navigate('/sales/stock-transfer')} className="gap-2">
+              <ArrowRightLeft size={16} /> Stock Transfer
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => navigate('/sales/credit-note')} className="gap-2">
+              <ChevronRight size={16} /> Credit Note
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={handleCancel} className="gap-2">
+              <ArrowLeft size={16} /> Cancel
+            </Button>
+          </div>
         )}
       />
 
@@ -313,9 +394,11 @@ export const CreateOrder = () => {
                   <Select value={company} onValueChange={(v: string) => setCompany(v as CompanyEnum)}>
                     <SelectTrigger id="company" className="h-10 rounded-xl text-sm bg-gray-50 border-gray-200 shadow-none focus:ring-[#00bdb4]"><SelectValue placeholder="Select company" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="LLP">Yes Yes LLP</SelectItem>
-                      <SelectItem value="YES YES">Yes Yes Marketing</SelectItem>
-                      <SelectItem value="Zekon">Zekon</SelectItem>
+                      {COMPANY_LIST.map((companyKey) => (
+                        <SelectItem key={companyKey} value={companyKey}>
+                          {getCompanyDisplayName(companyKey, companyProfiles)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </FL>
@@ -328,17 +411,18 @@ export const CreateOrder = () => {
                       <SelectItem value="IGST">IGST</SelectItem>
                       <SelectItem value="Delivery Challan Out">DC Out</SelectItem>
                       <SelectItem value="Delivery Challan In">DC In</SelectItem>
-                      <SelectItem value="Stock Transfer">Stock Transfer</SelectItem>
-                      <SelectItem value="Credit Note">Credit Note</SelectItem>
                     </SelectContent>
                   </Select>
                 </FL>
                 <FL label="Dispatch Godown" htmlFor="godown" required>
-                  <Select value={godown} onValueChange={(value) => setGodown(value as '' | GodownEnum)}>
+                  <Select value={godown} onValueChange={setGodown}>
                     <SelectTrigger id="godown" className="h-10 rounded-xl text-sm bg-gray-50 border-gray-200 shadow-none"><SelectValue placeholder="Dispatch From" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Kottakkal">Kottakkal</SelectItem>
-                      <SelectItem value="Chenakkal">Chenakkal</SelectItem>
+                      {godownOptions.map((location) => (
+                        <SelectItem key={location} value={location}>
+                          {location}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </FL>
@@ -507,9 +591,9 @@ export const CreateOrder = () => {
                                 className="h-10 pl-7 text-right font-mono bg-gray-50 border-gray-200 shadow-none rounded-lg" />
                             </div>
                           </FL>
-                          <FL label="Disc">
+                          <FL label={`Disc (max ${maxDiscountPercentage}%)`}>
                             <div className="relative">
-                              <Input type="number" value={item.discount} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, discount: clampDiscountInput(e.target.value), lastEdited: 'discount' } : i))}
+                              <Input type="number" max={maxDiscountPercentage} value={item.discount} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, discount: clampDiscountInput(e.target.value), lastEdited: 'discount' } : i))}
                                 className="h-10 pr-6 text-right font-mono bg-gray-50 border-gray-200 shadow-none rounded-lg" placeholder="0" />
                               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-mono text-sm">%</span>
                             </div>
@@ -590,7 +674,7 @@ export const CreateOrder = () => {
           {/* ══ RIGHT: Sticky Action/Summary Bar ══ */}
           <div className="xl:w-[320px] shrink-0">
             {/* Using bottom-0 fixed on mobile, and sticky top-4 on desktop */}
-            <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.06)] xl:static xl:sticky xl:top-4 xl:bg-transparent xl:border-none xl:p-0 xl:shadow-none">
+            <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.06)] xl:sticky xl:top-4 xl:bg-transparent xl:border-none xl:p-0 xl:shadow-none">
               <div className="xl:panel-surface-strong xl:p-5 space-y-4 max-w-7xl mx-auto flex flex-col">
                 
                 <p className="hidden xl:block text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">Checkout Summary</p>

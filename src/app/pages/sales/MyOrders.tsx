@@ -1,10 +1,12 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { useNavigate } from 'react-router';
-import { FileText, Plus } from 'lucide-react';
+import { Download, FileText, Plus } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Button } from '@/app/components/ui/button';
+import { downloadCSV } from '@/app/utils';
+import { cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import {
   PageHeader, SearchBar, DataCard, FilterBar, FilterField,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -19,6 +21,7 @@ export const MyOrders = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
   const pageSize = 10;
 
   useEffect(() => {
@@ -35,6 +38,12 @@ export const MyOrders = () => {
     })();
   }, [user]);
 
+  useEffect(() => {
+    void loadCompanyProfiles()
+      .then(setCompanyProfiles)
+      .catch(() => undefined);
+  }, []);
+
   const filtered = orders.filter(o => {
     const matchSearch = !search || o.order_number.toLowerCase().includes(search.toLowerCase()) || (o.customers?.name ?? '').toLowerCase().includes(search.toLowerCase());
     const matchStatus = !statusFilter || statusFilter === 'all' || o.status === statusFilter;
@@ -43,6 +52,22 @@ export const MyOrders = () => {
   useEffect(() => { setCurrentPage(1); }, [search, statusFilter, orders.length]);
   const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const exportOrders = () => {
+    downloadCSV(
+      ['Order No', 'Customer', 'Company', 'Invoice Type', 'Grand Total', 'Delivery Date', 'Status', 'Created'],
+      filtered.map((order) => [
+        order.order_number,
+        order.customers?.name ?? '—',
+        getCompanyDisplayName(order.company, companyProfiles),
+        order.invoice_type ?? '—',
+        order.grand_total ?? 0,
+        order.delivery_date ? new Date(order.delivery_date).toLocaleDateString('en-IN') : '—',
+        order.status ?? '—',
+        order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN') : '—',
+      ]),
+      `my-orders-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+  };
 
   return (
     <div className="space-y-5">
@@ -50,9 +75,14 @@ export const MyOrders = () => {
         title="My Orders"
         subtitle="Track all your submitted orders"
         actions={
-          <Button size="sm" onClick={() => navigate('/sales/create-order')} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-            <Plus size={15} /> Create Order
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={exportOrders} className="gap-2">
+              <Download size={15} /> Export Orders
+            </Button>
+            <Button size="sm" onClick={() => navigate('/sales/create-order')} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+              <Plus size={15} /> Create Order
+            </Button>
+          </div>
         }
       />
 
@@ -102,7 +132,7 @@ export const MyOrders = () => {
                   <StyledTr key={order.id} className="group">
                     <StyledTd className="font-semibold text-primary group-hover:underline">{order.order_number}</StyledTd>
                     <StyledTd className="font-medium text-foreground">{order.customers?.name ?? '—'}</StyledTd>
-                    <StyledTd className="text-muted-foreground">{order.company}</StyledTd>
+                    <StyledTd className="text-muted-foreground">{getCompanyDisplayName(order.company, companyProfiles)}</StyledTd>
                     <StyledTd className="text-muted-foreground">{order.invoice_type}</StyledTd>
                     <StyledTd right mono className="font-bold">₹{order.grand_total?.toLocaleString('en-IN')}</StyledTd>
                     <StyledTd mono className="text-xs text-muted-foreground">{order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : '—'}</StyledTd>

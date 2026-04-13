@@ -41,8 +41,8 @@ export const SalesDashboard = () => {
       ] = await Promise.all([
         supabase.from('orders').select('id, order_number, status, grand_total, created_at, customers(name)').eq('created_by', user!.id).order('created_at', { ascending: false }).limit(50),
         supabase.from('orders').select('id, status, grand_total, created_at').eq('created_by', user!.id).gte('created_at', monthStart),
-        supabase.from('receipts').select('id, amount, payment_status').eq('recorded_by', user!.id),
-        supabase.from('receipts').select('id, amount, payment_status').eq('recorded_by', user!.id).gte('created_at', monthStart),
+        supabase.from('receipts').select('id, amount, payment_status').or('payment_status.is.null,payment_status.neq.Voided').eq('recorded_by', user!.id),
+        supabase.from('receipts').select('id, amount, payment_status').or('payment_status.is.null,payment_status.neq.Voided').eq('recorded_by', user!.id).gte('created_at', monthStart),
       ]);
       const fetchError = allMyOrdersError || myMonthOrdersError || myReceiptsError || myMonthReceiptsError;
       if (fetchError) throw new Error(fetchError.message);

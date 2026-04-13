@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/app/supabase';
 import { DataCard, EmptyState, FormSection, PageHeader, SearchBar, StyledThead, StyledTh, StyledTr, StyledTd, StatusBadge } from '@/app/components/ui/primitives';
 import type { GodownEnum } from '@/app/types/database';
+import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
 
 interface PendingDelivery {
   id: string;
@@ -33,7 +34,8 @@ export const GRN = () => {
   const [pendingDeliveries, setPendingDeliveries] = useState<PendingDelivery[]>([]);
   const [recentGRNs, setRecentGRNs] = useState<RecentGrn[]>([]);
   const [selectedPOId, setSelectedPOId] = useState('');
-  const [receivingLocation, setReceivingLocation] = useState<GodownEnum>('Kottakkal');
+  const [receivingLocation, setReceivingLocation] = useState('');
+  const [godownOptions, setGodownOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.godowns);
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
   const [challanNumber, setChallanNumber] = useState('');
   const [remarks, setRemarks] = useState('');
@@ -45,6 +47,11 @@ export const GRN = () => {
 
     if (!selectedPO) {
       toast.error('Please select a purchase order');
+      return;
+    }
+
+    if (!receivingLocation) {
+      toast.error('Please select receiving location');
       return;
     }
 
@@ -77,7 +84,7 @@ export const GRN = () => {
         expected_qty: item.quantity,
         received_qty: expectedQty === 0 ? 0 : Math.floor((item.quantity / expectedQty) * requestedQty),
         damaged_qty: 0,
-        location: receivingLocation,
+        location: receivingLocation as GodownEnum,
       }));
       let assignedQty = proportionalItems.reduce((sum, item) => sum + item.received_qty, 0);
       for (const item of proportionalItems) {
@@ -137,7 +144,7 @@ export const GRN = () => {
       setRemarks('');
       setReceivedQty('');
       setSelectedPOId('');
-      setReceivingLocation('Kottakkal');
+      setReceivingLocation((prev) => prev || godownOptions[0] || '');
 
       // Refresh GRN list
       await loadGRNData();
@@ -150,7 +157,8 @@ export const GRN = () => {
 
   const loadGRNData = async () => {
     try {
-      const [{ data: pendingData, error: pendingError }, { data: grnData, error: grnError }] = await Promise.all([
+      const [settings, { data: pendingData, error: pendingError }, { data: grnData, error: grnError }, { data: stockLocations }] = await Promise.all([
+        loadMasterDataSettings().catch(() => DEFAULT_MASTER_DATA_SETTINGS),
         supabase
           .from('purchase_orders')
           .select('id, po_number, supplier_id, status, expected_delivery_date, suppliers(name), po_items(product_id, quantity)')
@@ -161,7 +169,36 @@ export const GRN = () => {
           .select('id, grn_number, received_date, created_at, purchase_orders:purchase_orders!grn_po_id_fkey(po_number, suppliers(name)), grn_items(received_qty, status)')
           .order('created_at', { ascending: false })
           .limit(20),
+        supabase
+          .from('product_stock_locations')
+          .select('location')
+          .limit(200),
       ]);
+
+      const detectedOperationalGodowns = Array.from(
+        new Set(
+          (stockLocations ?? [])
+            .map((row: any) => (typeof row.location === 'string' ? row.location.trim() : ''))
+            .filter((value: string) => value.length > 0),
+        ),
+      );
+      const configuredGodowns = Array.from(
+        new Set(
+          settings.godowns
+            .map((location) => location.trim())
+            .filter((location) => location.length > 0),
+        ),
+      );
+      const nextGodownOptions = configuredGodowns.length > 0
+        ? configuredGodowns
+        : detectedOperationalGodowns;
+
+      setGodownOptions(nextGodownOptions);
+      setReceivingLocation((current) => {
+        if (current && nextGodownOptions.includes(current)) return current;
+        return nextGodownOptions[0]
+          ?? '';
+      });
 
       if (pendingError) {
         console.error('Failed to fetch pending POs:', pendingError);
@@ -206,6 +243,12 @@ export const GRN = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (receivingLocation && !godownOptions.includes(receivingLocation)) {
+      setReceivingLocation('');
+    }
+  }, [receivingLocation, godownOptions]);
+
   const selectedPO = useMemo(
     () => pendingDeliveries.find(delivery => delivery.id === selectedPOId) ?? null,
     [pendingDeliveries, selectedPOId]
@@ -247,13 +290,16 @@ export const GRN = () => {
 
                 <div>
                   <Label>Receiving Location *</Label>
-                  <Select value={receivingLocation} onValueChange={(v) => setReceivingLocation(v as GodownEnum)}>
+                  <Select value={receivingLocation} onValueChange={setReceivingLocation}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Kottakkal">Kottakkal</SelectItem>
-                      <SelectItem value="Chenakkal">Chenakkal</SelectItem>
+                      {godownOptions.map((location) => (
+                        <SelectItem key={location} value={location}>
+                          {location}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">Stock will be added to this location</p>

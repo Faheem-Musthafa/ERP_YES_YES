@@ -1,11 +1,13 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { useNavigate } from 'react-router';
-import { CheckCircle, XCircle, ArrowLeft, FileText, ChevronRight } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowLeft, FileText, ChevronRight, Download } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { Json } from '@/app/types/database';
+import { downloadCSV } from '@/app/utils';
+import { cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import {
   PageHeader, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -28,9 +30,16 @@ export const OrderReview = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
   const pageSize = 8;
 
   useEffect(() => { fetchPendingOrders(); }, []);
+
+  useEffect(() => {
+    void loadCompanyProfiles()
+      .then(setCompanyProfiles)
+      .catch(() => undefined);
+  }, []);
 
   const fetchPendingOrders = async () => {
     setLoading(true);
@@ -74,6 +83,22 @@ export const OrderReview = () => {
   useEffect(() => { setCurrentPage(1); }, [pendingOrders.length]);
   const page = Math.min(currentPage, Math.max(1, Math.ceil(pendingOrders.length / pageSize)));
   const paginatedOrders = pendingOrders.slice((page - 1) * pageSize, page * pageSize);
+  const exportPendingOrders = () => {
+    downloadCSV(
+      ['Order No', 'Customer', 'Phone', 'Company', 'Invoice Type', 'Grand Total', 'Created Date', 'Status'],
+      pendingOrders.map((order) => [
+        order.order_number,
+        order.customers?.name ?? '—',
+        order.customers?.phone ?? '—',
+        getCompanyDisplayName(order.company, companyProfiles),
+        order.invoice_type ?? '—',
+        order.grand_total ?? 0,
+        order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN') : '—',
+        order.status ?? 'Pending',
+      ]),
+      `pending-order-reviews-${new Date().toISOString().slice(0, 10)}.csv`,
+    );
+  };
   const resetReviewContext = async () => {
     setSelectedOrder(null);
     setItems([]);
@@ -192,7 +217,7 @@ export const OrderReview = () => {
             <dl className="space-y-2 text-sm mb-5">
               {[
                 ['Order No', selectedOrder.order_number],
-                ['Company', selectedOrder.company],
+                ['Company', getCompanyDisplayName(selectedOrder.company, companyProfiles)],
                 ['Invoice Type', selectedOrder.invoice_type],
                 ['Customer', selectedOrder.customers?.name ?? '—'],
                 ['Phone', selectedOrder.customers?.phone ?? '—'],
@@ -312,6 +337,12 @@ export const OrderReview = () => {
       <PageHeader
         title="Pending Order Reviews"
         subtitle="Select an order to review and approve pricing"
+        actions={
+          <Button size="sm" variant="outline" onClick={exportPendingOrders} className="gap-2">
+            <Download size={15} />
+            Export Orders
+          </Button>
+        }
       />
       {loading ? <Spinner /> :
         pendingOrders.length === 0 ? (
@@ -330,7 +361,7 @@ export const OrderReview = () => {
                   <div>
                     <p className="font-bold text-primary font-mono text-sm">{order.order_number}</p>
                     <p className="text-sm text-foreground mt-0.5">
-                      {order.customers?.name ?? 'Unknown'} · {order.company} · {order.invoice_type}
+                      {order.customers?.name ?? 'Unknown'} · {getCompanyDisplayName(order.company, companyProfiles)} · {order.invoice_type}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {new Date(order.created_at).toLocaleDateString()}

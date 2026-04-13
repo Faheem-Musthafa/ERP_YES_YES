@@ -33,6 +33,7 @@ export const STATUS_COLOR: Record<string, string> = {
 export const DEFAULT_RECEIPT_STATUS = 'Not Collected' as const;
 
 export const RECEIPT_COLLECTED_STATUSES = ['Received', 'Credited', 'Cleared'] as const;
+export const VOIDED_RECEIPT_STATUS = 'Voided' as const;
 
 export const RECEIPT_STATUS_OPTIONS_BY_MODE: Record<PaymentModeEnum, string[]> = {
     Cash: [DEFAULT_RECEIPT_STATUS, 'Received', 'Not Received'],
@@ -44,6 +45,9 @@ export const RECEIPT_STATUS_OPTIONS_BY_MODE: Record<PaymentModeEnum, string[]> =
 export const isCollectedReceiptStatus = (status: string | null | undefined): boolean =>
     status != null && RECEIPT_COLLECTED_STATUSES.includes(status as (typeof RECEIPT_COLLECTED_STATUSES)[number]);
 
+export const isVoidedReceiptStatus = (status: string | null | undefined): boolean =>
+    status === VOIDED_RECEIPT_STATUS;
+
 // ── Email validation ────────────────────────────────────────────────────
 
 /** Validates email format using RFC 5322 simplified regex */
@@ -54,9 +58,12 @@ export const isValidEmail = (email: string): boolean => {
 
 // ── Location constants ──────────────────────────────────────────────────
 
-/** Available warehouse/store locations */
-export const LOCATIONS = ['Kottakkal', 'Chenakkal'] as const;
-export type Location = typeof LOCATIONS[number];
+/**
+ * Deprecated static location list.
+ * Use settings-driven master data loaders instead.
+ */
+export const LOCATIONS: readonly string[] = [];
+export type Location = string;
 
 // ── CSV Export ──────────────────────────────────────────────────────────────
 

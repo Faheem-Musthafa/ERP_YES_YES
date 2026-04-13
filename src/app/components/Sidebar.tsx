@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '@/app/contexts/AuthContext';
+import { cloneCompanyProfiles, getPrimaryCompanyName, loadCompanyProfiles } from '@/app/companyProfiles';
 import {
   LayoutDashboard, Users, Package, ShoppingCart, TrendingUp,
   BarChart3, FileText, LogOut, DollarSign, FileCheck, Boxes,
   Plus, Receipt, Wallet, ClipboardCheck, Truck, Car,
   UserCircle, ChevronRight, ChevronDown, X, PanelLeftClose, PanelLeftOpen,
-  Activity, Settings, ArrowRightLeft,
+  Activity, Settings,
 } from 'lucide-react';
 
 interface NavItem { label: string; path: string; icon: React.ReactNode; }
@@ -29,7 +30,6 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
         { label: 'Products', path: '/admin/products', icon: <Boxes size={16} /> },
         { label: 'Stock View', path: '/stock', icon: <BarChart3 size={16} /> },
         { label: 'Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={16} /> },
-        { label: 'Transfer', path: '/inventory/transfer', icon: <ArrowRightLeft size={16} /> },
         { label: 'Delivery', path: '/inventory/delivery', icon: <Truck size={16} /> },
         { label: 'Delivery Drivers', path: '/admin/drivers', icon: <Car size={16} /> },
       ],
@@ -123,7 +123,6 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
       items: [
         { label: 'Stock View', path: '/stock', icon: <BarChart3 size={16} /> },
         { label: 'Stock Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={16} /> },
-        { label: 'Stock Transfer', path: '/inventory/transfer', icon: <ArrowRightLeft size={16} /> },
         { label: 'Delivery', path: '/inventory/delivery', icon: <Truck size={16} /> },
       ],
     },
@@ -178,10 +177,19 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
   const { user, logout } = useAuth();
   const location = useLocation();
   const groups = useNavGroups(user?.role);
+  const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(
     () => Object.fromEntries(groups.map(g => [g.title, true]))
   );
+  const primaryCompanyName = getPrimaryCompanyName(companyProfiles);
+
+  useEffect(() => {
+    void loadCompanyProfiles()
+      .then(setCompanyProfiles)
+      .catch(() => undefined);
+  }, []);
+
   const toggleSection = (title: string) =>
     setOpenSections(prev => ({ ...prev, [title]: !prev[title] }));
 
@@ -221,7 +229,7 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
           {!isCollapsed && (
             <div className="flex-1 min-w-0 flex flex-col justify-center">
               <h2 className="text-[14px] font-black tracking-tight text-white leading-none">
-                YES YES
+                {primaryCompanyName}
               </h2>
               <p className="text-[10px] font-bold text-teal-300/80 uppercase tracking-widest mt-1">
                 ERP System

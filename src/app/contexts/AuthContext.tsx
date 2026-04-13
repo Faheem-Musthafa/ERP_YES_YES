@@ -23,6 +23,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function isInvalidRefreshTokenError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const maybe = error as { message?: string; name?: string };
+  const text = `${maybe.name ?? ''} ${maybe.message ?? ''}`.toLowerCase();
+  return text.includes('invalid refresh token') || text.includes('refresh token not found');
+}
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth must be used within an AuthProvider');
@@ -69,6 +76,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const recoverInvalidLocalSession = async () => {
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch {
+        // Ignore cleanup errors and continue resetting local auth state.
+      }
+
+      if (!isMounted) return;
+      setUser(null);
+      setLoading(false);
+    };
+
+    // Preflight session read to proactively recover from stale local refresh tokens.
+    void supabase.auth.getSession().then(async ({ error }) => {
+      if (error && isInvalidRefreshTokenError(error)) {
+        await recoverInvalidLocalSession();
+      }
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       // *** SYNCHRONOUS handler *** — must NOT be async.
       // Calling supabase DB queries (even via fetchUserProfile) directly inside an async
@@ -81,6 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       (event, session) => {
         setTimeout(async () => {
           if (event === 'SIGNED_OUT') {
+            if (!isMounted) return;
             setUser(null);
             setLoading(false);
             return;
@@ -88,20 +117,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           if (session?.user) {
             const profile = await fetchUserProfile(session.user.id, session.user.email ?? '');
+            if (!isMounted) return;
             setUser(profile);
           } else {
+            if (!isMounted) return;
             setUser(null);
           }
 
           // Only mark loading as done after the initial session check
-          if (event === 'INITIAL_SESSION') {
+          if (event === 'INITIAL_SESSION' && isMounted) {
             setLoading(false);
           }
         }, 0);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const refreshProfile = useCallback(async () => {

@@ -15,12 +15,14 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
-import { Settings, Save, RotateCcw, Database, Building2, MapPin, Truck, AlertCircle, Check, Briefcase, Calculator, Building, Phone, Mail, BadgePercent, CalendarDays, FileText } from 'lucide-react';
+import { Settings, Save, RotateCcw, Database, Building2, MapPin, Truck, AlertCircle, Check, Briefcase, Calculator, Building, Phone, Mail, BadgePercent, CalendarDays, FileText, Pencil } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 import {
-  PageHeader, FormCard, FormSection, CustomTooltip, Spinner,
+  FormCard, CustomTooltip, Spinner,
 } from '@/app/components/ui/primitives';
+import { DEFAULT_MASTER_DATA_SETTINGS } from '@/app/settings';
+import { COMPANY_LIST, cloneCompanyProfiles, readCompanyProfiles, type CompanyProfile, type CompanyProfiles } from '@/app/companyProfiles';
 import type { CompanyEnum, Json } from '@/app/types/database';
 
 interface SystemConfig {
@@ -31,16 +33,6 @@ interface SystemConfig {
   financial_year_end: number;
 }
 
-interface CompanyProfile {
-  company_name: string;
-  company_gstin: string;
-  company_address: string;
-  company_phone: string;
-  company_email: string;
-}
-
-type CompanyProfiles = Record<CompanyEnum, CompanyProfile>;
-
 const DEFAULT_CONFIG: SystemConfig = {
   default_invoice_type: 'GST',
   enable_auto_approval: false,
@@ -49,45 +41,9 @@ const DEFAULT_CONFIG: SystemConfig = {
   financial_year_end: 3,
 };
 
-const COMPANY_LIST: CompanyEnum[] = ['LLP', 'YES YES', 'Zekon'];
-
-const DEFAULT_COMPANY_PROFILES: CompanyProfiles = {
-  LLP: {
-    company_name: 'LLP',
-    company_gstin: '',
-    company_address: '',
-    company_phone: '',
-    company_email: '',
-  },
-  'YES YES': {
-    company_name: 'YES YES',
-    company_gstin: '',
-    company_address: '',
-    company_phone: '',
-    company_email: '',
-  },
-  Zekon: {
-    company_name: 'Zekon',
-    company_gstin: '',
-    company_address: '',
-    company_phone: '',
-    company_email: '',
-  },
-};
-
-const cloneCompanyProfiles = (): CompanyProfiles => ({
-  LLP: { ...DEFAULT_COMPANY_PROFILES.LLP },
-  'YES YES': { ...DEFAULT_COMPANY_PROFILES['YES YES'] },
-  Zekon: { ...DEFAULT_COMPANY_PROFILES.Zekon },
-});
-
-const GODOWNS = ['Kottakkal', 'Chenakkal'];
-const DISTRICTS = [
-  'Kasaragod', 'Kannur', 'Wayanad', 'Kozhikode', 'Malappuram',
-  'Palakkad', 'Thrissur', 'Ernakulam', 'Idukki', 'Kottayam',
-  'Alappuzha', 'Pathanamthitta', 'Kollam', 'Thiruvananthapuram',
-];
-const VEHICLE_TYPES = ['2-Wheeler', '3-Wheeler', '4-Wheeler', 'Truck', 'Others'];
+const GODOWNS = [...DEFAULT_MASTER_DATA_SETTINGS.godowns];
+const DISTRICTS = [...DEFAULT_MASTER_DATA_SETTINGS.districts];
+const VEHICLE_TYPES = [...DEFAULT_MASTER_DATA_SETTINGS.vehicleTypes];
 const SYSTEM_CONFIG_KEYS = new Set<keyof SystemConfig>([
   'default_invoice_type',
   'enable_auto_approval',
@@ -95,6 +51,52 @@ const SYSTEM_CONFIG_KEYS = new Set<keyof SystemConfig>([
   'financial_year_start',
   'financial_year_end',
 ]);
+
+type MasterSettingKey = 'godowns' | 'districts' | 'vehicle_types';
+
+const MASTER_SETTING_LABELS: Record<MasterSettingKey, string> = {
+  godowns: 'Godown',
+  districts: 'District',
+  vehicle_types: 'Vehicle type',
+};
+
+const normalizeMasterLookupKey = (value: string) => value.trim().toLowerCase();
+
+const normalizeMasterList = (values: readonly string[]) => {
+  const unique = new Set<string>();
+  const normalized: string[] = [];
+  values.forEach((value) => {
+    const cleaned = value.trim();
+    if (cleaned.length === 0) return;
+    const lookup = normalizeMasterLookupKey(cleaned);
+    if (unique.has(lookup)) return;
+    unique.add(lookup);
+    normalized.push(cleaned);
+  });
+  return normalized;
+};
+
+const hasMasterValue = (values: readonly string[], candidate: string, ignoreValue?: string) => {
+  const candidateKey = normalizeMasterLookupKey(candidate);
+  const ignoreKey = ignoreValue ? normalizeMasterLookupKey(ignoreValue) : null;
+
+  return values.some((value) => {
+    const valueKey = normalizeMasterLookupKey(value);
+    if (ignoreKey && valueKey === ignoreKey) return false;
+    return valueKey === candidateKey;
+  });
+};
+
+const toMasterList = (value: unknown) => {
+  if (!Array.isArray(value)) return [];
+  return normalizeMasterList(value.filter((item): item is string => typeof item === 'string'));
+};
+
+const isMissingCrudRpc = (err: { code?: string; message?: string }) =>
+  err.code === '42883' || /does not exist|Could not find the function/i.test(err.message ?? '');
+
+const GODOWN_RPC_MISSING_ERROR =
+  'Godown management RPC is missing. Run docs/ENUM_TO_DYNAMIC_SETTINGS_MIGRATION.sql and retry.';
 
 const isStringArray = (value: Json | null): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string');
@@ -126,33 +128,6 @@ const applySystemSetting = (
   }
 };
 
-const readProfileFromJson = (value: Json | null, fallback: CompanyProfile): CompanyProfile => {
-  if (!isJsonObject(value)) {
-    return { ...fallback };
-  }
-
-  return {
-    company_name: readString(value.company_name ?? null, fallback.company_name),
-    company_gstin: readString(value.company_gstin ?? null, fallback.company_gstin),
-    company_address: readString(value.company_address ?? null, fallback.company_address),
-    company_phone: readString(value.company_phone ?? null, fallback.company_phone),
-    company_email: readString(value.company_email ?? null, fallback.company_email),
-  };
-};
-
-const readCompanyProfiles = (value: Json | null): CompanyProfiles => {
-  const next = cloneCompanyProfiles();
-  if (!isJsonObject(value)) {
-    return next;
-  }
-
-  COMPANY_LIST.forEach((company) => {
-    next[company] = readProfileFromJson(value[company] ?? null, next[company]);
-  });
-
-  return next;
-};
-
 export const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
   const [savingBusiness, setSavingBusiness] = useState(false);
@@ -178,6 +153,11 @@ export const AdminSettings = () => {
   const [newVehicle, setNewVehicle] = useState('');
   const [vehicleList, setVehicleList] = useState<string[]>(VEHICLE_TYPES);
   const [originalVehicleList, setOriginalVehicleList] = useState<string[]>(VEHICLE_TYPES);
+
+  const [editMasterDialog, setEditMasterDialog] = useState(false);
+  const [editMasterKey, setEditMasterKey] = useState<MasterSettingKey>('godowns');
+  const [editMasterOriginalValue, setEditMasterOriginalValue] = useState('');
+  const [editMasterValue, setEditMasterValue] = useState('');
 
   useEffect(() => {
     loadSettings();
@@ -225,11 +205,11 @@ export const AdminSettings = () => {
             legacyYesYesProfile.company_email = readString(setting.value, legacyYesYesProfile.company_email);
             hasLegacyCompanyValues = true;
           } else if (setting.key === 'godowns') {
-            nextGodowns = isStringArray(setting.value) ? setting.value : GODOWNS;
+            nextGodowns = isStringArray(setting.value) ? normalizeMasterList(setting.value) : GODOWNS;
           } else if (setting.key === 'districts') {
-            nextDistricts = isStringArray(setting.value) ? setting.value : DISTRICTS;
+            nextDistricts = isStringArray(setting.value) ? normalizeMasterList(setting.value) : DISTRICTS;
           } else if (setting.key === 'vehicle_types') {
-            nextVehicleTypes = isStringArray(setting.value) ? setting.value : VEHICLE_TYPES;
+            nextVehicleTypes = isStringArray(setting.value) ? normalizeMasterList(setting.value) : VEHICLE_TYPES;
           }
         }
 
@@ -238,6 +218,18 @@ export const AdminSettings = () => {
             ...profiles,
             'YES YES': legacyYesYesProfile,
           };
+        }
+
+        if (nextGodowns.length === 0) {
+          const { data: rpcGodowns, error: rpcGodownsError } = await supabase.rpc('get_master_setting_options', {
+            p_key: 'godowns',
+          });
+          if (!rpcGodownsError) {
+            const parsed = toMasterList(rpcGodowns);
+            if (parsed.length > 0) {
+              nextGodowns = parsed;
+            }
+          }
         }
 
         setConfig(newConfig);
@@ -300,14 +292,183 @@ export const AdminSettings = () => {
     }
   };
 
+  const getMasterListByKey = (key: MasterSettingKey) => {
+    if (key === 'godowns') return godownList;
+    if (key === 'districts') return districtList;
+    return vehicleList;
+  };
+
+  const applyMasterListByKey = (key: MasterSettingKey, values: readonly string[]) => {
+    const cleaned = normalizeMasterList(values);
+    if (key === 'godowns') {
+      setGodownList(cleaned);
+      setOriginalGodownList(cleaned);
+      return;
+    }
+    if (key === 'districts') {
+      setDistrictList(cleaned);
+      setOriginalDistrictList(cleaned);
+      return;
+    }
+    setVehicleList(cleaned);
+    setOriginalVehicleList(cleaned);
+  };
+
+  const saveMasterListFallback = async (key: MasterSettingKey, values: readonly string[]) => {
+    const cleaned = normalizeMasterList(values);
+    const { error } = await supabase
+      .from('settings')
+      .upsert({ key, value: cleaned }, { onConflict: 'key' });
+
+    if (error) throw error;
+    return cleaned;
+  };
+
+  const createMasterOption = async (key: MasterSettingKey, rawValue: string) => {
+    const current = getMasterListByKey(key);
+    const value = rawValue.trim();
+    const label = MASTER_SETTING_LABELS[key];
+
+    if (!value) {
+      toast.error(`${label} is required`);
+      return false;
+    }
+
+    if (hasMasterValue(current, value)) {
+      toast.error(`${label} already exists`);
+      return false;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('create_master_setting_option', {
+        p_key: key,
+        p_value: value,
+      });
+
+      const next = error
+        ? await (async () => {
+            if (!isMissingCrudRpc(error)) throw error;
+            if (key === 'godowns') {
+              throw new Error(GODOWN_RPC_MISSING_ERROR);
+            }
+            return saveMasterListFallback(key, [...current, value]);
+          })()
+        : (() => {
+            const parsed = toMasterList(data);
+            return parsed.length > 0 ? parsed : normalizeMasterList([...current, value]);
+          })();
+
+      applyMasterListByKey(key, next);
+      toast.success(`${label} added`);
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || `Failed to add ${label.toLowerCase()}`);
+      return false;
+    }
+  };
+
+  const deleteMasterOption = async (key: MasterSettingKey, value: string) => {
+    const current = getMasterListByKey(key);
+    const label = MASTER_SETTING_LABELS[key];
+
+    try {
+      const { data, error } = await supabase.rpc('delete_master_setting_option', {
+        p_key: key,
+        p_value: value,
+      });
+
+      const next = error
+        ? await (async () => {
+            if (!isMissingCrudRpc(error)) throw error;
+            if (key === 'godowns') {
+              throw new Error(GODOWN_RPC_MISSING_ERROR);
+            }
+            if (current.length <= 1) {
+              throw new Error(`You must keep at least one ${label.toLowerCase()}`);
+            }
+            return saveMasterListFallback(key, current.filter((item) => item !== value));
+          })()
+        : (() => {
+            const parsed = toMasterList(data);
+            return parsed.length > 0 ? parsed : current.filter((item) => item !== value);
+          })();
+
+      applyMasterListByKey(key, next);
+      toast.success(`${label} removed`);
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || `Failed to remove ${label.toLowerCase()}`);
+      return false;
+    }
+  };
+
+  const openEditMasterItem = (key: MasterSettingKey, value: string) => {
+    setEditMasterKey(key);
+    setEditMasterOriginalValue(value);
+    setEditMasterValue(value);
+    setEditMasterDialog(true);
+  };
+
+  const handleUpdateMasterItem = async () => {
+    const label = MASTER_SETTING_LABELS[editMasterKey];
+    const current = getMasterListByKey(editMasterKey);
+    const nextValue = editMasterValue.trim();
+
+    if (!nextValue) {
+      toast.error(`${label} is required`);
+      return;
+    }
+
+    if (normalizeMasterLookupKey(nextValue) === normalizeMasterLookupKey(editMasterOriginalValue)) {
+      setEditMasterDialog(false);
+      return;
+    }
+
+    if (hasMasterValue(current, nextValue, editMasterOriginalValue)) {
+      toast.error(`${label} already exists`);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('update_master_setting_option', {
+        p_key: editMasterKey,
+        p_old_value: editMasterOriginalValue,
+        p_new_value: nextValue,
+      });
+
+      const next = error
+        ? await (async () => {
+            if (!isMissingCrudRpc(error)) throw error;
+            if (editMasterKey === 'godowns') {
+              throw new Error(GODOWN_RPC_MISSING_ERROR);
+            }
+            const fallback = current.map((item) => (item === editMasterOriginalValue ? nextValue : item));
+            return saveMasterListFallback(editMasterKey, fallback);
+          })()
+        : (() => {
+            const parsed = toMasterList(data);
+            return parsed.length > 0
+              ? parsed
+              : current.map((item) => (item === editMasterOriginalValue ? nextValue : item));
+          })();
+
+      applyMasterListByKey(editMasterKey, next);
+      setEditMasterDialog(false);
+      toast.success(`${label} updated`);
+    } catch (err: any) {
+      toast.error(err.message || `Failed to update ${label.toLowerCase()}`);
+    }
+  };
+
   const handleSaveCompanyProfile = async (company: CompanyEnum) => {
     const profile = companyProfiles[company];
+    const companyDisplayName = profile.company_name.trim() || company;
     if (!profile.company_name.trim()) {
-      toast.error(`${company} company name is required`);
+      toast.error(`${companyDisplayName} company name is required`);
       return;
     }
     if (!profile.company_address.trim()) {
-      toast.error(`${company} company address is required`);
+      toast.error(`${companyDisplayName} company address is required`);
       return;
     }
 
@@ -350,7 +511,7 @@ export const AdminSettings = () => {
       }
 
       setOriginalCompanyProfiles(companyProfiles);
-      toast.success(`${company} profile saved`);
+      toast.success(`${companyDisplayName} profile saved`);
     } catch (err: any) {
       toast.error(err.message || 'Failed to save company profile');
     } finally {
@@ -369,165 +530,39 @@ export const AdminSettings = () => {
   };
 
   const handleAddGodown = async () => {
-    if (!newGodown.trim()) {
-      toast.error('Godown name is required');
-      return;
-    }
-    if (godownList.includes(newGodown)) {
-      toast.error('Godown already exists');
-      return;
-    }
-
-    const updatedList = [...godownList, newGodown.trim()];
-    try {
-      const { error } = await supabase
-        .from('settings')
-        .upsert({
-          key: 'godowns',
-          value: updatedList,
-        }, { onConflict: 'key' });
-
-      if (error) throw error;
-      setGodownList(updatedList);
-      setOriginalGodownList(updatedList);
+    const ok = await createMasterOption('godowns', newGodown);
+    if (ok) {
       setNewGodown('');
-      toast.success('Godown added');
       setGodownDialog(false);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to add godown');
     }
   };
 
   const handleRemoveGodown = async (name: string) => {
-    if (godownList.length <= 1) {
-      toast.error('You must keep at least one godown');
-      return;
-    }
-
-    const updatedList = godownList.filter(g => g !== name);
-    try {
-      const { error } = await supabase
-        .from('settings')
-        .upsert({
-          key: 'godowns',
-          value: updatedList,
-        }, { onConflict: 'key' });
-
-      if (error) throw error;
-      setGodownList(updatedList);
-      setOriginalGodownList(updatedList);
-      toast.success('Godown removed');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to remove godown');
-    }
+    await deleteMasterOption('godowns', name);
   };
 
   const handleAddDistrict = async () => {
-    if (!newDistrict.trim()) {
-      toast.error('District name is required');
-      return;
-    }
-    if (districtList.includes(newDistrict)) {
-      toast.error('District already exists');
-      return;
-    }
-
-    const updatedList = [...districtList, newDistrict.trim()];
-    try {
-      const { error } = await supabase
-        .from('settings')
-        .upsert({
-          key: 'districts',
-          value: updatedList,
-        }, { onConflict: 'key' });
-
-      if (error) throw error;
-      setDistrictList(updatedList);
-      setOriginalDistrictList(updatedList);
+    const ok = await createMasterOption('districts', newDistrict);
+    if (ok) {
       setNewDistrict('');
-      toast.success('District added');
       setDistrictDialog(false);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to add district');
     }
   };
 
   const handleRemoveDistrict = async (name: string) => {
-    if (districtList.length <= 1) {
-      toast.error('You must keep at least one district');
-      return;
-    }
-
-    const updatedList = districtList.filter(d => d !== name);
-    try {
-      const { error } = await supabase
-        .from('settings')
-        .upsert({
-          key: 'districts',
-          value: updatedList,
-        }, { onConflict: 'key' });
-
-      if (error) throw error;
-      setDistrictList(updatedList);
-      setOriginalDistrictList(updatedList);
-      toast.success('District removed');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to remove district');
-    }
+    await deleteMasterOption('districts', name);
   };
 
   const handleAddVehicle = async () => {
-    if (!newVehicle.trim()) {
-      toast.error('Vehicle type is required');
-      return;
-    }
-    if (vehicleList.includes(newVehicle)) {
-      toast.error('Vehicle type already exists');
-      return;
-    }
-
-    const updatedList = [...vehicleList, newVehicle.trim()];
-    try {
-      const { error } = await supabase
-        .from('settings')
-        .upsert({
-          key: 'vehicle_types',
-          value: updatedList,
-        }, { onConflict: 'key' });
-
-      if (error) throw error;
-      setVehicleList(updatedList);
-      setOriginalVehicleList(updatedList);
+    const ok = await createMasterOption('vehicle_types', newVehicle);
+    if (ok) {
       setNewVehicle('');
-      toast.success('Vehicle type added');
       setVehicleDialog(false);
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to add vehicle type');
     }
   };
 
   const handleRemoveVehicle = async (name: string) => {
-    if (vehicleList.length <= 1) {
-      toast.error('You must keep at least one vehicle type');
-      return;
-    }
-
-    const updatedList = vehicleList.filter(v => v !== name);
-    try {
-      const { error } = await supabase
-        .from('settings')
-        .upsert({
-          key: 'vehicle_types',
-          value: updatedList,
-        }, { onConflict: 'key' });
-
-      if (error) throw error;
-      setVehicleList(updatedList);
-      setOriginalVehicleList(updatedList);
-      toast.success('Vehicle type removed');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to remove vehicle type');
-    }
+    await deleteMasterOption('vehicle_types', name);
   };
 
   const hasBusinessChanges =
@@ -596,7 +631,7 @@ export const AdminSettings = () => {
         <div className="pt-0.5">
           <p className="font-semibold text-base">Profile-Based Identity Enabled</p>
           <p className="text-sm mt-1 opacity-90 leading-relaxed max-w-2xl">
-            Billing and invoice outputs can now leverage individual profile setups for <span className="font-semibold">LLP</span>, <span className="font-semibold">YES YES</span>, and <span className="font-semibold">Zekon</span> independently. Configuration under the "Company Profiles" tab takes precedence.
+            Billing and invoice outputs can now leverage individual profile setups for <span className="font-semibold">{companyProfiles.LLP.company_name || 'LLP'}</span>, <span className="font-semibold">{companyProfiles['YES YES'].company_name || 'YES YES'}</span>, and <span className="font-semibold">{companyProfiles.Zekon.company_name || 'Zekon'}</span> independently. Configuration under the "Company Profiles" tab takes precedence.
           </p>
         </div>
       </div>
@@ -735,16 +770,17 @@ export const AdminSettings = () => {
                 const profile = companyProfiles[company];
                 const dirty = isCompanyDirty(company);
                 const isSavingThisCompany = savingCompany === company;
+                const companyDisplayName = profile.company_name || company;
 
                 return (
                   <div key={company} className="relative flex flex-col bg-white dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden transition-all hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md">
                     <div className="flex items-center justify-between p-5 bg-gradient-to-r from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900/50 border-b border-border/50">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-primary/10 dark:bg-primary/20 text-primary flex items-center justify-center font-bold text-lg border border-primary/20">
-                          {company.charAt(0)}
+                          {companyDisplayName.charAt(0)}
                         </div>
                         <div>
-                          <p className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">{company}</p>
+                          <p className="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">{companyDisplayName}</p>
                           <p className="text-[11px] text-slate-500 uppercase tracking-widest font-semibold mt-0.5">Profile Identity</p>
                         </div>
                       </div>
@@ -766,7 +802,7 @@ export const AdminSettings = () => {
                         <Input
                           value={profile.company_name}
                           onChange={(e) => updateCompanyProfile(company, 'company_name', e.target.value)}
-                          placeholder={`Legal Name for ${company}`}
+                          placeholder={`Legal Name for ${companyDisplayName}`}
                           required
                           className="h-10 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/60"
                         />
@@ -858,9 +894,14 @@ export const AdminSettings = () => {
                         <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                           <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div> {godown}
                         </span>
-                        <button onClick={() => handleRemoveGodown(godown)} className="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10">
-                          Remove
-                        </button>
+                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEditMasterItem('godowns', godown)} className="text-xs font-semibold text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700/60">
+                            Edit
+                          </button>
+                          <button onClick={() => handleRemoveGodown(godown)} className="text-xs font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10">
+                            Remove
+                          </button>
+                        </div>
                       </div>
                     ))}
                     {godownList.length === 0 && <p className="text-center text-sm text-slate-400 py-6">No godowns configured</p>}
@@ -891,9 +932,14 @@ export const AdminSettings = () => {
                         <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                           <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div> {district}
                         </span>
-                        <button onClick={() => handleRemoveDistrict(district)} className="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10">
-                          Remove
-                        </button>
+                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEditMasterItem('districts', district)} className="text-xs font-semibold text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700/60">
+                            Edit
+                          </button>
+                          <button onClick={() => handleRemoveDistrict(district)} className="text-xs font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10">
+                            Remove
+                          </button>
+                        </div>
                       </div>
                     ))}
                     {districtList.length === 0 && <p className="text-center text-sm text-slate-400 py-6">No districts configured</p>}
@@ -924,9 +970,14 @@ export const AdminSettings = () => {
                         <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                           <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full"></div> {vehicle}
                         </span>
-                        <button onClick={() => handleRemoveVehicle(vehicle)} className="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10">
-                          Remove
-                        </button>
+                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEditMasterItem('vehicle_types', vehicle)} className="text-xs font-semibold text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700/60">
+                            Edit
+                          </button>
+                          <button onClick={() => handleRemoveVehicle(vehicle)} className="text-xs font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10">
+                            Remove
+                          </button>
+                        </div>
                       </div>
                     ))}
                     {vehicleList.length === 0 && <p className="text-center text-sm text-slate-400 py-6">No vehicle types configured</p>}
@@ -955,7 +1006,7 @@ export const AdminSettings = () => {
                   id="godown-name"
                   value={newGodown}
                   onChange={(e) => setNewGodown(e.target.value)}
-                  placeholder="e.g. Kottakkal Branch"
+                  placeholder="e.g. Main Warehouse"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddGodown()}
                   className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
                   autoFocus
@@ -1038,6 +1089,38 @@ export const AdminSettings = () => {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={editMasterDialog} onOpenChange={setEditMasterDialog}>
+        <DialogContent className="sm:max-w-md rounded-2xl overflow-hidden p-0 border-0 shadow-2xl">
+          <div className="p-6">
+            <DialogHeader className="mb-6">
+              <DialogTitle className="text-xl flex items-center gap-3">
+                <div className="p-2 bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300 rounded-xl"><Pencil size={20} /></div>
+                Edit {MASTER_SETTING_LABELS[editMasterKey]}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-master-value" className="text-slate-600 font-medium">Updated value</Label>
+                <Input
+                  id="edit-master-value"
+                  value={editMasterValue}
+                  onChange={(e) => setEditMasterValue(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && void handleUpdateMasterItem()}
+                  className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
+                  autoFocus
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="px-6 py-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+            <Button variant="ghost" onClick={() => setEditMasterDialog(false)} className="rounded-xl">Cancel</Button>
+            <Button onClick={() => void handleUpdateMasterItem()} className="gap-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl">
+              <Check size={16} /> Update
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={resetConfirm} onOpenChange={setResetConfirm}>
         <AlertDialogContent className="rounded-3xl border-0 shadow-2xl">
           <AlertDialogHeader>
@@ -1063,4 +1146,3 @@ export const AdminSettings = () => {
     </div>
   );
 };
-

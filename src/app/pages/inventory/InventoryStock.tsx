@@ -7,6 +7,7 @@ import {
   StyledThead, StyledTh, StyledTr, StyledTd,
   EmptyState, Spinner, TablePagination, ErrorState,
 } from '@/app/components/ui/primitives';
+import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
 
 interface ProductWithStock {
   id: string;
@@ -14,8 +15,7 @@ interface ProductWithStock {
   sku: string;
   dealer_price: number;
   brands: { id: string; name: string } | null;
-  kottakkal_stock: number;
-  chenakkal_stock: number;
+  locationStocks: Record<string, number>;
   total_stock: number;
 }
 
@@ -25,6 +25,7 @@ export const InventoryStock = () => {
   const [search, setSearch] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('all');
+  const [locationOptions, setLocationOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.godowns);
   const [brands, setBrands] = useState<any[]>([]);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,7 +35,8 @@ export const InventoryStock = () => {
     setLoading(true);
     setError('');
     try {
-      const [{ data: prod, error: prodError }, { data: br, error: brError }] = await Promise.all([
+      const [settings, { data: prod, error: prodError }, { data: br, error: brError }] = await Promise.all([
+        loadMasterDataSettings().catch(() => DEFAULT_MASTER_DATA_SETTINGS),
         supabase.from('products').select('id, name, sku, dealer_price, brands(id, name)').eq('is_active', true).order('name'),
         supabase.from('brands').select('id, name').eq('is_active', true).order('name'),
       ]);
@@ -51,17 +53,41 @@ export const InventoryStock = () => {
 
       if (stockError) throw stockError;
 
+      const configuredLocations = Array.from(new Set(
+        settings.godowns
+          .map((location) => location.trim())
+          .filter((location) => location.length > 0),
+      ));
+      const detectedLocations = Array.from(new Set(
+        (stockData ?? [])
+          .map((row: any) => (typeof row.location === 'string' ? row.location.trim() : ''))
+          .filter((location: string) => location.length > 0),
+      ));
+      const nextLocationOptions = configuredLocations.length > 0
+        ? configuredLocations
+        : detectedLocations;
+      setLocationOptions(nextLocationOptions);
+
+      const stockByProduct = new Map<string, Record<string, number>>();
+      (stockData ?? []).forEach((row: any) => {
+        const location = typeof row.location === 'string' ? row.location.trim() : '';
+        if (!location) return;
+        const existing = stockByProduct.get(row.product_id) ?? {};
+        existing[location] = row.stock_qty ?? 0;
+        stockByProduct.set(row.product_id, existing);
+      });
+
       const productsWithStock: ProductWithStock[] = (prod ?? []).map(p => {
-        const kottakkalStock = stockData?.find(s => s.product_id === p.id && s.location === 'Kottakkal');
-        const chenakkalStock = stockData?.find(s => s.product_id === p.id && s.location === 'Chenakkal');
-        const kottakkal_stock = kottakkalStock?.stock_qty ?? 0;
-        const chenakkal_stock = chenakkalStock?.stock_qty ?? 0;
+        const locationStocks = stockByProduct.get(p.id) ?? {};
+        const total_stock = nextLocationOptions.reduce(
+          (sum, location) => sum + (locationStocks[location] ?? 0),
+          0,
+        );
         
         return {
           ...p,
-          kottakkal_stock,
-          chenakkal_stock,
-          total_stock: kottakkal_stock + chenakkal_stock,
+          locationStocks,
+          total_stock,
         };
       });
 
@@ -79,6 +105,12 @@ export const InventoryStock = () => {
     void fetchData();
   }, []);
 
+  useEffect(() => {
+    if (locationFilter !== 'all' && !locationOptions.includes(locationFilter)) {
+      setLocationFilter('all');
+    }
+  }, [locationFilter, locationOptions]);
+
   const filtered = products.filter(p => {
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.sku.toLowerCase().includes(search.toLowerCase());
     const matchBrand = !brandFilter || brandFilter === 'all' || (p.brands?.id === brandFilter);
@@ -95,9 +127,14 @@ export const InventoryStock = () => {
   };
 
   const getLocationStock = (p: ProductWithStock, location: string) => {
-    if (location === 'Kottakkal') return p.kottakkal_stock;
-    if (location === 'Chenakkal') return p.chenakkal_stock;
-    return p.total_stock;
+    if (!location || location === 'all') return p.total_stock;
+    return p.locationStocks[location] ?? 0;
+  };
+
+  const stockClassName = (qty: number) => {
+    if (qty === 0) return 'text-red-600';
+    if (qty <= 5) return 'text-amber-600';
+    return 'text-foreground';
   };
 
   return (
@@ -132,8 +169,9 @@ export const InventoryStock = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Locations</SelectItem>
-                <SelectItem value="Kottakkal">Kottakkal</SelectItem>
-                <SelectItem value="Chenakkal">Chenakkal</SelectItem>
+                {locationOptions.map((location) => (
+                  <SelectItem key={location} value={location}>{location}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </FilterField>
@@ -156,8 +194,9 @@ export const InventoryStock = () => {
                   <StyledTh right>Dealer Price</StyledTh>
                   {locationFilter === 'all' ? (
                     <>
-                      <StyledTh right>Kottakkal</StyledTh>
-                      <StyledTh right>Chenakkal</StyledTh>
+                      {locationOptions.map((location) => (
+                        <StyledTh key={location} right>{location}</StyledTh>
+                      ))}
                       <StyledTh right>Total Stock</StyledTh>
                     </>
                   ) : (
@@ -178,16 +217,16 @@ export const InventoryStock = () => {
                       <StyledTd right mono>₹{p.dealer_price?.toLocaleString('en-IN')}</StyledTd>
                       {locationFilter === 'all' ? (
                         <>
-                          <StyledTd right mono>
-                            <span className={`font-bold ${p.kottakkal_stock === 0 ? 'text-red-600' : p.kottakkal_stock <= 5 ? 'text-amber-600' : 'text-foreground'}`}>
-                              {p.kottakkal_stock}
-                            </span>
-                          </StyledTd>
-                          <StyledTd right mono>
-                            <span className={`font-bold ${p.chenakkal_stock === 0 ? 'text-red-600' : p.chenakkal_stock <= 5 ? 'text-amber-600' : 'text-foreground'}`}>
-                              {p.chenakkal_stock}
-                            </span>
-                          </StyledTd>
+                          {locationOptions.map((location) => {
+                            const locationQty = getLocationStock(p, location);
+                            return (
+                              <StyledTd key={location} right mono>
+                                <span className={`font-bold ${stockClassName(locationQty)}`}>
+                                  {locationQty}
+                                </span>
+                              </StyledTd>
+                            );
+                          })}
                           <StyledTd right mono>
                             <span className={`font-bold ${p.total_stock === 0 ? 'text-red-600' : p.total_stock <= 5 ? 'text-amber-600' : 'text-emerald-700'}`}>
                               {p.total_stock}

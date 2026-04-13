@@ -15,7 +15,6 @@ interface CustomerPayment {
     customerId: string;
     customerName: string;
     place: string;
-    openingBalance: number;
     totalOrders: number;
     totalBilled: number;
     totalPaid: number;
@@ -29,7 +28,6 @@ interface OrderPaymentRow {
     customers: {
         name: string;
         place: string | null;
-        opening_balance: number | null;
     } | null;
 }
 
@@ -60,7 +58,7 @@ export const Payments = () => {
             // Query 1: Fetch orders with customer info
             let ordersQuery = supabase
                 .from('orders')
-                .select('id, customer_id, grand_total, status, created_at, customers(name, place, opening_balance)')
+                .select('id, customer_id, grand_total, status, created_at, customers(name, place)')
                 .in('status', ['Approved', 'Billed', 'Delivered']);
 
             if (dateFrom) {
@@ -75,7 +73,10 @@ export const Payments = () => {
             }
 
             // Query 2: Fetch all receipts
-            let receiptsQuery = supabase.from('receipts').select('id, order_id, customer_id, amount, payment_status, received_date, created_at');
+            let receiptsQuery = supabase
+                .from('receipts')
+                .select('id, order_id, customer_id, amount, payment_status, received_date, created_at')
+                .or('payment_status.is.null,payment_status.neq.Voided');
             if (dateFrom) {
                 receiptsQuery = receiptsQuery.gte('created_at', new Date(dateFrom).toISOString());
             }
@@ -124,7 +125,6 @@ export const Payments = () => {
                         customerId: cid,
                         customerName: customer?.name ?? 'Unknown',
                         place: customer?.place ?? '—',
-                        openingBalance: customer?.opening_balance ?? 0,
                         totalOrders: 1,
                         totalBilled: o.grand_total ?? 0,
                         totalPaid: orderPaid,
@@ -135,7 +135,7 @@ export const Payments = () => {
 
             for (const [customerId, entry] of customerMap) {
                 entry.totalPaid = receiptsByCustomer.get(customerId) ?? entry.totalPaid;
-                entry.outstanding = entry.openingBalance + entry.totalBilled - entry.totalPaid;
+                entry.outstanding = entry.totalBilled - entry.totalPaid;
             }
 
             setCustomers(Array.from(customerMap.values()));
@@ -161,10 +161,9 @@ export const Payments = () => {
 
     // Stats
     const totalBilled = filtered.reduce((s, c) => s + c.totalBilled, 0);
-    const totalOpeningBalance = filtered.reduce((s, c) => s + c.openingBalance, 0);
     const totalCollected = filtered.reduce((s, c) => s + c.totalPaid, 0);
     const totalOutstanding = filtered.reduce((s, c) => s + c.outstanding, 0);
-    const totalDue = totalOpeningBalance + totalBilled;
+    const totalDue = totalBilled;
     const collectionRate = totalDue > 0 ? ((totalCollected / totalDue) * 100) : 0;
 
     const getPaymentStatus = (c: CustomerPayment) => {
@@ -181,11 +180,10 @@ export const Payments = () => {
 
     const exportCSV = () => {
         if (filtered.length === 0) return;
-        const headers = ['Customer Name', 'Place', 'Opening Balance', 'Total Orders', 'Total Billed', 'Total Paid', 'Outstanding', 'Status'];
+        const headers = ['Customer Name', 'Place', 'Total Orders', 'Total Billed', 'Total Paid', 'Outstanding', 'Status'];
         const rows = filtered.map(c => [
             c.customerName,
             c.place,
-            c.openingBalance,
             c.totalOrders,
             c.totalBilled,
             c.totalPaid,
@@ -197,7 +195,7 @@ export const Payments = () => {
     };
 
     const statsCards = [
-        { label: 'Opening Balance', value: fmtK(totalOpeningBalance), icon: <DollarSign size={20} />, iconBg: 'bg-slate-100 text-slate-600', border: 'border-l-4 border-l-slate-500' },
+        { label: 'Total Billed', value: fmtK(totalBilled), icon: <DollarSign size={20} />, iconBg: 'bg-slate-100 text-slate-600', border: 'border-l-4 border-l-slate-500' },
         { label: 'Total Collected', value: fmtK(totalCollected), icon: <Wallet size={20} />, iconBg: 'bg-emerald-100 text-emerald-600', border: 'border-l-4 border-l-emerald-500' },
         { label: 'Outstanding', value: fmtK(totalOutstanding), icon: <AlertTriangle size={20} />, iconBg: 'bg-amber-100 text-amber-600', border: 'border-l-4 border-l-amber-500' },
         { label: 'Collection Rate', value: `${collectionRate.toFixed(1)}%`, icon: <TrendingUp size={20} />, iconBg: 'bg-violet-100 text-violet-600', border: 'border-l-4 border-l-violet-500' },
@@ -207,7 +205,7 @@ export const Payments = () => {
         <div className="space-y-5">
             <PageHeader
                 title="Payments Tracker"
-                subtitle="Customer-level payment aggregation and outstanding overview"
+                subtitle="Invoice-level payment aggregation and outstanding overview"
                 actions={
                     <Button
                         onClick={exportCSV}
@@ -276,7 +274,6 @@ export const Payments = () => {
                                     <tr>
                                         <StyledTh>Customer Name</StyledTh>
                                         <StyledTh>Place</StyledTh>
-                                        <StyledTh right>Opening (₹)</StyledTh>
                                         <StyledTh right>Total Orders</StyledTh>
                                         <StyledTh right>Total Billed (₹)</StyledTh>
                                         <StyledTh right>Total Paid (₹)</StyledTh>
@@ -291,7 +288,6 @@ export const Payments = () => {
                                             <StyledTr key={c.customerId}>
                                                 <StyledTd className="font-semibold text-foreground">{c.customerName}</StyledTd>
                                                 <StyledTd className="text-muted-foreground">{c.place}</StyledTd>
-                                                <StyledTd right mono className="font-medium">{fmt(c.openingBalance)}</StyledTd>
                                                 <StyledTd right mono className="font-medium">{c.totalOrders}</StyledTd>
                                                 <StyledTd right mono className="font-semibold text-foreground">{fmt(c.totalBilled)}</StyledTd>
                                                 <StyledTd right mono className="font-semibold text-emerald-600">{fmt(c.totalPaid)}</StyledTd>
@@ -308,7 +304,6 @@ export const Payments = () => {
                         <div className="px-4 py-3 border-t border-border bg-muted/20 flex items-center justify-between">
                             <span className="text-xs text-muted-foreground">{filtered.length} customers</span>
                             <div className="flex items-center gap-4 text-sm font-mono">
-                                <span className="text-muted-foreground">Opening: <span className="font-bold text-foreground">{fmt(totalOpeningBalance)}</span></span>
                                 <span className="text-muted-foreground">Billed: <span className="font-bold text-foreground">{fmt(totalBilled)}</span></span>
                                 <span className="text-muted-foreground">Collected: <span className="font-bold text-emerald-600">{fmt(totalCollected)}</span></span>
                                 <span className="text-muted-foreground">Outstanding: <span className="font-bold text-amber-600">{fmt(totalOutstanding)}</span></span>

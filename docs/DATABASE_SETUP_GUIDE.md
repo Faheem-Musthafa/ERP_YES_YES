@@ -92,7 +92,7 @@ The ERP uses 19 tables organized into categories:
 #### Inventory Tables
 | Table | Purpose |
 |-------|---------|
-| `product_stock_locations` | Stock per location (Kottakkal/Chenakkal) |
+| `product_stock_locations` | Stock per location (KOTTAKKAL /Chenakkal) |
 | `stock_transfers` | Transfer history between locations |
 | `stock_adjustments` | Manual stock corrections |
 | `stock_movements` | Audit trail for all stock changes |
@@ -107,7 +107,7 @@ The ERP uses 19 tables organized into categories:
 | `order_status_enum` | Pending, Approved, Rejected, Billed, Delivered |
 | `payment_mode_enum` | Cash, Cheque, UPI, Bank Transfer |
 | `delivery_status_enum` | Pending, In Transit, Delivered, Failed |
-| `godown_enum` | Kottakkal, Chenakkal |
+| `godown_enum` | KOTTAKKAL , Chenakkal |
 | `vehicle_type_enum` | 2-Wheeler, 3-Wheeler, 4-Wheeler, Truck, Others |
 | `district_enum` | All 14 Kerala districts |
 
@@ -120,7 +120,7 @@ The ERP uses 19 tables organized into categories:
 ### Key Features
 
 #### 1. Location-Based Stock Tracking
-- Each product has separate stock for Kottakkal and Chenakkal
+- Each product has separate stock for KOTTAKKAL  and Chenakkal
 - Stock transfers tracked between locations
 - Complete audit trail in `stock_movements`
 
@@ -201,7 +201,7 @@ FROM brands WHERE name = 'Test Brand';
 ### Create Stock for Both Locations
 ```sql
 INSERT INTO product_stock_locations (product_id, location, stock_qty)
-SELECT id, 'Kottakkal', 50 FROM products WHERE sku = 'TEST-001';
+SELECT id, 'KOTTAKKAL ', 50 FROM products WHERE sku = 'TEST-001';
 
 INSERT INTO product_stock_locations (product_id, location, stock_qty)
 SELECT id, 'Chenakkal', 30 FROM products WHERE sku = 'TEST-001';
@@ -283,14 +283,14 @@ SELECT create_product(
     100.00,                  -- mrp
     80.00,                   -- dealer_price
     'brand-uuid-here',       -- brand_id (optional)
-    50,                      -- initial stock Kottakkal
+    50,                      -- initial stock KOTTAKKAL 
     30                       -- initial stock Chenakkal
 );
 
 -- Update stock at specific location
 SELECT update_stock_at_location(
     'product-uuid',          -- product_id
-    'Kottakkal',             -- location
+    'KOTTAKKAL ',             -- location
     10,                      -- quantity
     'add',                   -- operation: 'add', 'subtract', 'set'
     'Reason for adjustment', -- reason (optional)
@@ -300,7 +300,7 @@ SELECT update_stock_at_location(
 -- Transfer stock between locations
 SELECT transfer_stock(
     'product-uuid',          -- product_id
-    'Kottakkal',             -- from_location
+    'KOTTAKKAL ',             -- from_location
     'Chenakkal',             -- to_location
     20,                      -- quantity
     'Stock balancing',       -- reason (optional)
@@ -316,7 +316,7 @@ SELECT create_order(
     'YES YES',               -- company
     'GST',                   -- invoice_type
     'customer-uuid',         -- customer_id
-    'Kottakkal',             -- godown
+    'KOTTAKKAL ',             -- godown
     '123 Main St, Kerala',   -- site_address
     '[
         {"product_id": "uuid1", "quantity": 5, "dealer_price": 100, "discount_pct": 10},
@@ -384,7 +384,7 @@ SELECT * FROM get_customer_ledger('customer-uuid');
 -- Create GRN with stock addition
 SELECT create_grn(
     '[
-        {"product_id": "uuid1", "expected_qty": 100, "received_qty": 98, "damaged_qty": 2, "location": "Kottakkal"},
+        {"product_id": "uuid1", "expected_qty": 100, "received_qty": 98, "damaged_qty": 2, "location": "KOTTAKKAL "},
         {"product_id": "uuid2", "expected_qty": 50, "received_qty": 50, "damaged_qty": 0, "location": "Chenakkal"}
     ]'::JSONB,              -- items (required, first parameter)
     'po-uuid',               -- po_id (optional)
@@ -398,7 +398,7 @@ SELECT create_grn(
 
 ```sql
 -- Get stock by location
-SELECT * FROM get_stock_by_location('Kottakkal');  -- or NULL for all
+SELECT * FROM get_stock_by_location('KOTTAKKAL ');  -- or NULL for all
 SELECT * FROM get_stock_by_location();              -- all locations
 
 -- Get low stock products (threshold = 10 by default)

@@ -10,7 +10,8 @@ import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import { FormSection, FormCard, PageHeader } from '@/app/components/ui/primitives';
-import type { PaymentModeEnum } from '@/app/types/database';
+import { COMPANY_LIST, cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
+import type { CompanyEnum, PaymentModeEnum } from '@/app/types/database';
 import { DEFAULT_RECEIPT_STATUS } from '@/app/utils';
 
 interface CustomerOption {
@@ -38,8 +39,9 @@ export const ReceiptEntry = () => {
   const [brands, setBrands] = useState<string[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [approvedOrders, setApprovedOrders] = useState<OrderOption[]>([]);
+  const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
 
-  const [company, setCompany] = useState('');
+  const [company, setCompany] = useState<CompanyEnum | ''>('');
   const [modeOfReceipt, setModeOfReceipt] = useState<PaymentModeEnum | ''>('');
   const [brand, setBrand] = useState('');
   const [otherBrand, setOtherBrand] = useState('');
@@ -65,10 +67,16 @@ export const ReceiptEntry = () => {
   useEffect(() => {
     (async () => {
       try {
-        const [{ data: custData, error: custError }, { data: ordData, error: ordError }, { data: brandData, error: brandError }] = await Promise.all([
+        const [{ data: custData, error: custError }, { data: ordData, error: ordError }, { data: brandData, error: brandError }, profiles] = await Promise.all([
           supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
-          supabase.from('orders').select('id, order_number, invoice_number, grand_total, created_at, customer_id, customers(name)').in('status', ['Approved', 'Billed', 'Delivered']).order('created_at', { ascending: false }),
+          supabase
+            .from('orders')
+            .select('id, order_number, invoice_number, grand_total, created_at, customer_id, customers(name)')
+            .eq('status', 'Billed')
+            .neq('invoice_type', 'Credit Note')
+            .order('created_at', { ascending: false }),
           supabase.from('brands').select('name').eq('is_active', true).order('name'),
+          loadCompanyProfiles().catch(() => null),
         ]);
 
         if (custError) throw custError;
@@ -78,6 +86,7 @@ export const ReceiptEntry = () => {
         if (custData) setCustomers(custData as CustomerOption[]);
         if (ordData) setApprovedOrders(ordData as OrderOption[]);
         if (brandData) setBrands([...brandData.map((b: { name: string }) => b.name), 'Other']);
+        if (profiles) setCompanyProfiles(profiles);
       } catch (err: any) {
         toast.error(err.message || 'Failed to load data');
       }
@@ -198,9 +207,13 @@ export const ReceiptEntry = () => {
           <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
             <div className="space-y-2 group">
               <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Company Entity <span className="text-rose-500">*</span></Label>
-              <Select value={company} onValueChange={setCompany}>
+              <Select value={company} onValueChange={(value) => setCompany(value as CompanyEnum)}>
                 <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20"><SelectValue placeholder="Select company branch" /></SelectTrigger>
-                <SelectContent className="rounded-xl"><SelectItem value="LLP">LLP</SelectItem><SelectItem value="YES YES">YES YES</SelectItem><SelectItem value="Zekon">Zekon</SelectItem></SelectContent>
+                <SelectContent className="rounded-xl">
+                  {COMPANY_LIST.map((companyKey) => (
+                    <SelectItem key={companyKey} value={companyKey}>{getCompanyDisplayName(companyKey, companyProfiles)}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-2 group">
@@ -332,25 +345,25 @@ export const ReceiptEntry = () => {
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Fund Allocation</h3>
-              <p className="text-xs text-slate-500">Settle against ledger invoice or hold as advance</p>
+              <p className="text-xs text-slate-500">Settle against a billed invoice or hold the amount as advance</p>
             </div>
           </div>
           
           <div className="p-6 md:p-8 space-y-6">
             <div className="space-y-2 max-w-sm group">
               <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-rose-600">Allocation Type <span className="text-rose-500">*</span></Label>
-              <Select value={onAccountOf} onValueChange={v => { setOnAccountOf(v as 'Invoice' | 'Advance'); setSelectedOrderId(''); }}>
-                <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900"><SelectValue placeholder="Declare intent" /></SelectTrigger>
-                <SelectContent className="rounded-xl"><SelectItem value="Invoice">Against Pending Invoice</SelectItem><SelectItem value="Advance">Credit as Advance Hold</SelectItem></SelectContent>
-              </Select>
-            </div>
+                <Select value={onAccountOf} onValueChange={v => { setOnAccountOf(v as 'Invoice' | 'Advance'); setSelectedOrderId(''); }}>
+                  <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900"><SelectValue placeholder="Declare intent" /></SelectTrigger>
+                  <SelectContent className="rounded-xl"><SelectItem value="Invoice">Against Billed Invoice</SelectItem><SelectItem value="Advance">Credit as Advance Hold</SelectItem></SelectContent>
+                </Select>
+              </div>
 
             {onAccountOf === 'Invoice' && invoiceCustomerId && (
               <div className="space-y-2 group animate-in fade-in slide-in-from-bottom-2">
-                <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-rose-600">Select Unpaid Invoice <span className="text-rose-500">*</span></Label>
+                <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-rose-600">Select Billed Invoice <span className="text-rose-500">*</span></Label>
                 <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
                   <SelectTrigger className="h-auto py-3 rounded-xl bg-white dark:bg-slate-900 shadow-inner border-slate-200 dark:border-slate-700">
-                    <SelectValue placeholder="Choose target document..." />
+                    <SelectValue placeholder="Choose billed invoice..." />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl max-h-[300px]">
                     {customerFilteredOrders.map(o => (
@@ -367,7 +380,7 @@ export const ReceiptEntry = () => {
                         </div>
                       </SelectItem>
                     ))}
-                    {customerFilteredOrders.length === 0 && <SelectItem value="none" disabled>No pending documents linked to this identity</SelectItem>}
+                    {customerFilteredOrders.length === 0 && <SelectItem value="none" disabled>No billed invoices linked to this customer</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>

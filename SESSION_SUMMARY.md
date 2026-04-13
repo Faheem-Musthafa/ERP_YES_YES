@@ -51,7 +51,7 @@
 - ✅ Sales rep assignment
 
 ### Order Creation
-- ✅ Godown selection (Kottakkal/Chenakkal)
+- ✅ Godown selection (KOTTAKKAL /Chenakkal)
 - ✅ Proper tracking in database
 
 ### Delivery Drivers

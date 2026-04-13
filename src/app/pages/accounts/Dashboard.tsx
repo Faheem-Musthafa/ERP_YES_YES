@@ -43,10 +43,10 @@ export const AccountsDashboard = () => {
         { data: recentReceiptsData, error: recentReceiptsError },
       ] = await Promise.all([
         supabase.from('orders').select('id, order_number, status, grand_total, created_at, customers(name), users!orders_created_by_fkey(full_name)').order('created_at', { ascending: false }).limit(100),
-        supabase.from('receipts').select('id, amount, payment_mode, payment_status, created_at, orders(order_number, customers(name))'),
-        supabase.from('receipts').select('id, amount, payment_status').gte('created_at', monthStart),
-        supabase.from('receipts').select('id, amount, payment_status').gte('created_at', todayStart),
-        supabase.from('receipts').select('id, amount, payment_mode, payment_status, created_at, orders(order_number, customers(name))').order('created_at', { ascending: false }).limit(12),
+        supabase.from('receipts').select('id, amount, payment_mode, payment_status, created_at, orders(order_number, customers(name))').or('payment_status.is.null,payment_status.neq.Voided'),
+        supabase.from('receipts').select('id, amount, payment_status').or('payment_status.is.null,payment_status.neq.Voided').gte('created_at', monthStart),
+        supabase.from('receipts').select('id, amount, payment_status').or('payment_status.is.null,payment_status.neq.Voided').gte('created_at', todayStart),
+        supabase.from('receipts').select('id, amount, payment_mode, payment_status, created_at, orders(order_number, customers(name))').or('payment_status.is.null,payment_status.neq.Voided').order('created_at', { ascending: false }).limit(12),
       ]);
 
       const fetchError = ordersError || receiptsError || monthReceiptsError || todayReceiptsError || recentReceiptsError;

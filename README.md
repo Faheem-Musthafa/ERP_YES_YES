@@ -14,6 +14,8 @@ Original UI reference: https://www.figma.com/design/Ejzb6IIYTSmHjzvq9z4kam/Web-D
 
 Before production deployment, run the SQL hardening migration in Supabase SQL Editor:
 
+- `docs/ENUM_TO_DYNAMIC_SETTINGS_MIGRATION.sql`
+- `docs/NORMALIZE_MASTER_LOCATION_VALUES.sql`
 - `docs/SECURITY_TRANSACTION_HARDENING.sql`
 - `docs/RPC_IDEMPOTENCY_WRAPPERS.sql`
 - `docs/COMPANY_PROFILE_SETTINGS_MIGRATION.sql`
