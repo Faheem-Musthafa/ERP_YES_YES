@@ -12,12 +12,20 @@ import { ArrowLeft, FilePlus2 } from 'lucide-react';
 import { COMPANY_LIST, cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import type { CompanyEnum } from '@/app/types/database';
 
-type CreditNoteType = 'GST Credit Note' | 'Non-GST Credit Note (e.g., Incentives / Bonotcoin / Discounts)';
+type CreditNoteType = 'GST Credit Note' | 'NGST' | 'Not-GST Credit Note';
+type NgstItemType = 'Incentive' | 'Discount' | 'Bonton Coin' | 'Others';
+
+const NGST_ITEM_OPTIONS: NgstItemType[] = ['Incentive', 'Discount', 'Bonton Coin', 'Others'];
 
 interface CustomerOption {
   id: string;
   name: string;
   phone: string;
+}
+
+interface BrandOption {
+  id: string;
+  name: string;
 }
 
 interface BillOption {
@@ -34,6 +42,7 @@ interface BillItem {
   product_name: string;
   sku: string;
   amount: number;
+  brand_name: string;
 }
 
 export const CreditNote = () => {
@@ -44,6 +53,7 @@ export const CreditNote = () => {
   const [saving, setSaving] = useState(false);
 
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [brands, setBrands] = useState<BrandOption[]>([]);
   const [bills, setBills] = useState<BillOption[]>([]);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
@@ -53,6 +63,9 @@ export const CreditNote = () => {
   const [customerId, setCustomerId] = useState('');
   const [againstOrderId, setAgainstOrderId] = useState('');
   const [itemProductId, setItemProductId] = useState('');
+  const [ngstItemType, setNgstItemType] = useState<NgstItemType | ''>('');
+  const [ngstOtherItem, setNgstOtherItem] = useState('');
+  const [brandName, setBrandName] = useState('');
   const [price, setPrice] = useState('');
   const [remark, setRemark] = useState('');
 
@@ -62,22 +75,30 @@ export const CreditNote = () => {
     const fetchCustomers = async () => {
       setLoading(true);
       try {
-        const [{ data, error }, profiles] = await Promise.all([
+        const [{ data: customerData, error: customerError }, { data: brandData, error: brandError }, profiles] = await Promise.all([
           supabase
             .from('customers')
             .select('id, name, phone')
             .eq('is_active', true)
             .order('name'),
+          supabase
+            .from('brands')
+            .select('id, name')
+            .eq('is_active', true)
+            .order('name'),
           loadCompanyProfiles().catch(() => null),
         ]);
 
-        if (error) throw error;
-        setCustomers(data ?? []);
+        if (customerError) throw customerError;
+        if (brandError) throw brandError;
+
+        setCustomers(customerData ?? []);
+        setBrands((brandData as BrandOption[]) ?? []);
         if (profiles) {
           setCompanyProfiles(profiles);
         }
       } catch (err: any) {
-        toast.error(err.message || 'Failed to load customers');
+        toast.error(err.message || 'Failed to load page data');
       } finally {
         setLoading(false);
       }
@@ -119,6 +140,19 @@ export const CreditNote = () => {
     void fetchBills();
   }, [customerId, company]);
 
+  const isNotGstCreditNote = creditNoteType === 'Not-GST Credit Note';
+  const isOrderItemCreditNote = creditNoteType === 'GST Credit Note' || creditNoteType === 'NGST';
+
+  useEffect(() => {
+    if (isNotGstCreditNote) {
+      setItemProductId('');
+    } else {
+      setNgstItemType('');
+      setNgstOtherItem('');
+      setBrandName('');
+    }
+  }, [creditNoteType, isNotGstCreditNote]);
+
   useEffect(() => {
     const fetchBillItems = async () => {
       setItemProductId('');
@@ -131,7 +165,7 @@ export const CreditNote = () => {
 
       const { data, error } = await supabase
         .from('order_items')
-        .select('product_id, amount, products(name, sku)')
+        .select('product_id, amount, products(name, sku, brands(name))')
         .eq('order_id', againstOrderId);
 
       if (error) {
@@ -145,6 +179,7 @@ export const CreditNote = () => {
         product_name: row.products?.name ?? 'Product',
         sku: row.products?.sku ?? '-',
         amount: row.amount ?? 0,
+        brand_name: row.products?.brands?.name ?? '',
       }));
 
       setBillItems(mapped);
@@ -163,6 +198,8 @@ export const CreditNote = () => {
     [bills, againstOrderId]
   );
 
+  const resolvedNgstItemType = ngstItemType === 'Others' ? ngstOtherItem.trim() : ngstItemType;
+
   const handleItemChange = (productId: string) => {
     setItemProductId(productId);
     const picked = billItems.find((item) => item.product_id === productId);
@@ -171,6 +208,17 @@ export const CreditNote = () => {
       setPrice(positiveAmount > 0 ? positiveAmount.toFixed(2) : '');
     }
   };
+
+  useEffect(() => {
+    if (!isOrderItemCreditNote) return;
+    if (billItems.length === 0) return;
+    if (itemProductId && billItems.some((item) => item.product_id === itemProductId)) return;
+
+    const firstBillItem = billItems[0];
+    if (firstBillItem) {
+      handleItemChange(firstBillItem.product_id);
+    }
+  }, [isOrderItemCreditNote, billItems, itemProductId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,8 +239,20 @@ export const CreditNote = () => {
       toast.error('Please select bill in Against');
       return;
     }
-    if (!itemProductId) {
+    if (isOrderItemCreditNote && !itemProductId) {
       toast.error('Please select item');
+      return;
+    }
+    if (isNotGstCreditNote && !ngstItemType) {
+      toast.error('Please select item type');
+      return;
+    }
+    if (isNotGstCreditNote && ngstItemType === 'Others' && !ngstOtherItem.trim()) {
+      toast.error('Please enter item type for Others');
+      return;
+    }
+    if (isNotGstCreditNote && !brandName) {
+      toast.error('Please select brand');
       return;
     }
     if (!remark.trim()) {
@@ -206,18 +266,49 @@ export const CreditNote = () => {
       return;
     }
 
-    const maxAllowed = normalizeAmount(selectedItem?.amount ?? 0);
-    if (maxAllowed > 0 && noteAmount > maxAllowed) {
-      toast.error(`Credit amount cannot exceed selected item amount (₹${maxAllowed.toLocaleString('en-IN')})`);
+    if (isOrderItemCreditNote) {
+      const maxAllowed = normalizeAmount(selectedItem?.amount ?? 0);
+      if (maxAllowed > 0 && noteAmount > maxAllowed) {
+        toast.error(`Credit amount cannot exceed selected item amount (₹${maxAllowed.toLocaleString('en-IN')})`);
+        return;
+      }
+    } else {
+      const maxAllowed = normalizeAmount(selectedBill?.grand_total ?? 0);
+      if (maxAllowed > 0 && noteAmount > maxAllowed) {
+        toast.error(`Credit amount cannot exceed selected bill total (₹${maxAllowed.toLocaleString('en-IN')})`);
+        return;
+      }
+    }
+
+    const resolvedProductId = isNotGstCreditNote
+      ? (billItems.find((item) => item.brand_name === brandName)?.product_id ?? billItems[0]?.product_id ?? '')
+      : itemProductId;
+
+    if (!resolvedProductId) {
+      toast.error('Selected bill has no items to map this credit note');
       return;
     }
 
     setSaving(true);
     try {
       const orderNumber = `CN-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
-      const remarks = selectedBill
-        ? `Type: ${creditNoteType}; Against Order: ${selectedBill.order_number}; Against Invoice: ${selectedBill.invoice_number ?? 'N/A'}; Remark: ${remark.trim()}`
-        : `Type: ${creditNoteType}; Remark: ${remark.trim()}`;
+      const remarkParts = selectedBill
+        ? [
+            `Type: ${creditNoteType}`,
+            `Against Order: ${selectedBill.order_number}`,
+            `Against Invoice: ${selectedBill.invoice_number ?? 'N/A'}`,
+            isNotGstCreditNote ? `Not-GST Item: ${resolvedNgstItemType}` : null,
+            isNotGstCreditNote ? `Brand: ${brandName}` : null,
+            `Remark: ${remark.trim()}`,
+          ]
+        : [
+            `Type: ${creditNoteType}`,
+            isNotGstCreditNote ? `Not-GST Item: ${resolvedNgstItemType}` : null,
+            isNotGstCreditNote ? `Brand: ${brandName}` : null,
+            `Remark: ${remark.trim()}`,
+          ];
+
+      const remarks = remarkParts.filter((value): value is string => Boolean(value)).join('; ');
 
       // Credit notes are financial reversals, so they must be stored as negative values.
       const signedNoteAmount = -noteAmount;
@@ -251,7 +342,7 @@ export const CreditNote = () => {
 
       const { error: itemErr } = await supabase.from('order_items').insert({
         order_id: createdOrder.id,
-        product_id: itemProductId,
+        product_id: resolvedProductId,
         quantity: 1,
         dealer_price: signedNoteAmount,
         discount_pct: 0,
@@ -318,7 +409,8 @@ export const CreditNote = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="GST Credit Note">GST Credit Note</SelectItem>
-                    <SelectItem value="Non-GST Credit Note (e.g., Incentives / Bonotcoin / Discounts)">Non-GST Credit Note (e.g., Incentives / Bonotcoin / Discounts)</SelectItem>
+                    <SelectItem value="NGST">NGST</SelectItem>
+                    <SelectItem value="Not-GST Credit Note">Not-GST Credit Note</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -360,24 +452,49 @@ export const CreditNote = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-gray-500">Item Selection *</label>
-                <Select value={itemProductId} onValueChange={handleItemChange} disabled={!againstOrderId}>
-                  <SelectTrigger className="h-10 rounded-xl text-sm bg-gray-50 border-gray-200 shadow-none">
-                    <SelectValue placeholder={againstOrderId ? 'Select bill item' : 'Select bill first'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {billItems.map((item) => (
-                      <SelectItem key={item.product_id} value={item.product_id}>
-                        {item.product_name} ({item.sku})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {creditNoteType === 'Non-GST Credit Note (e.g., Incentives / Bonotcoin / Discounts)' && (
-                  <p className="text-xs text-muted-foreground">Non-GST Credit Note (e.g., Incentives / Bonotcoin / Discounts) selected.</p>
-                )}
-                {selectedItem && (
-                  <p className="text-xs text-muted-foreground">Maximum for selected item: ₹{normalizeAmount(selectedItem.amount).toLocaleString('en-IN')}</p>
+                <label className="text-xs font-semibold text-gray-500">{isNotGstCreditNote ? 'Item Selection *' : 'Ordered Item *'}</label>
+                {isNotGstCreditNote ? (
+                  <>
+                    <Select value={ngstItemType} onValueChange={(value) => setNgstItemType(value as NgstItemType)} disabled={!againstOrderId}>
+                      <SelectTrigger className="h-10 rounded-xl text-sm bg-gray-50 border-gray-200 shadow-none">
+                        <SelectValue placeholder={againstOrderId ? 'Select item type' : 'Select bill first'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {NGST_ITEM_OPTIONS.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {ngstItemType === 'Others' && (
+                      <Input
+                        value={ngstOtherItem}
+                        onChange={(e) => setNgstOtherItem(e.target.value)}
+                        placeholder="Enter item type"
+                        className="h-10 rounded-xl bg-gray-50 border-gray-200 shadow-none"
+                      />
+                    )}
+                    <p className="text-xs text-muted-foreground">Use item type options like Incentive, Discount, Bonton Coin, or Others.</p>
+                  </>
+                ) : (
+                  <>
+                    <Select value={itemProductId} onValueChange={handleItemChange} disabled={!againstOrderId}>
+                      <SelectTrigger className="h-10 rounded-xl text-sm bg-gray-50 border-gray-200 shadow-none">
+                        <SelectValue placeholder={againstOrderId ? 'Select bill item' : 'Select bill first'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {billItems.map((item) => (
+                          <SelectItem key={item.product_id} value={item.product_id}>
+                            {item.product_name} ({item.sku})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {selectedItem && (
+                      <p className="text-xs text-muted-foreground">Auto-selected from selected bill. Maximum for item: ₹{normalizeAmount(selectedItem.amount).toLocaleString('en-IN')}</p>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -394,6 +511,26 @@ export const CreditNote = () => {
                 />
               </div>
             </div>
+
+            {isNotGstCreditNote && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-gray-500">Brand *</label>
+                  <Select value={brandName} onValueChange={setBrandName}>
+                    <SelectTrigger className="h-10 rounded-xl text-sm bg-gray-50 border-gray-200 shadow-none">
+                      <SelectValue placeholder="Select brand" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.name}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-xs font-semibold text-gray-500">Remark *</label>
@@ -417,10 +554,22 @@ export const CreditNote = () => {
               {selectedBill ? (
                 <span>
                   Against: <span className="font-semibold text-foreground">{selectedBill.order_number}</span>
-                  {selectedItem ? (
+                  {isOrderItemCreditNote && selectedItem ? (
                     <>
                       {' '}
                       • Item: <span className="font-semibold text-foreground">{selectedItem.product_name}</span>
+                    </>
+                  ) : null}
+                  {isNotGstCreditNote && resolvedNgstItemType ? (
+                    <>
+                      {' '}
+                      • Not-GST Item: <span className="font-semibold text-foreground">{resolvedNgstItemType}</span>
+                    </>
+                  ) : null}
+                  {isNotGstCreditNote && brandName ? (
+                    <>
+                      {' '}
+                      • Brand: <span className="font-semibold text-foreground">{brandName}</span>
                     </>
                   ) : null}
                 </span>
