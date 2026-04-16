@@ -23,11 +23,6 @@ interface CustomerOption {
   phone: string;
 }
 
-interface BrandOption {
-  id: string;
-  name: string;
-}
-
 interface BillOption {
   id: string;
   order_number: string;
@@ -53,7 +48,6 @@ export const CreditNote = () => {
   const [saving, setSaving] = useState(false);
 
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const [brands, setBrands] = useState<BrandOption[]>([]);
   const [bills, setBills] = useState<BillOption[]>([]);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
@@ -75,25 +69,18 @@ export const CreditNote = () => {
     const fetchCustomers = async () => {
       setLoading(true);
       try {
-        const [{ data: customerData, error: customerError }, { data: brandData, error: brandError }, profiles] = await Promise.all([
+        const [{ data: customerData, error: customerError }, profiles] = await Promise.all([
           supabase
             .from('customers')
             .select('id, name, phone')
-            .eq('is_active', true)
-            .order('name'),
-          supabase
-            .from('brands')
-            .select('id, name')
             .eq('is_active', true)
             .order('name'),
           loadCompanyProfiles().catch(() => null),
         ]);
 
         if (customerError) throw customerError;
-        if (brandError) throw brandError;
 
         setCustomers(customerData ?? []);
-        setBrands((brandData as BrandOption[]) ?? []);
         if (profiles) {
           setCompanyProfiles(profiles);
         }
@@ -198,6 +185,18 @@ export const CreditNote = () => {
     [bills, againstOrderId]
   );
 
+  const availableBillBrands = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          billItems
+            .map((item) => item.brand_name.trim())
+            .filter((value) => value.length > 0)
+        )
+      ).sort((a, b) => a.localeCompare(b)),
+    [billItems]
+  );
+
   const resolvedNgstItemType = ngstItemType === 'Others' ? ngstOtherItem.trim() : ngstItemType;
 
   const handleItemChange = (productId: string) => {
@@ -220,8 +219,21 @@ export const CreditNote = () => {
     }
   }, [isOrderItemCreditNote, billItems, itemProductId]);
 
+  useEffect(() => {
+    if (!isNotGstCreditNote) return;
+    if (!againstOrderId || availableBillBrands.length === 0) {
+      setBrandName('');
+      return;
+    }
+    if (!availableBillBrands.includes(brandName)) {
+      setBrandName(availableBillBrands[0] ?? '');
+    }
+  }, [isNotGstCreditNote, againstOrderId, availableBillBrands, brandName]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (saving) return;
 
     if (!company) {
       toast.error('Please select company');
@@ -243,6 +255,10 @@ export const CreditNote = () => {
       toast.error('Please select item');
       return;
     }
+    if (isOrderItemCreditNote && !selectedItem) {
+      toast.error('Selected item is not available for this bill');
+      return;
+    }
     if (isNotGstCreditNote && !ngstItemType) {
       toast.error('Please select item type');
       return;
@@ -253,6 +269,10 @@ export const CreditNote = () => {
     }
     if (isNotGstCreditNote && !brandName) {
       toast.error('Please select brand');
+      return;
+    }
+    if (isNotGstCreditNote && availableBillBrands.length === 0) {
+      toast.error('Selected bill has no brand-linked items for Not-GST credit note');
       return;
     }
     if (!remark.trim()) {
@@ -281,7 +301,7 @@ export const CreditNote = () => {
     }
 
     const resolvedProductId = isNotGstCreditNote
-      ? (billItems.find((item) => item.brand_name === brandName)?.product_id ?? billItems[0]?.product_id ?? '')
+      ? (billItems.find((item) => item.brand_name === brandName)?.product_id ?? '')
       : itemProductId;
 
     if (!resolvedProductId) {
@@ -516,18 +536,21 @@ export const CreditNote = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-gray-500">Brand *</label>
-                  <Select value={brandName} onValueChange={setBrandName}>
+                  <Select value={brandName} onValueChange={setBrandName} disabled={!againstOrderId || availableBillBrands.length === 0}>
                     <SelectTrigger className="h-10 rounded-xl text-sm bg-gray-50 border-gray-200 shadow-none">
-                      <SelectValue placeholder="Select brand" />
+                      <SelectValue placeholder={againstOrderId ? 'Select bill brand' : 'Select bill first'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {brands.map((brand) => (
-                        <SelectItem key={brand.id} value={brand.name}>
-                          {brand.name}
+                      {availableBillBrands.map((brand) => (
+                        <SelectItem key={brand} value={brand}>
+                          {brand}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {againstOrderId && availableBillBrands.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No brand information found on selected bill items.</p>
+                  )}
                 </div>
               </div>
             )}
