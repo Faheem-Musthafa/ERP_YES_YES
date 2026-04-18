@@ -28,7 +28,7 @@ export const StockManagement = () => {
   const [brandFilter, setBrandFilter] = useState('');
   const [stockFilter, setStockFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('all');
-  const [locationOptions, setLocationOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.godowns);
+  const [locationOptions, setLocationOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.Godowns);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
@@ -55,7 +55,7 @@ export const StockManagement = () => {
       if (stockError) throw stockError;
 
       const configuredLocations = Array.from(new Set(
-        settings.godowns
+        settings.Godowns
           .map((location) => location.trim())
           .filter((location) => location.length > 0),
       ));

@@ -18,14 +18,13 @@ export const CustomerForm = () => {
     const isEdit = Boolean(id);
 
     const [form, setForm] = useState({
-        name: '', place: '', address: '', phone: '', pincode: '', gst_pan: '', location: null as string | null, assigned_to: null as string | null, opening_balance: 0,
+        name: '', place: '', address: '', phone: '', second_phone: '', pincode: '', gst_pan: '', pan_no: '', location: null as string | null, opening_balance: 0,
     });
     const [districtOptions, setDistrictOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.districts);
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(isEdit);
     const [uploadOpen, setUploadOpen] = useState(false);
     const [uploadLoading, setUploadLoading] = useState(false);
-    const [salesReps, setSalesReps] = useState<any[]>([]);
 
     useEffect(() => {
         void loadMasterDataSettings()
@@ -40,30 +39,18 @@ export const CustomerForm = () => {
         (async () => {
             const { data, error } = await supabase
                 .from('customers')
-                .select('name, place, address, phone, pincode, gst_pan, location, assigned_to, opening_balance')
+                .select('name, place, address, phone, second_phone, pincode, gst_pan, pan_no, location, opening_balance')
                 .eq('id', id)
                 .single();
             if (error) { toast.error('Failed to load customer'); navigate('/admin/customers'); return; }
             setForm({
                 name: data.name ?? '', place: data.place ?? '', address: data.address ?? '',
-                phone: data.phone ?? '', pincode: data.pincode ?? '', gst_pan: data.gst_pan ?? '',
-                location: data.location ?? null, assigned_to: data.assigned_to ?? '', opening_balance: data.opening_balance ?? 0,
+                phone: data.phone ?? '', second_phone: data.second_phone ?? '', pincode: data.pincode ?? '', gst_pan: data.gst_pan ?? '', pan_no: data.pan_no ?? '',
+                location: data.location ?? null, opening_balance: data.opening_balance ?? 0,
             });
             setFetching(false);
         })();
     }, [id, isEdit, navigate]);
-
-    useEffect(() => {
-        (async () => {
-            const { data } = await supabase
-                .from('users')
-                .select('id, full_name')
-                .eq('role', 'sales')
-                .eq('is_active', true)
-                .order('full_name');
-            setSalesReps(data ?? []);
-        })();
-    }, []);
 
     const field = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
         setForm(f => ({ ...f, [key]: e.target.value }));
@@ -78,9 +65,10 @@ export const CustomerForm = () => {
             const payload = {
                 name: form.name.trim(), place: form.place.trim() || null,
                 address: form.address.trim(), phone: form.phone.trim(),
+                second_phone: form.second_phone.trim() || null,
                 pincode: form.pincode.trim() || null, gst_pan: form.gst_pan.trim() || null,
+                pan_no: form.pan_no.trim() || null,
                 location: (form.location || null) as any,
-                assigned_to: form.assigned_to?.trim() || null,
                 opening_balance: parseFloat(form.opening_balance?.toString() || '0') || 0,
             };
             if (isEdit) {
@@ -104,7 +92,7 @@ export const CustomerForm = () => {
     if (fetching) return <Spinner />;
 
     const hasChanges = Boolean(
-        form.name.trim() || form.place.trim() || form.address.trim() || form.phone.trim() || form.pincode.trim() || form.gst_pan.trim()
+        form.name.trim() || form.place.trim() || form.address.trim() || form.phone.trim() || form.second_phone.trim() || form.pincode.trim() || form.gst_pan.trim() || form.pan_no.trim()
     );
 
     const handleCancel = () => {
@@ -120,57 +108,61 @@ export const CustomerForm = () => {
             const lines = text.trim().split('\n');
             if (lines.length < 2) { toast.error('CSV must have at least a header and one row'); return; }
 
-            const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
-            const nameIdx = headers.indexOf('name');
-            const phoneIdx = headers.indexOf('phone');
-            const addressIdx = headers.indexOf('address');
-            const placeIdx = headers.indexOf('place');
-            const locationIdx = headers.indexOf('location');
-            const pincodeIdx = headers.indexOf('pincode');
-            const gstIdx = headers.indexOf('gst_pan');
-            const salesRepIdx = headers.indexOf('sales_rep') !== -1 ? headers.indexOf('sales_rep') : headers.indexOf('assigned_to');
+            const normalizeHeader = (header: string) => header.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const headers = lines[0].split(',').map(h => normalizeHeader(h.trim()));
 
-            if (nameIdx === -1 || phoneIdx === -1 || addressIdx === -1) {
-                toast.error('CSV must have columns: name, phone, address');
+            const findIndex = (...candidates: string[]) => headers.findIndex((header) => candidates.includes(header));
+
+            const companyIdx = findIndex('company');
+            const brandIdx = findIndex('brand');
+            const nameIdx = findIndex('customername', 'name');
+            const placeIdx = findIndex('place');
+            const locationIdx = findIndex('distract', 'district', 'location');
+            const pincodeIdx = findIndex('pincode', 'zipcode', 'pin');
+            const gstIdx = findIndex('gstin', 'gstpan', 'gst', 'gstno', 'gstnumber');
+            const panIdx = findIndex('panno', 'pan', 'pannumber');
+            const addressIdx = findIndex('address');
+            const openingBalanceIdx = findIndex('openingbalance', 'opening', 'openingamount');
+            const phoneIdx = findIndex('phone', 'phonenumber', 'mobile', 'mobilenumber');
+            const secondPhoneIdx = findIndex('secondphone', 'secondaryphone', 'phone2', 'alternatenumber', 'alternatephone');
+
+            if (nameIdx === -1 || addressIdx === -1) {
+                toast.error('CSV must include at least: Customer Name, Address');
                 return;
             }
 
-            // Fetch all sales reps for mapping
-            const { data: allSalesReps } = await supabase
-                .from('users')
-                .select('id, full_name, email')
-                .eq('role', 'sales')
-                .eq('is_active', true);
+            if (companyIdx === -1 || brandIdx === -1 || placeIdx === -1 || locationIdx === -1 || pincodeIdx === -1 || gstIdx === -1 || openingBalanceIdx === -1) {
+                toast.error('Expected CSV format: Company, Brand, Customer Name, Place, Distract, pincode, GSTIN, Address, Opening Balance');
+                return;
+            }
 
-            const salesRepMap = new Map<string, string>();
-            allSalesReps?.forEach(rep => {
-                salesRepMap.set(rep.full_name.toLowerCase(), rep.id);
-                salesRepMap.set(rep.email.toLowerCase(), rep.id);
+            const districtMap = new Map<string, string>();
+            districtOptions.forEach((district) => {
+                districtMap.set(district.toLowerCase(), district);
             });
 
             const toInsert = lines.slice(1).map(line => {
                 const cols = line.split(',').map(c => c.trim().replace(/"/g, ''));
-                let assignedToId = null;
-
-                if (salesRepIdx >= 0 && cols[salesRepIdx]) {
-                    const repLookup = cols[salesRepIdx].toLowerCase();
-                    assignedToId = salesRepMap.get(repLookup) || null;
-                }
+                const normalizedDistrict = locationIdx >= 0 ? cols[locationIdx]?.toLowerCase() : '';
+                const matchedDistrict = normalizedDistrict ? (districtMap.get(normalizedDistrict) ?? null) : null;
+                const openingBalanceValue = openingBalanceIdx >= 0
+                    ? (parseFloat(cols[openingBalanceIdx] || '0') || 0)
+                    : 0;
 
                 return {
                     name: cols[nameIdx] || '',
-                    phone: cols[phoneIdx] || '',
+                    phone: phoneIdx >= 0 ? (cols[phoneIdx] || 'N/A') : 'N/A',
                     address: cols[addressIdx] || '',
                     place: placeIdx >= 0 ? cols[placeIdx] || null : null,
-                    location: locationIdx >= 0 && districtOptions.includes(cols[locationIdx])
-                        ? (cols[locationIdx] as any)
-                        : null,
+                    location: matchedDistrict ? (matchedDistrict as any) : null,
                     pincode: pincodeIdx >= 0 ? cols[pincodeIdx] || null : null,
                     gst_pan: gstIdx >= 0 ? cols[gstIdx] || null : null,
-                    assigned_to: assignedToId,
+                    pan_no: panIdx >= 0 ? cols[panIdx] || null : null,
+                    second_phone: secondPhoneIdx >= 0 ? cols[secondPhoneIdx] || null : null,
+                    opening_balance: openingBalanceValue,
                     is_active: true,
                 };
-            }).filter(r => r.name && r.phone && r.address);
+            }).filter(r => r.name && r.address);
 
             if (toInsert.length === 0) { toast.error('No valid rows to import'); return; }
 
@@ -207,7 +199,7 @@ export const CustomerForm = () => {
                 <div className="flex gap-3">
                     {!isEdit && (
                         <Button variant="outline" size="sm" onClick={() => setUploadOpen(true)} className="gap-2 h-10 rounded-xl font-bold bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all">
-                            <Upload size={16} className="text-primary" /> Multi-Import
+                            <Upload size={16} className="text-primary" /> Import
                         </Button>
                     )}
                 </div>
@@ -232,11 +224,11 @@ export const CustomerForm = () => {
                             <Input value={form.name} onChange={field('name')} placeholder="Full business or legal name" required className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-semibold" />
                         </div>
                         <div className="space-y-2 group">
-                            <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Geocode (Place)</Label>
+                            <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Place <span className="text-rose-500">*</span></Label>
                             <Input value={form.place} onChange={field('place')} placeholder="e.g. Kochi Terminal" className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50" />
                         </div>
                         <div className="space-y-2 group">
-                            <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">District Zone</Label>
+                            <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">District Zone <span className="text-rose-500">*</span></Label>
                             <Select value={form.location ?? ''} onValueChange={(v) => setForm(f => ({ ...f, location: v || null }))}>
                                 <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50"><SelectValue placeholder="Allocate operation sector" /></SelectTrigger>
                                 <SelectContent className="rounded-xl">
@@ -247,23 +239,15 @@ export const CustomerForm = () => {
                             </Select>
                         </div>
                         <div className="space-y-2 group">
-                            <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Telecom Number <span className="text-rose-500">*</span></Label>
+                            <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Phone Number <span className="text-rose-500">*</span></Label>
                             <div className="relative">
                                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"><Phone size={16} /></div>
                                 <Input type="tel" value={form.phone} onChange={field('phone')} placeholder="Primary contact string" required className="pl-11 h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-mono tracking-widest" />
                             </div>
                         </div>
-                        <div className="space-y-2 group">
-                            <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Sales Node Assignment</Label>
-                            <Select value={form.assigned_to ?? ''} onValueChange={(v) => setForm(f => ({ ...f, assigned_to: v || null }))}>
-                                <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-semibold text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-900 border-dashed"><SelectValue placeholder="Agnostic / Unassigned" /></SelectTrigger>
-                                <SelectContent className="rounded-xl">
-                                    <SelectItem value="unassigned" className="text-slate-400 italic">Clear Assignment</SelectItem>
-                                    {salesReps.map(rep => (
-                                        <SelectItem key={rep.id} value={rep.id}>{rep.full_name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        <div className="space-y-2 group ">
+                            <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Alternate Phone No</Label>
+                            <Input type="tel" value={form.second_phone} onChange={field('second_phone')} placeholder="Alternate contact number" className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-mono tracking-widest"  />
                         </div>
                     </div>
                 </div>
@@ -275,13 +259,13 @@ export const CustomerForm = () => {
                             <MapPin size={20} />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-0.5">Geographic Anchor</h3>
-                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Invoicing & routing vector</p>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-0.5">Address Details</h3>
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Invoicing Address</p>
                         </div>
                     </div>
                     <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
                         <div className="md:col-span-2 space-y-2 group">
-                            <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Absolute Address Path <span className="text-rose-500">*</span></Label>
+                            <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Customer Address <span className="text-rose-500">*</span></Label>
                             <Textarea value={form.address} onChange={field('address')} placeholder="Suite, Building, Street mapping..." rows={3} required className="resize-none rounded-xl bg-slate-50 dark:bg-slate-800/50 p-4" />
                         </div>
                         <div className="space-y-2 group">
@@ -306,12 +290,17 @@ export const CustomerForm = () => {
                     
                     <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
                         <div className="space-y-2 group">
-                            <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">GSTIN / PAN Code</Label>
+                            <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">GSTIN</Label>
                             <Input value={form.gst_pan} onChange={field('gst_pan')} placeholder="Enter verified tax code" className="h-12 rounded-xl bg-white dark:bg-slate-900 uppercase font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
                         </div>
                         <div className="space-y-2 group">
-                            <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">Opening Reference Amount</Label>
-                            <Input type="number" value={form.opening_balance} onChange={(e) => setForm(f => ({ ...f, opening_balance: parseFloat(e.target.value) || 0 }))} placeholder="0.00" step="0.01" min="0" className="h-12 rounded-xl bg-white dark:bg-slate-900 font-mono tracking-widest text-lg shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
+                            <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">PAN No</Label>
+                            <Input value={form.pan_no} onChange={field('pan_no')} placeholder="Enter PAN number" className="h-12 rounded-xl bg-white dark:bg-slate-900 uppercase font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
+                        </div>
+                        <div className="space-y-2 group">
+                            <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">Opening Balance (Credit / Debit)</Label>
+                            <Input type="number" value={form.opening_balance} onChange={(e) => setForm(f => ({ ...f, opening_balance: parseFloat(e.target.value) || 0 }))} placeholder="0.00" step="0.01" className="h-12 rounded-xl bg-white dark:bg-slate-900 font-mono tracking-widest text-lg shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
+                            <p className="text-[11px] text-violet-600/80 dark:text-violet-300/80 font-medium">Use + for outstanding (customer owes us), use - for payable (we owe customer).</p>
                         </div>
                     </div>
                 </div>
@@ -369,9 +358,9 @@ export const CustomerForm = () => {
                                 />
                             </div>
                             <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 text-xs text-slate-500 font-medium leading-relaxed">
-                                <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Absolute schemas:</span> name, phone, address</p>
-                                <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Optional vectors:</span> place, location, pincode, gst_pan</p>
-                                <p><span className="font-bold text-slate-700 dark:text-slate-300">Auto-allocation:</span> The <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">sales_rep</code> column supports exact email or full name matching for implicit relationship mapping.</p>
+                                <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Expected columns:</span> Company, Brand, Customer Name, Place, Distract, pincode, GSTIN, PAN No, Address, Opening Balance</p>
+                                <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Notes:</span> Company and Brand are accepted for compatibility but not stored in customer master.</p>
+                                <p><span className="font-bold text-slate-700 dark:text-slate-300">Phone fields:</span> <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Phone</code> and <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Second Phone No</code> are optional. Missing primary phone defaults to <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">N/A</code>.</p>
                             </div>
                         </div>
                     </div>

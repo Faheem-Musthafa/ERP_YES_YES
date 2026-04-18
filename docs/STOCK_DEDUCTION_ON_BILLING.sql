@@ -12,7 +12,7 @@ DROP FUNCTION IF EXISTS bill_order_atomic(UUID, UUID);
 -- This function:
 -- 1. Generates invoice number
 -- 2. Updates order status to 'Billed'
--- 3. Deducts stock from the order's godown location
+-- 3. Deducts stock from the order's Godown location
 -- 4. Logs all stock movements
 CREATE OR REPLACE FUNCTION bill_order_atomic(
     p_order_id UUID,
@@ -30,7 +30,7 @@ DECLARE
     v_new_stock INTEGER;
 BEGIN
     -- Get order details
-    SELECT id, order_number, company, godown, status, invoice_number
+    SELECT id, order_number, company, Godown, status, invoice_number
     INTO v_order
     FROM orders
     WHERE id = p_order_id;
@@ -71,25 +71,25 @@ BEGIN
         v_invoice_number := v_order.invoice_number;
     END IF;
     
-    -- Deduct stock for each order item from the godown location
+    -- Deduct stock for each order item from the Godown location
     FOR v_item IN 
         SELECT oi.product_id, oi.quantity, p.name as product_name
         FROM order_items oi
         JOIN products p ON oi.product_id = p.id
         WHERE oi.order_id = p_order_id
     LOOP
-        -- Get current stock at godown location
+        -- Get current stock at Godown location
         SELECT stock_qty INTO v_current_stock
         FROM product_stock_locations
         WHERE product_id = v_item.product_id
-        AND location = COALESCE(v_order.godown, 'Kottakkal');
+        AND location = COALESCE(v_order.Godown, 'Kottakkal');
         
         -- Calculate new stock (allow 0, but not negative)
         v_new_stock := GREATEST(0, COALESCE(v_current_stock, 0) - v_item.quantity);
         
         -- Update/insert stock at location
         INSERT INTO product_stock_locations (product_id, location, stock_qty)
-        VALUES (v_item.product_id, COALESCE(v_order.godown, 'Kottakkal'), v_new_stock)
+        VALUES (v_item.product_id, COALESCE(v_order.Godown, 'Kottakkal'), v_new_stock)
         ON CONFLICT (product_id, location)
         DO UPDATE SET stock_qty = v_new_stock, updated_at = NOW();
         
@@ -104,7 +104,7 @@ BEGIN
             'order_billed',
             'orders',
             p_order_id,
-            COALESCE(v_order.godown, 'Kottakkal'),
+            COALESCE(v_order.Godown, 'Kottakkal'),
             p_billed_by
         );
     END LOOP;

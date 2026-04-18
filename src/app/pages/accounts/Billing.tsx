@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -134,6 +135,34 @@ const cloneDefaultInvoiceSettings = (): CompanyInvoiceSettings => ({
   Zekon: { ...DEFAULT_INVOICE_SETTINGS.Zekon },
 });
 
+const verifyAdminPasswordWithoutSessionMutation = async (
+  email: string,
+  password: string,
+): Promise<{ success: boolean; error?: string }> => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { success: false, error: 'Supabase environment variables are missing' };
+  }
+
+  const verifierClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+
+  const { error } = await verifierClient.auth.signInWithPassword({ email, password });
+  await verifierClient.auth.signOut({ scope: 'local' }).catch(() => {
+    // Stateless verifier has no persisted session, so cleanup failures are safe to ignore.
+  });
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+};
+
 const getInvoiceSettingsForCompany = (
   company: string,
   settings: CompanyInvoiceSettings,
@@ -154,7 +183,6 @@ const getInvoiceSettingsForCompany = (
 const normalize = (value: string) => value.toLowerCase().trim();
 const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const formatDate = (value: string | null) => value ? new Date(value).toLocaleDateString('en-IN') : '—';
-const createCreditNoteInvoiceNumber = () => `CN-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Date.now().toString().slice(-5)}`;
 const readSettingString = (value: Json | null, fallback = '') => typeof value === 'string' ? value : fallback;
 const readNullableString = (value: Json | null): string | null => typeof value === 'string' ? value : null;
 const isJsonObject = (value: Json | null): value is Record<string, Json> =>
@@ -185,6 +213,96 @@ const readReversalStatus = (value: Json | null): ReversalStatus => {
   if (raw === 'Approved') return 'Approved';
   if (raw === 'Rejected') return 'Rejected';
   return 'Pending';
+};
+
+const getFinancialYearCode = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const startYear = now.getMonth() >= 3 ? year : year - 1;
+  const endYear = startYear + 1;
+  return `${String(startYear).slice(-2)}${String(endYear).slice(-2)}`;
+};
+
+const getCompanySeriesCode = (company: string) => {
+  if (company === 'LLP') return '18';
+  if (company === 'YES YES') return '96';
+  if (company === 'Zekon') return '19';
+  return '00';
+};
+
+const extractAgainstInvoiceNumber = (remarks: string | null) => {
+  if (!remarks) return null;
+  const match = remarks.match(/Against\s+Invoice:\s*([A-Z0-9]+)/i);
+  return match?.[1]?.toUpperCase() ?? null;
+};
+
+const inferLocationKey = (order: BillableOrder): 'C' | 'K' | null => {
+  const location = normalize(order.godown ?? '');
+  if (location.includes('calicut')) return 'C';
+  if (location.includes('chenakkal')) return 'K';
+
+  const againstInvoice = extractAgainstInvoiceNumber(order.remarks);
+  if (againstInvoice?.startsWith('C')) return 'C';
+  if (againstInvoice?.startsWith('K')) return 'K';
+
+  return null;
+};
+
+const resolveCreditNoteNature = (remarks: string | null): 'GST' | 'NGST' => {
+  const text = normalize(remarks ?? '');
+  if (text.includes('not-gst') || text.includes('ngst')) return 'NGST';
+  return 'GST';
+};
+
+const getCreditNotePrefix = (order: BillableOrder): string => {
+  const company = order.company;
+  const locationKey = inferLocationKey(order) ?? 'C';
+  const nature = resolveCreditNoteNature(order.remarks);
+
+  if (company === 'LLP') {
+    if (nature === 'GST') return locationKey === 'K' ? 'KGC' : 'CGC';
+    return locationKey === 'K' ? 'KNC' : 'CNC';
+  }
+
+  if (company === 'YES YES') {
+    return nature === 'GST' ? 'GYC' : 'YNC';
+  }
+
+  if (company === 'Zekon') {
+    return nature === 'GST' ? 'GZC' : 'NZC';
+  }
+
+  return nature === 'GST' ? 'GC' : 'NC';
+};
+
+const createCreditNoteInvoiceNumber = async (order: BillableOrder): Promise<string> => {
+  const prefix = getCreditNotePrefix(order);
+  const base = `${prefix}${getCompanySeriesCode(order.company)}${getFinancialYearCode()}`;
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('invoice_number')
+    .ilike('invoice_number', `${base}%`)
+    .not('invoice_number', 'is', null)
+    .limit(5000);
+
+  if (error) throw error;
+
+  let maxSequence = 0;
+  for (const row of data ?? []) {
+    const invoiceNo = row.invoice_number;
+    if (typeof invoiceNo !== 'string') continue;
+    if (!invoiceNo.startsWith(base)) continue;
+    const suffix = invoiceNo.slice(base.length);
+    if (!/^\d{4}$/.test(suffix)) continue;
+    const seq = Number(suffix);
+    if (Number.isFinite(seq) && seq > maxSequence) {
+      maxSequence = seq;
+    }
+  }
+
+  const nextSequence = String(maxSequence + 1).padStart(4, '0');
+  return `${base}${nextSequence}`;
 };
 
 const readBillingReversalRequests = (value: Json | null): BillingReversalRequest[] => {
@@ -251,6 +369,44 @@ const readCompanyInvoiceSettings = (value: Json | null): CompanyInvoiceSettings 
   });
 
   return next;
+};
+
+const extractInvoiceNumber = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    const next = value.trim();
+    return next.length > 0 ? next : null;
+  }
+
+  if (value && typeof value === 'object') {
+    const row = value as Record<string, unknown>;
+    const direct = row.invoice_number;
+    if (typeof direct === 'string' && direct.trim().length > 0) {
+      return direct.trim();
+    }
+
+    const rpcValue = row.bill_order_idempotent;
+    if (typeof rpcValue === 'string' && rpcValue.trim().length > 0) {
+      return rpcValue.trim();
+    }
+
+    const legacyValue = row.bill_order_atomic;
+    if (typeof legacyValue === 'string' && legacyValue.trim().length > 0) {
+      return legacyValue.trim();
+    }
+  }
+
+  return null;
+};
+
+const readPersistedBillingState = async (orderId: string) => {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('status, invoice_number, billed_at')
+    .eq('id', orderId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
 };
 
 const splitText = (doc: jsPDF, text: string, width: number) => {
@@ -654,7 +810,7 @@ const renderInvoicePdf = async (order: BillableOrder, lines: OrderLine[], invoic
 };
 
 export const Billing = () => {
-  const { user, login } = useAuth();
+  const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const canRequestReversal = user?.role === 'accounts' || isAdmin;
 
@@ -746,7 +902,22 @@ export const Billing = () => {
       toast.error(error.message);
       setOrders([]);
     } else {
-      setOrders((data ?? []) as BillableOrder[]);
+      const incoming = (data ?? []) as BillableOrder[];
+      setOrders((prev) => {
+        const previousById = new Map(prev.map((order) => [order.id, order]));
+        return incoming.map((order) => {
+          const existing = previousById.get(order.id);
+          if (existing && existing.status === 'Billed' && order.status === 'Approved') {
+            return {
+              ...order,
+              status: 'Billed',
+              invoice_number: existing.invoice_number ?? order.invoice_number,
+              billed_at: existing.billed_at ?? order.billed_at,
+            };
+          }
+          return order;
+        });
+      });
     }
     setLoading(false);
   };
@@ -826,20 +997,13 @@ export const Billing = () => {
   const billOrder = async (order: BillableOrder) => {
     const isCreditNote = order.invoice_type === 'Credit Note';
 
-    const shouldBill = window.confirm(
-      isCreditNote
-        ? 'Issue this credit note now?'
-        : 'Do you want to bill this order now?'
-    );
-    if (!shouldBill) return;
-
     setBusyOrderId(order.id);
     try {
       let invoiceNo = order.invoice_number;
       let billedInvoiceNo: string | null = null;
 
       if (isCreditNote) {
-        const nextInvoiceNo = order.invoice_number ?? createCreditNoteInvoiceNumber();
+        const nextInvoiceNo = order.invoice_number ?? await createCreditNoteInvoiceNumber(order);
         const { data: billedOrder, error: billErr } = await supabase
           .from('orders')
           .update({
@@ -870,17 +1034,70 @@ export const Billing = () => {
           const { data: legacyInvoiceNo, error: legacyErr } = await supabase
             .rpc('bill_order_atomic', { p_order_id: order.id, p_billed_by: user?.id ?? null });
           if (legacyErr) throw legacyErr;
-          billedInvoiceNo = legacyInvoiceNo;
+          billedInvoiceNo = extractInvoiceNumber(legacyInvoiceNo);
         } else {
-          billedInvoiceNo = idempotentInvoiceNo;
+          billedInvoiceNo = extractInvoiceNumber(idempotentInvoiceNo);
         }
       }
 
       invoiceNo = billedInvoiceNo || invoiceNo;
+      if (!invoiceNo) {
+        const persistedOrder = await readPersistedBillingState(order.id);
+
+        if (persistedOrder?.status === 'Billed') {
+          invoiceNo = persistedOrder.invoice_number ?? invoiceNo;
+        }
+      }
       if (!invoiceNo) throw new Error('Invoice number generation failed');
 
-      toast.success(`${invoiceNo} billed successfully. Download the PDF whenever needed.`);
-      await Promise.all([fetchOrders(), loadBillingReversalRequests()]);
+      let persistedOrder = await readPersistedBillingState(order.id);
+      if (persistedOrder?.status !== 'Billed') {
+        const billedAt = new Date().toISOString();
+        const { error: persistErr } = await supabase
+          .from('orders')
+          .update({
+            status: 'Billed',
+            billed_by: user?.id ?? null,
+            billed_at: billedAt,
+            invoice_number: invoiceNo,
+            updated_at: billedAt,
+          })
+          .eq('id', order.id)
+          .eq('status', 'Approved');
+        if (persistErr) throw persistErr;
+
+        persistedOrder = await readPersistedBillingState(order.id);
+      }
+
+      if (persistedOrder?.status !== 'Billed') {
+        throw new Error('Billing did not persist. Please check database permissions/RPC migration.');
+      }
+
+      const billedAt = persistedOrder.billed_at ?? new Date().toISOString();
+      const persistedInvoiceNo = persistedOrder.invoice_number ?? invoiceNo;
+      setOrders((prev) => prev.map((existing) => (
+        existing.id === order.id
+          ? { ...existing, status: 'Billed', invoice_number: persistedInvoiceNo, billed_at: billedAt }
+          : existing
+      )));
+
+      if (statusFilter === 'Approved') {
+        setStatusFilter('all');
+      }
+
+      toast.success(`${persistedInvoiceNo} billed successfully. Download the PDF whenever needed.`);
+      void Promise.allSettled([loadBillingReversalRequests()]).then((results) => {
+        const [reversalsRefresh] = results;
+        if (reversalsRefresh.status === 'rejected') {
+          toast.error('Order billed, but reversal panel refresh failed.');
+        }
+      });
+
+      // Delay orders refresh slightly to avoid reading a stale pre-commit snapshot
+      // that can briefly revert a billed row back to Approved in the UI.
+      window.setTimeout(() => {
+        void fetchOrders();
+      }, 1200);
     } catch (error: any) {
       toast.error(error?.message ?? 'Unable to bill order');
     } finally {
@@ -969,21 +1186,21 @@ export const Billing = () => {
     setReviewDialogOpen(true);
   };
 
-  const moveReversedOrderToBackOrderQueue = async (orderId: string) => {
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        status: 'Pending',
-        approved_by: null,
-        approved_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', orderId)
-      .eq('status', 'Approved');
-
-    if (error) {
-      throw error;
+  const handleRequestDialogOpenChange = (open: boolean) => {
+    if (!open && !requestingReversal) {
+      setRequestOrder(null);
+      setRequestReason('');
     }
+    setRequestDialogOpen(open);
+  };
+
+  const handleReviewDialogOpenChange = (open: boolean) => {
+    if (!open && !reviewingAction) {
+      setReviewRequest(null);
+      setAdminPassword('');
+      setAdminNote('');
+    }
+    setReviewDialogOpen(open);
   };
 
   const submitAdminReview = async (action: 'approve' | 'reject') => {
@@ -995,7 +1212,7 @@ export const Billing = () => {
 
     setReviewingAction(true);
     try {
-      const authResult = await login(user.email, adminPassword);
+      const authResult = await verifyAdminPasswordWithoutSessionMutation(user.email, adminPassword);
       if (!authResult.success) {
         throw new Error(authResult.error ?? 'Admin password verification failed');
       }
@@ -1011,12 +1228,8 @@ export const Billing = () => {
         throw new Error('Request is no longer pending');
       }
 
-      if (action === 'approve') {
-        await moveReversedOrderToBackOrderQueue(reviewRequest.order_id);
-      }
-
       toast.success(action === 'approve'
-        ? 'Billing reversal approved and moved to Back Orders'
+        ? 'Billing reversal approved successfully'
         : 'Billing reversal request rejected');
       setReviewDialogOpen(false);
       setReviewRequest(null);
@@ -1285,7 +1498,7 @@ export const Billing = () => {
         )}
       </DataCard>
 
-      <Dialog open={requestDialogOpen} onOpenChange={setRequestDialogOpen}>
+      <Dialog open={requestDialogOpen} onOpenChange={handleRequestDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Request Billing Reversal</DialogTitle>
@@ -1308,7 +1521,7 @@ export const Billing = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRequestDialogOpen(false)} disabled={requestingReversal}>Cancel</Button>
+            <Button variant="outline" onClick={() => handleRequestDialogOpenChange(false)} disabled={requestingReversal}>Cancel</Button>
             <Button onClick={() => void submitBillingReversalRequest()} disabled={requestingReversal}>
               {requestingReversal ? 'Submitting...' : 'Submit Request'}
             </Button>
@@ -1316,7 +1529,7 @@ export const Billing = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+      <Dialog open={reviewDialogOpen} onOpenChange={handleReviewDialogOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Admin Review: Billing Reversal</DialogTitle>
@@ -1349,7 +1562,7 @@ export const Billing = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReviewDialogOpen(false)} disabled={reviewingAction}>Cancel</Button>
+            <Button variant="outline" onClick={() => handleReviewDialogOpenChange(false)} disabled={reviewingAction}>Cancel</Button>
             <Button variant="outline" onClick={() => void submitAdminReview('reject')} disabled={reviewingAction}>
               {reviewingAction ? 'Processing...' : 'Reject'}
             </Button>

@@ -32,7 +32,7 @@ This document serves as the foundational UX/UI architecture for the ERP system r
   - **Audit Trails:** One-click chronological history (flyout panel) for any reversal or anomaly.
 
 ### 📦 Inventory Manager (Tablet/Desktop)
-**Context:** Warehouse floor or office, coordinating logistics.
+**Context:** Godown floor or office, coordinating logistics.
 - **JTBD:** Upon order approval, I need to effortlessly assign deliveries and track fulfillment stages to guarantee dispatch SLAs.
 - **Pain Points:** Dense screens hiding dispatch bottlenecks; chaotic vehicle assignment.
 - **UX Strategy:**

@@ -1,6 +1,6 @@
--- Hotfix: update billing reversal approval to use dynamic settings-backed godowns.
+-- Hotfix: update billing reversal approval to use dynamic settings-backed Godowns.
 -- Run this in Supabase SQL editor if you get:
--- ERROR: type "godown_enum" does not exist
+-- ERROR: type "Godown_enum" does not exist
 
 CREATE OR REPLACE FUNCTION public.approve_billing_reversal(
   p_request_id UUID,
@@ -43,7 +43,7 @@ BEGIN
     RETURN FALSE;
   END IF;
 
-  SELECT o.id, o.status, o.godown, o.billed_by, o.invoice_number
+  SELECT o.id, o.order_number, o.status, o.Godown, o.billed_by, o.invoice_number
   INTO v_order
   FROM public.orders o
   WHERE o.id = v_request.order_id
@@ -57,8 +57,8 @@ BEGIN
   END IF;
 
   v_location := validate_master_setting_option(
-    'godowns',
-    COALESCE(NULLIF(BTRIM(v_order.godown), ''), default_master_setting_option('godowns')),
+    'Godowns',
+    COALESCE(NULLIF(BTRIM(v_order.Godown), ''), default_master_setting_option('Godowns')),
     'billing reversal location',
     true
   );

@@ -107,7 +107,7 @@ The ERP uses 19 tables organized into categories:
 | `order_status_enum` | Pending, Approved, Rejected, Billed, Delivered |
 | `payment_mode_enum` | Cash, Cheque, UPI, Bank Transfer |
 | `delivery_status_enum` | Pending, In Transit, Delivered, Failed |
-| `godown_enum` | KOTTAKKAL , Chenakkal |
+| `Godown_enum` | KOTTAKKAL , Chenakkal |
 | `vehicle_type_enum` | 2-Wheeler, 3-Wheeler, 4-Wheeler, Truck, Others |
 | `district_enum` | All 14 Kerala districts |
 
@@ -316,7 +316,7 @@ SELECT create_order(
     'YES YES',               -- company
     'GST',                   -- invoice_type
     'customer-uuid',         -- customer_id
-    'KOTTAKKAL ',             -- godown
+    'KOTTAKKAL ',             -- Godown
     '123 Main St, Kerala',   -- site_address
     '[
         {"product_id": "uuid1", "quantity": 5, "dealer_price": 100, "discount_pct": 10},

@@ -35,7 +35,7 @@ export const GRN = () => {
   const [recentGRNs, setRecentGRNs] = useState<RecentGrn[]>([]);
   const [selectedPOId, setSelectedPOId] = useState('');
   const [receivingLocation, setReceivingLocation] = useState('');
-  const [godownOptions, setGodownOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.godowns);
+  const [GodownOptions, setGodownOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.Godowns);
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
   const [challanNumber, setChallanNumber] = useState('');
   const [remarks, setRemarks] = useState('');
@@ -144,7 +144,7 @@ export const GRN = () => {
       setRemarks('');
       setReceivedQty('');
       setSelectedPOId('');
-      setReceivingLocation((prev) => prev || godownOptions[0] || '');
+      setReceivingLocation((prev) => prev || GodownOptions[0] || '');
 
       // Refresh GRN list
       await loadGRNData();
@@ -184,7 +184,7 @@ export const GRN = () => {
       );
       const configuredGodowns = Array.from(
         new Set(
-          settings.godowns
+          settings.Godowns
             .map((location) => location.trim())
             .filter((location) => location.length > 0),
         ),
@@ -244,10 +244,10 @@ export const GRN = () => {
   }, []);
 
   useEffect(() => {
-    if (receivingLocation && !godownOptions.includes(receivingLocation)) {
+    if (receivingLocation && !GodownOptions.includes(receivingLocation)) {
       setReceivingLocation('');
     }
-  }, [receivingLocation, godownOptions]);
+  }, [receivingLocation, GodownOptions]);
 
   const selectedPO = useMemo(
     () => pendingDeliveries.find(delivery => delivery.id === selectedPOId) ?? null,
@@ -295,7 +295,7 @@ export const GRN = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {godownOptions.map((location) => (
+                      {GodownOptions.map((location) => (
                         <SelectItem key={location} value={location}>
                           {location}
                         </SelectItem>

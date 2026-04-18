@@ -21,6 +21,7 @@ interface CustomerAnalysis {
     totalOrders: number;
     totalRevenue: number;
     totalCollected: number;
+        openingBalance: number;
     outstanding: number;
     averageOrderValue: number;
     lastOrderDate: string | null;
@@ -33,6 +34,7 @@ interface CustomerRow {
     phone: string;
     location: string | null;
     place: string | null;
+        opening_balance: number | null;
     is_active: boolean;
 }
 
@@ -62,7 +64,7 @@ export const CustomerAnalysisReport = () => {
         try {
             const { data: customers, error: custErr } = await supabase
                 .from('customers')
-                .select('id, name, phone, location, place, is_active');
+                .select('id, name, phone, location, place, opening_balance, is_active');
 
             if (custErr) throw custErr;
 
@@ -111,7 +113,8 @@ export const CustomerAnalysisReport = () => {
                     totalOrders: orderInfo.count,
                     totalRevenue: orderInfo.revenue,
                     totalCollected,
-                    outstanding: orderInfo.revenue - totalCollected,
+                    openingBalance: c.opening_balance ?? 0,
+                    outstanding: (c.opening_balance ?? 0) + orderInfo.revenue - totalCollected,
                     averageOrderValue: orderInfo.count > 0 ? orderInfo.revenue / orderInfo.count : 0,
                     lastOrderDate: orderInfo.lastDate,
                     status: c.is_active ? 'Active' : 'Inactive',
@@ -182,7 +185,7 @@ export const CustomerAnalysisReport = () => {
                     <Button
                         size="sm"
                         onClick={() => downloadCSV(
-                            ['Name', 'Phone', 'Location', 'Place', 'Total Orders', 'Total Revenue', 'Collected', 'Outstanding', 'Avg Order Value', 'Last Order', 'Status'],
+                            ['Name', 'Phone', 'Location', 'Place', 'Total Orders', 'Total Revenue', 'Collected', 'Net Balance', 'Avg Order Value', 'Last Order', 'Status'],
                             paginated.map(c => [
                                 c.name,
                                 c.phone,
@@ -211,7 +214,7 @@ export const CustomerAnalysisReport = () => {
                     { label: 'Total Base', metric: 'Total Customers', value: stats.totalCustomers, sub: `${stats.activeCustomers} active accounts`, icon: Users, accent: 'blue' },
                     { label: 'Gross', metric: 'Total Revenue', value: fmt(stats.totalRevenue), sub: 'Based on approved billed orders', icon: TrendingUp, accent: 'teal' },
                     { label: 'Yield', metric: 'Collected', value: fmt(stats.totalCollected), sub: `${collectionRate.toFixed(1)}% collection rate`, icon: Wallet, accent: 'emerald' },
-                    { label: 'Risk', metric: 'Outstanding', value: fmt(stats.totalOutstanding), sub: `${atRiskCustomers} pending dues`, icon: AlertTriangle, accent: 'amber' },
+                    { label: 'Risk', metric: 'Net Balance', value: fmt(stats.totalOutstanding), sub: `${atRiskCustomers} pending dues`, icon: AlertTriangle, accent: stats.totalOutstanding >= 0 ? 'amber' : 'blue' },
                 ].map((stat, i) => {
                     const Icon = stat.icon;
                     const isBlue = stat.accent === 'blue';
@@ -265,7 +268,7 @@ export const CustomerAnalysisReport = () => {
                                     Customer footprint centers around <span className="text-primary">{topLocation?.name ?? 'active zones'}</span>
                                 </h3>
                                 <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                                    This perspective is based on order revenue and collected receipts only. Collection efficiency highlights accounts requiring immediate resolution interventions.
+                                    Net balance reflects opening balance plus billed revenue minus collected receipts. Positive values are outstanding dues, negative values are payable by us.
                                 </p>
                             </div>
                             
@@ -346,8 +349,10 @@ export const CustomerAnalysisReport = () => {
                                 <div className="text-right shrink-0">
                                     <p className="font-mono text-sm font-bold text-slate-900 dark:text-slate-100">{fmt(customer.totalRevenue)}</p>
                                     <div className="mt-1 flex items-center justify-end gap-1">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
-                                        <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-500">Unsettled {fmt(customer.outstanding)}</p>
+                                        <div className={`w-1.5 h-1.5 rounded-full ${customer.outstanding >= 0 ? 'bg-amber-500' : 'bg-blue-500'} animate-pulse`}></div>
+                                        <p className={`text-[10px] font-semibold ${customer.outstanding >= 0 ? 'text-amber-600 dark:text-amber-500' : 'text-blue-600 dark:text-blue-500'}`}>
+                                            {customer.outstanding >= 0 ? 'Outstanding' : 'Payable'} {fmt(customer.outstanding)}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -488,8 +493,8 @@ export const CustomerAnalysisReport = () => {
                                         <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Contact</th>
                                         <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Zone</th>
                                         <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 text-right">Volume</th>
-                                        <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 text-right text-emerald-600 dark:text-emerald-500">Realized</th>
-                                        <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 text-right text-amber-600 dark:text-amber-500">Unsettled</th>
+                                        <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-right text-emerald-600 dark:text-emerald-500">Realized</th>
+                                        <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-right text-amber-600 dark:text-amber-500">Net Balance</th>
                                         <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Status</th>
                                     </tr>
                                 </thead>
@@ -531,6 +536,7 @@ export const CustomerAnalysisReport = () => {
                                             <td className="px-6 py-4 whitespace-nowrap text-right">
                                                 <div className={`inline-flex items-center justify-end font-mono gap-1.5 text-sm font-bold px-2 py-0.5 rounded ${c.outstanding > 0 ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/10' : 'text-slate-400'}`}>
                                                     {c.outstanding > 0 && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>}
+                                                    {c.outstanding < 0 && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>}
                                                     ₹{c.outstanding.toLocaleString('en-IN')}
                                                 </div>
                                             </td>

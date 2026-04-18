@@ -116,12 +116,12 @@ export const Products = () => {
         if (error) throw error; toast.success('Product updated!');
       } else {
         const masterSettings = await loadMasterDataSettings().catch(() => DEFAULT_MASTER_DATA_SETTINGS);
-        const godowns = masterSettings.godowns
+        const Godowns = masterSettings.Godowns
           .map((location) => location.trim())
           .filter((location) => location.length > 0);
 
-        if (godowns.length === 0) {
-          throw new Error('No godown configured in Settings. Add at least one godown before creating products.');
+        if (Godowns.length === 0) {
+          throw new Error('No Godown configured in Settings. Add at least one Godown before creating products.');
         }
 
         const { data: createdProduct, error } = await supabase
@@ -131,7 +131,7 @@ export const Products = () => {
           .single();
         if (error) throw error; toast.success('Product added!');
         if (createdProduct?.id) {
-          const stockSeedRows = godowns.map((location, index) => ({
+          const stockSeedRows = Godowns.map((location, index) => ({
             product_id: createdProduct.id,
             location,
             stock_qty: index === 0 ? initialStock : 0,

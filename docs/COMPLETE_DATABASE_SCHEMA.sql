@@ -107,7 +107,7 @@ END $$;
 
 -- Godown/Location types (Kottakkal and Chenakkal)
 DO $$ BEGIN
-    CREATE TYPE godown_enum AS ENUM ('Kottakkal', 'Chenakkal');
+    CREATE TYPE Godown_enum AS ENUM ('Kottakkal', 'Chenakkal');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -251,7 +251,7 @@ CREATE TABLE IF NOT EXISTS orders (
     invoice_type invoice_type_enum NOT NULL,
     invoice_number TEXT,
     customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
-    godown godown_enum,  -- Which location to fulfill from
+    Godown Godown_enum,  -- Which location to fulfill from
     site_address TEXT NOT NULL,
     remarks TEXT,
     delivery_date DATE,
@@ -275,13 +275,13 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 
 COMMENT ON TABLE orders IS 'Sales orders with GST calculations';
-COMMENT ON COLUMN orders.godown IS 'Location to fulfill order from (Kottakkal/Chenakkal)';
+COMMENT ON COLUMN orders.Godown IS 'Location to fulfill order from (Kottakkal/Chenakkal)';
 COMMENT ON COLUMN orders.invoice_type IS 'GST, NGST, IGST, Delivery Challan, etc.';
 
 CREATE INDEX IF NOT EXISTS idx_orders_order_number ON orders(order_number);
 CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
-CREATE INDEX IF NOT EXISTS idx_orders_godown ON orders(godown);
+CREATE INDEX IF NOT EXISTS idx_orders_Godown ON orders(Godown);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 
 -- -----------------------------------------------------------------------------
@@ -450,7 +450,7 @@ CREATE TABLE IF NOT EXISTS grn_items (
     expected_qty INTEGER NOT NULL DEFAULT 0,
     received_qty INTEGER NOT NULL DEFAULT 0 CHECK (received_qty >= 0),
     damaged_qty INTEGER NOT NULL DEFAULT 0 CHECK (damaged_qty >= 0),
-    location godown_enum,  -- Where the goods are received
+    location Godown_enum,  -- Where the goods are received
     status grn_status_enum NOT NULL DEFAULT 'Pending',
     received_date DATE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -472,7 +472,7 @@ CREATE INDEX IF NOT EXISTS idx_grn_items_product_id ON grn_items(product_id);
 CREATE TABLE IF NOT EXISTS product_stock_locations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    location godown_enum NOT NULL,
+    location Godown_enum NOT NULL,
     stock_qty INTEGER NOT NULL DEFAULT 0 CHECK (stock_qty >= 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -480,7 +480,7 @@ CREATE TABLE IF NOT EXISTS product_stock_locations (
 );
 
 COMMENT ON TABLE product_stock_locations IS 'Stock quantity per product per location';
-COMMENT ON COLUMN product_stock_locations.location IS 'Kottakkal or Chenakkal warehouse';
+COMMENT ON COLUMN product_stock_locations.location IS 'Kottakkal or Chenakkal Godown';
 
 CREATE INDEX IF NOT EXISTS idx_product_stock_locations_product_id ON product_stock_locations(product_id);
 CREATE INDEX IF NOT EXISTS idx_product_stock_locations_location ON product_stock_locations(location);
@@ -492,8 +492,8 @@ CREATE INDEX IF NOT EXISTS idx_product_stock_locations_stock_qty ON product_stoc
 CREATE TABLE IF NOT EXISTS stock_transfers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-    from_location godown_enum NOT NULL,
-    to_location godown_enum NOT NULL,
+    from_location Godown_enum NOT NULL,
+    to_location Godown_enum NOT NULL,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
     reason TEXT,
     transferred_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -517,7 +517,7 @@ CREATE TABLE IF NOT EXISTS stock_adjustments (
     quantity INTEGER NOT NULL CHECK (quantity > 0),
     type stock_adjustment_type_enum NOT NULL,
     reason TEXT NOT NULL,
-    location godown_enum,  -- Which location was adjusted
+    location Godown_enum,  -- Which location was adjusted
     adjusted_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -536,7 +536,7 @@ CREATE TABLE IF NOT EXISTS stock_movements (
     movement_type TEXT NOT NULL,  -- grn_receipt, order_delivery, adjustment, transfer_in, transfer_out
     reference_type TEXT,  -- orders, grn_items, stock_adjustments, stock_transfers
     reference_id UUID,
-    location godown_enum,  -- Which location was affected
+    location Godown_enum,  -- Which location was affected
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -686,7 +686,7 @@ END $$;
 INSERT INTO product_stock_locations (product_id, location, stock_qty)
 SELECT 
     p.id,
-    loc.location::godown_enum,
+    loc.location::Godown_enum,
     CASE 
         WHEN loc.location = 'Kottakkal' THEN COALESCE(p.stock_qty, 0)
         ELSE 0 
@@ -808,7 +808,7 @@ $$ LANGUAGE plpgsql;
 -- Update Product Stock at Location
 CREATE OR REPLACE FUNCTION update_stock_at_location(
     p_product_id UUID,
-    p_location godown_enum,
+    p_location Godown_enum,
     p_quantity INTEGER,
     p_operation TEXT,  -- 'add', 'subtract', 'set'
     p_reason TEXT DEFAULT NULL,
@@ -865,8 +865,8 @@ $$ LANGUAGE plpgsql;
 -- Transfer Stock Between Locations
 CREATE OR REPLACE FUNCTION transfer_stock(
     p_product_id UUID,
-    p_from_location godown_enum,
-    p_to_location godown_enum,
+    p_from_location Godown_enum,
+    p_to_location Godown_enum,
     p_quantity INTEGER,
     p_reason TEXT DEFAULT NULL,
     p_user_id UUID DEFAULT NULL
@@ -925,7 +925,7 @@ CREATE OR REPLACE FUNCTION create_order(
     p_company company_enum,
     p_invoice_type invoice_type_enum,
     p_customer_id UUID,
-    p_godown godown_enum,
+    p_Godown Godown_enum,
     p_site_address TEXT,
     p_items JSONB,  -- Array of {product_id, quantity, dealer_price, discount_pct}
     p_remarks TEXT DEFAULT NULL,
@@ -947,11 +947,11 @@ BEGIN
     
     -- Create order header
     INSERT INTO orders (
-        order_number, company, invoice_type, customer_id, godown,
+        order_number, company, invoice_type, customer_id, Godown,
         site_address, remarks, delivery_date, created_by, status
     )
     VALUES (
-        v_order_number, p_company, p_invoice_type, p_customer_id, p_godown,
+        v_order_number, p_company, p_invoice_type, p_customer_id, p_Godown,
         p_site_address, p_remarks, p_delivery_date, p_created_by, 'Pending'
     )
     RETURNING id INTO v_order_id;
@@ -1047,14 +1047,14 @@ BEGIN
         FROM order_items oi 
         WHERE oi.order_id = p_order_id
     LOOP
-        -- Deduct from order's godown location
+        -- Deduct from order's Godown location
         UPDATE product_stock_locations
         SET stock_qty = GREATEST(0, stock_qty - v_item.quantity), updated_at = NOW()
-        WHERE product_id = v_item.product_id AND location = v_order.godown;
+        WHERE product_id = v_item.product_id AND location = v_order.Godown;
         
         -- Log movement
         INSERT INTO stock_movements (product_id, quantity, movement_type, reference_type, reference_id, location, created_by)
-        VALUES (v_item.product_id, -v_item.quantity, 'order_billed', 'orders', p_order_id, v_order.godown, p_billed_by);
+        VALUES (v_item.product_id, -v_item.quantity, 'order_billed', 'orders', p_order_id, v_order.Godown, p_billed_by);
     END LOOP;
     
     -- Update order status
@@ -1235,14 +1235,14 @@ BEGIN
             COALESCE((v_item->>'expected_qty')::INTEGER, 0),
             (v_item->>'received_qty')::INTEGER,
             COALESCE((v_item->>'damaged_qty')::INTEGER, 0),
-            (v_item->>'location')::godown_enum,
+            (v_item->>'location')::Godown_enum,
             'Completed',
             CURRENT_DATE
         );
         
         -- Update stock at location
         INSERT INTO product_stock_locations (product_id, location, stock_qty)
-        VALUES ((v_item->>'product_id')::UUID, (v_item->>'location')::godown_enum, v_net_qty)
+        VALUES ((v_item->>'product_id')::UUID, (v_item->>'location')::Godown_enum, v_net_qty)
         ON CONFLICT (product_id, location)
         DO UPDATE SET stock_qty = product_stock_locations.stock_qty + v_net_qty, updated_at = NOW();
         
@@ -1254,7 +1254,7 @@ BEGIN
             'grn_receipt',
             'grn',
             v_grn_id,
-            (v_item->>'location')::godown_enum,
+            (v_item->>'location')::Godown_enum,
             p_received_by
         );
     END LOOP;
@@ -1275,13 +1275,13 @@ $$ LANGUAGE plpgsql;
 -- -----------------------------------------------------------------------------
 
 -- Get Stock Summary by Location
-CREATE OR REPLACE FUNCTION get_stock_by_location(p_location godown_enum DEFAULT NULL)
+CREATE OR REPLACE FUNCTION get_stock_by_location(p_location Godown_enum DEFAULT NULL)
 RETURNS TABLE (
     product_id UUID,
     product_name TEXT,
     sku TEXT,
     brand_name TEXT,
-    location godown_enum,
+    location Godown_enum,
     stock_qty INTEGER
 ) AS $$
 BEGIN
@@ -1308,7 +1308,7 @@ RETURNS TABLE (
     product_id UUID,
     product_name TEXT,
     sku TEXT,
-    location godown_enum,
+    location Godown_enum,
     stock_qty INTEGER
 ) AS $$
 BEGIN

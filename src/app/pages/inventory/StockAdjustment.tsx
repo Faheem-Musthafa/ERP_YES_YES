@@ -36,7 +36,7 @@ export const StockAdjustment = () => {
   const [recentAdjustments, setRecentAdjustments] = useState<AdjustmentRow[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
-  const [locationOptions, setLocationOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.godowns);
+  const [locationOptions, setLocationOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.Godowns);
   const [quantity, setQuantity] = useState('');
   const [type, setType] = useState<'Addition' | 'Subtraction'>('Addition');
   const [reason, setReason] = useState('');
@@ -64,7 +64,7 @@ export const StockAdjustment = () => {
 
       const configuredLocations = Array.from(
         new Set(
-          settings.godowns
+          settings.Godowns
             .map((location) => location.trim())
             .filter((location) => location.length > 0),
         ),

@@ -32,13 +32,13 @@ export const CreateOrder = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
-  const [godownOptions, setGodownOptions] = useState<string[]>(DEFAULT_ORDER_FORM_SETTINGS.godowns);
+  const [GodownOptions, setGodownOptions] = useState<string[]>(DEFAULT_ORDER_FORM_SETTINGS.Godowns);
   const [maxDiscountPercentage, setMaxDiscountPercentage] = useState(DEFAULT_ORDER_FORM_SETTINGS.maxDiscountPercentage);
 
   // Form State
   const [company, setCompany] = useState<CompanyEnum | ''>('');
   const [invoiceType, setInvoiceType] = useState<InvoiceTypeEnum | ''>('');
-  const [godown, setGodown] = useState('');
+  const [Godown, setGodown] = useState('');
   const [customerType, setCustomerType] = useState('existing');
   
   // Combobox Selectors State
@@ -86,7 +86,7 @@ export const CreateOrder = () => {
         if (orderSettings) {
           const configuredGodowns = Array.from(
             new Set(
-              orderSettings.godowns
+              orderSettings.Godowns
                 .map((location) => location.trim())
                 .filter((location) => location.length > 0),
             ),
@@ -127,7 +127,7 @@ export const CreateOrder = () => {
           );
           const configuredGodowns = Array.from(
             new Set(
-              (orderSettings?.godowns ?? DEFAULT_ORDER_FORM_SETTINGS.godowns)
+              (orderSettings?.Godowns ?? DEFAULT_ORDER_FORM_SETTINGS.Godowns)
                 .map((location) => location.trim())
                 .filter((location) => location.length > 0),
             ),
@@ -177,7 +177,7 @@ export const CreateOrder = () => {
 
   const handleProductChange = (id: string, productId: string) => {
     const p = products.find(pr => pr.id === productId);
-    const stock = getStockAtLocation(p, godown);
+    const stock = getStockAtLocation(p, Godown);
     setOrderItems(items => items.map(item =>
       item.id === id ? { ...item, productId, product: p?.name ?? '', brand: p?.brand_name ?? '', sku: p?.sku ?? '', stock, dp: p?.dealer_price ?? 0, mrp: p?.mrp ?? 0, amount: '', discount: '' } : item
     ));
@@ -194,16 +194,16 @@ export const CreateOrder = () => {
     setOrderItems(prev => prev.map(item => {
       if (!item.productId) return item;
       const p = products.find(pr => pr.id === item.productId);
-      const stock = getStockAtLocation(p, godown);
+      const stock = getStockAtLocation(p, Godown);
       return { ...item, stock };
     }));
-  }, [godown, products]);
+  }, [Godown, products]);
 
   useEffect(() => {
-    if (godown && !godownOptions.includes(godown)) {
+    if (Godown && !GodownOptions.includes(Godown)) {
       setGodown('');
     }
-  }, [godown, godownOptions]);
+  }, [Godown, GodownOptions]);
 
   const clampDiscountInput = (value: string): string => {
     if (value === '') return '';
@@ -248,7 +248,7 @@ export const CreateOrder = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!company || !invoiceType) { toast.error('Select company and invoice type'); return; }
-    if (!godown) { toast.error('Select godown'); return; }
+    if (!Godown) { toast.error('Select Godown'); return; }
     const validItems = orderItems.filter(i => i.productId && i.quantity);
     if (validItems.length === 0) { toast.error('Add at least one product'); return; }
     const stockErrors = validItems.filter(i => Number(i.quantity) > i.stock);
@@ -281,7 +281,7 @@ export const CreateOrder = () => {
         p_company: company as CompanyEnum,
         p_invoice_type: invoiceType as InvoiceTypeEnum,
         p_customer_id: customerId,
-        p_godown: godown as GodownEnum,
+        p_godown: Godown as GodownEnum,
         p_site_address: siteAddress,
         p_items: itemsPayload as unknown as Json,
         p_remarks: remarks || null,
@@ -297,7 +297,7 @@ export const CreateOrder = () => {
         const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
         const { data: legacyOrder, error: legacyOrderErr } = await supabase.from('orders').insert({
             order_number: orderNumber, company: company as CompanyEnum, invoice_type: invoiceType as InvoiceTypeEnum,
-            customer_id: customerId, godown: godown as GodownEnum, site_address: siteAddress, remarks: remarks || null, delivery_date: deliveryDate || null,
+            customer_id: customerId, godown: Godown as GodownEnum, site_address: siteAddress, remarks: remarks || null, delivery_date: deliveryDate || null,
             subtotal, total_discount: totalDiscount, grand_total: grandTotal, status: 'Pending', created_by: user?.id ?? null,
           }).select('id').single();
         if (legacyOrderErr) throw legacyOrderErr;
@@ -338,7 +338,7 @@ export const CreateOrder = () => {
   );
 
   const hasUnsavedInput = Boolean(
-    company || invoiceType || godown || selectedCustomerId || customerName || orderItems.some(i => i.productId || i.quantity || i.discount || i.amount)
+    company || invoiceType || Godown || selectedCustomerId || customerName || orderItems.some(i => i.productId || i.quantity || i.discount || i.amount)
   );
 
   const handleCancel = () => {
@@ -414,11 +414,11 @@ export const CreateOrder = () => {
                     </SelectContent>
                   </Select>
                 </FL>
-                <FL label="Dispatch Godown" htmlFor="godown" required>
-                  <Select value={godown} onValueChange={setGodown}>
-                    <SelectTrigger id="godown" className="h-10 rounded-xl text-sm bg-gray-50 border-gray-200 shadow-none"><SelectValue placeholder="Dispatch From" /></SelectTrigger>
+                <FL label="Dispatch Godown" htmlFor="Godown" required>
+                  <Select value={Godown} onValueChange={setGodown}>
+                    <SelectTrigger id="Godown" className="h-10 rounded-xl text-sm bg-gray-50 border-gray-200 shadow-none"><SelectValue placeholder="Dispatch From" /></SelectTrigger>
                     <SelectContent>
-                      {godownOptions.map((location) => (
+                      {GodownOptions.map((location) => (
                         <SelectItem key={location} value={location}>
                           {location}
                         </SelectItem>

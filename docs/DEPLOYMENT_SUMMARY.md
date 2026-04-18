@@ -151,12 +151,12 @@ await supabase
 ```
 
 ### When Processing Orders/Deliveries
-Use the `godown` field from orders to determine stock deduction location:
+Use the `Godown` field from orders to determine stock deduction location:
 ```typescript
 // In order billing/delivery logic
 const { data: order } = await supabase
   .from('orders')
-  .select('godown, order_items(*)')
+  .select('Godown, order_items(*)')
   .eq('id', orderId)
   .single();
 
@@ -166,7 +166,7 @@ for (const item of order.order_items) {
     .from('product_stock_locations')
     .update({ stock_qty: currentQty - item.quantity })
     .eq('product_id', item.product_id)
-    .eq('location', order.godown); // Use godown from order
+    .eq('location', order.Godown); // Use Godown from order
 }
 ```
 

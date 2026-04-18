@@ -58,7 +58,7 @@ INSERT INTO settings (key, value) VALUES
     ('max_discount_percentage', '20'),
     ('financial_year_start', '4'),
     ('financial_year_end', '3'),
-    ('godowns', '["Kottakkal", "Chenakkal"]'),
+    ('Godowns', '["Kottakkal", "Chenakkal"]'),
     ('districts', '["Kasaragod", "Kannur", "Wayanad", "Kozhikode", "Malappuram", "Palakkad", "Thrissur", "Ernakulam", "Idukki", "Kottayam", "Alappuzha", "Pathanamthitta", "Kollam", "Thiruvananthapuram"]'),
     ('vehicle_types', '["2-Wheeler", "3-Wheeler", "4-Wheeler", "Truck", "Others"]')
 ON CONFLICT (key) DO NOTHING;
@@ -157,9 +157,9 @@ RETURNS BOOLEAN AS $$
 DECLARE
     v_delivery RECORD;
     v_item RECORD;
-    v_location godown_enum;
+    v_location Godown_enum;
 BEGIN
-    SELECT d.id, d.order_id, d.status AS current_status, o.status AS order_status, COALESCE(o.godown, 'Kottakkal') AS godown
+    SELECT d.id, d.order_id, d.status AS current_status, o.status AS order_status, COALESCE(o.Godown, 'Kottakkal') AS Godown
     INTO v_delivery
     FROM deliveries d
     JOIN orders o ON o.id = d.order_id
@@ -169,7 +169,7 @@ BEGIN
         RAISE EXCEPTION 'Delivery not found: %', p_delivery_id;
     END IF;
 
-    v_location := v_delivery.godown;
+    v_location := v_delivery.Godown;
 
     IF p_status = 'Delivered' AND v_delivery.current_status <> 'Delivered' THEN
         IF v_delivery.order_status NOT IN ('Billed', 'Delivered') THEN
@@ -236,7 +236,7 @@ GRANT EXECUTE ON FUNCTION update_delivery_status(UUID, delivery_status_enum, TEX
 
 CREATE OR REPLACE FUNCTION create_stock_adjustment_atomic(
     p_product_id UUID,
-    p_location godown_enum,
+    p_location Godown_enum,
     p_quantity INTEGER,
     p_type stock_adjustment_type_enum,
     p_reason TEXT DEFAULT NULL,
@@ -303,6 +303,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION create_stock_adjustment_atomic(UUID, godown_enum, INTEGER, stock_adjustment_type_enum, TEXT, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION create_stock_adjustment_atomic(UUID, Godown_enum, INTEGER, stock_adjustment_type_enum, TEXT, UUID) TO authenticated;
 
 COMMIT;

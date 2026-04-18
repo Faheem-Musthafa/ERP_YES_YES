@@ -5,9 +5,9 @@
 -- 1) Remove hardcoded master-data enums from database schema
 --    - district_enum
 --    - vehicle_type_enum
---    - godown_enum
+--    - Godown_enum
 -- 2) Make master data dynamic via settings table keys:
---    - godowns
+--    - Godowns
 --    - districts
 --    - vehicle_types
 -- 3) Introduce secure CRUD RPCs for Settings page master data management
@@ -34,17 +34,17 @@ BEGIN
     SELECT 1
     FROM pg_type t
     WHERE t.typnamespace = 'public'::regnamespace
-      AND t.typname = 'godown_enum'
+      AND t.typname = 'Godown_enum'
   ) THEN
     SELECT array_agg(e.enumlabel ORDER BY e.enumsortorder)
     INTO v_values
     FROM pg_type t
     JOIN pg_enum e ON e.enumtypid = t.oid
     WHERE t.typnamespace = 'public'::regnamespace
-      AND t.typname = 'godown_enum';
+      AND t.typname = 'Godown_enum';
 
     INSERT INTO settings (key, value)
-    VALUES ('godowns', to_jsonb(COALESCE(v_values, ARRAY[]::text[])))
+    VALUES ('Godowns', to_jsonb(COALESCE(v_values, ARRAY[]::text[])))
     ON CONFLICT (key) DO UPDATE
     SET value = CASE
       WHEN settings.value IS NULL
@@ -112,7 +112,7 @@ $$;
 
 INSERT INTO settings (key, value)
 VALUES
-  ('godowns', '[]'::jsonb),
+  ('Godowns', '[]'::jsonb),
   ('districts', '[]'::jsonb),
   ('vehicle_types', '[]'::jsonb)
 ON CONFLICT (key) DO NOTHING;
@@ -134,7 +134,7 @@ ALTER TABLE IF EXISTS delivery_agents
   ALTER COLUMN vehicle_type TYPE text USING vehicle_type::text;
 
 ALTER TABLE IF EXISTS orders
-  ALTER COLUMN godown TYPE text USING godown::text;
+  ALTER COLUMN Godown TYPE text USING Godown::text;
 
 ALTER TABLE IF EXISTS grn_items
   ALTER COLUMN location TYPE text USING location::text;
@@ -180,7 +180,7 @@ LANGUAGE plpgsql
 IMMUTABLE
 AS $$
 BEGIN
-  IF p_key NOT IN ('godowns', 'districts', 'vehicle_types') THEN
+  IF p_key NOT IN ('Godowns', 'districts', 'vehicle_types') THEN
     RAISE EXCEPTION 'Unsupported master setting key: %', p_key;
   END IF;
   RETURN p_key;
@@ -330,8 +330,8 @@ BEGIN
   END IF;
 
   IF v_old <> v_new THEN
-    IF v_key = 'godowns' THEN
-      UPDATE orders SET godown = v_new WHERE godown = v_old;
+    IF v_key = 'Godowns' THEN
+      UPDATE orders SET Godown = v_new WHERE Godown = v_old;
       UPDATE grn_items SET location = v_new WHERE location = v_old;
       UPDATE product_stock_locations SET location = v_new WHERE location = v_old;
       UPDATE stock_adjustments SET location = v_new WHERE location = v_old;
@@ -389,9 +389,9 @@ BEGIN
     RAISE EXCEPTION '% must keep at least one option', v_key;
   END IF;
 
-  IF v_key = 'godowns' THEN
+  IF v_key = 'Godowns' THEN
     SELECT
-      (SELECT COUNT(*) FROM orders WHERE godown = v_value)
+      (SELECT COUNT(*) FROM orders WHERE Godown = v_value)
       + (SELECT COUNT(*) FROM grn_items WHERE location = v_value)
       + (SELECT COUNT(*) FROM product_stock_locations WHERE location = v_value)
       + (SELECT COUNT(*) FROM stock_adjustments WHERE location = v_value)
@@ -400,7 +400,7 @@ BEGIN
     INTO v_usage_count;
 
     IF v_usage_count > 0 THEN
-      RAISE EXCEPTION 'Cannot delete godown "%" because it is referenced in % rows', v_value, v_usage_count;
+      RAISE EXCEPTION 'Cannot delete Godown "%" because it is referenced in % rows', v_value, v_usage_count;
     END IF;
   ELSIF v_key = 'districts' THEN
     SELECT COUNT(*) INTO v_usage_count
@@ -485,7 +485,7 @@ $$;
 -- Recreate enum-dependent helper/reporting functions with text-based locations.
 -- ---------------------------------------------------------------------------
 
-DROP FUNCTION IF EXISTS update_stock_at_location(uuid, godown_enum, integer, text, text, uuid);
+DROP FUNCTION IF EXISTS update_stock_at_location(uuid, Godown_enum, integer, text, text, uuid);
 
 CREATE OR REPLACE FUNCTION update_stock_at_location(
   p_product_id uuid,
@@ -505,7 +505,7 @@ DECLARE
   v_current_qty integer;
   v_new_qty integer;
 BEGIN
-  v_location := validate_master_setting_option('godowns', p_location, 'location', true);
+  v_location := validate_master_setting_option('Godowns', p_location, 'location', true);
 
   SELECT stock_qty INTO v_current_qty
   FROM product_stock_locations
@@ -609,7 +609,7 @@ BEGIN
 END;
 $$;
 
-DROP FUNCTION IF EXISTS get_stock_by_location(godown_enum);
+DROP FUNCTION IF EXISTS get_stock_by_location(Godown_enum);
 
 CREATE OR REPLACE FUNCTION get_stock_by_location(p_location text DEFAULT NULL)
 RETURNS TABLE (
@@ -626,7 +626,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_location text := validate_master_setting_option('godowns', p_location, 'location', false);
+  v_location text := validate_master_setting_option('Godowns', p_location, 'location', false);
 BEGIN
   RETURN QUERY
   SELECT
@@ -680,13 +680,13 @@ $$;
 -- Recreate transactional RPCs to validate location values from settings.
 -- ---------------------------------------------------------------------------
 
-DROP FUNCTION IF EXISTS create_order(company_enum, invoice_type_enum, uuid, godown_enum, text, jsonb, text, date, uuid);
+DROP FUNCTION IF EXISTS create_order(company_enum, invoice_type_enum, uuid, Godown_enum, text, jsonb, text, date, uuid);
 
 CREATE OR REPLACE FUNCTION create_order(
   p_company company_enum,
   p_invoice_type invoice_type_enum,
   p_customer_id uuid,
-  p_godown text,
+  p_Godown text,
   p_site_address text,
   p_items jsonb,
   p_remarks text DEFAULT NULL,
@@ -707,7 +707,7 @@ DECLARE
   v_item_amount numeric;
   v_item_discount numeric;
   v_actor uuid := COALESCE(p_created_by, auth.uid());
-  v_godown text;
+  v_Godown text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required';
@@ -722,10 +722,10 @@ BEGIN
     RAISE EXCEPTION 'At least one order item is required';
   END IF;
 
-  v_godown := validate_master_setting_option(
-    'godowns',
-    COALESCE(NULLIF(BTRIM(p_godown), ''), default_master_setting_option('godowns')),
-    'godown',
+  v_Godown := validate_master_setting_option(
+    'Godowns',
+    COALESCE(NULLIF(BTRIM(p_Godown), ''), default_master_setting_option('Godowns')),
+    'Godown',
     true
   );
 
@@ -736,7 +736,7 @@ BEGIN
     company,
     invoice_type,
     customer_id,
-    godown,
+    Godown,
     site_address,
     remarks,
     delivery_date,
@@ -748,7 +748,7 @@ BEGIN
     p_company,
     p_invoice_type,
     p_customer_id,
-    v_godown,
+    v_Godown,
     p_site_address,
     p_remarks,
     p_delivery_date,
@@ -821,7 +821,7 @@ BEGIN
     RAISE EXCEPTION 'Insufficient role to bill order';
   END IF;
 
-  SELECT id, order_number, company, godown, status, invoice_number
+  SELECT id, order_number, company, Godown, status, invoice_number
   INTO v_order
   FROM orders
   WHERE id = p_order_id
@@ -839,9 +839,9 @@ BEGIN
   END IF;
 
   v_location := validate_master_setting_option(
-    'godowns',
-    COALESCE(NULLIF(BTRIM(v_order.godown), ''), default_master_setting_option('godowns')),
-    'order godown',
+    'Godowns',
+    COALESCE(NULLIF(BTRIM(v_order.Godown), ''), default_master_setting_option('Godowns')),
+    'order Godown',
     true
   );
 
@@ -912,7 +912,7 @@ BEGIN
 END;
 $$;
 
-DROP FUNCTION IF EXISTS create_stock_adjustment_atomic(uuid, godown_enum, integer, stock_adjustment_type_enum, text, uuid);
+DROP FUNCTION IF EXISTS create_stock_adjustment_atomic(uuid, Godown_enum, integer, stock_adjustment_type_enum, text, uuid);
 
 CREATE OR REPLACE FUNCTION create_stock_adjustment_atomic(
   p_product_id uuid,
@@ -944,7 +944,7 @@ BEGIN
     RAISE EXCEPTION 'Insufficient role to adjust stock';
   END IF;
 
-  v_location := validate_master_setting_option('godowns', p_location, 'location', true);
+  v_location := validate_master_setting_option('Godowns', p_location, 'location', true);
 
   SELECT stock_qty
   INTO v_current_qty
@@ -1002,7 +1002,7 @@ BEGIN
 END;
 $$;
 
-DROP FUNCTION IF EXISTS transfer_stock(uuid, godown_enum, godown_enum, integer, text, uuid);
+DROP FUNCTION IF EXISTS transfer_stock(uuid, Godown_enum, Godown_enum, integer, text, uuid);
 
 CREATE OR REPLACE FUNCTION transfer_stock(
   p_product_id uuid,
@@ -1037,8 +1037,8 @@ BEGIN
     RAISE EXCEPTION 'Transfer quantity must be greater than zero';
   END IF;
 
-  v_from_location := validate_master_setting_option('godowns', p_from_location, 'from location', true);
-  v_to_location := validate_master_setting_option('godowns', p_to_location, 'to location', true);
+  v_from_location := validate_master_setting_option('Godowns', p_from_location, 'from location', true);
+  v_to_location := validate_master_setting_option('Godowns', p_to_location, 'to location', true);
 
   IF v_from_location = v_to_location THEN
     RAISE EXCEPTION 'Cannot transfer to same location';
@@ -1115,7 +1115,7 @@ BEGIN
     RAISE EXCEPTION 'Insufficient role to update delivery status';
   END IF;
 
-  SELECT d.id, d.order_id, d.status AS current_status, o.status AS order_status, o.godown
+  SELECT d.id, d.order_id, d.status AS current_status, o.status AS order_status, o.Godown
   INTO v_delivery
   FROM deliveries d
   JOIN orders o ON o.id = d.order_id
@@ -1127,9 +1127,9 @@ BEGIN
   END IF;
 
   v_location := validate_master_setting_option(
-    'godowns',
-    COALESCE(NULLIF(BTRIM(v_delivery.godown), ''), default_master_setting_option('godowns')),
-    'delivery godown',
+    'Godowns',
+    COALESCE(NULLIF(BTRIM(v_delivery.Godown), ''), default_master_setting_option('Godowns')),
+    'delivery Godown',
     true
   );
 
@@ -1232,7 +1232,7 @@ BEGIN
 
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
   LOOP
-    v_item_location := validate_master_setting_option('godowns', v_item->>'location', 'GRN location', true);
+    v_item_location := validate_master_setting_option('Godowns', v_item->>'location', 'GRN location', true);
     v_net_qty := (v_item->>'received_qty')::integer - COALESCE((v_item->>'damaged_qty')::integer, 0);
 
     IF v_net_qty < 0 THEN
@@ -1318,7 +1318,7 @@ GRANT EXECUTE ON FUNCTION get_low_stock_products(integer) TO authenticated;
 
 DROP TYPE IF EXISTS district_enum;
 DROP TYPE IF EXISTS vehicle_type_enum;
-DROP TYPE IF EXISTS godown_enum;
+DROP TYPE IF EXISTS Godown_enum;
 
 -- ---------------------------------------------------------------------------
 -- Recreate stock summary view using dynamic locations.
@@ -1351,10 +1351,10 @@ COMMIT;
 -- Verification queries (run manually after migration)
 -- ---------------------------------------------------------------------------
 -- SELECT typname FROM pg_type WHERE typnamespace = 'public'::regnamespace
---   AND typname IN ('district_enum', 'vehicle_type_enum', 'godown_enum');
+--   AND typname IN ('district_enum', 'vehicle_type_enum', 'Godown_enum');
 --
 -- SELECT key, value FROM settings
---   WHERE key IN ('godowns', 'districts', 'vehicle_types')
+--   WHERE key IN ('Godowns', 'districts', 'vehicle_types')
 --   ORDER BY key;
 --
 -- SELECT proname, pg_get_function_arguments(p.oid)

@@ -15,6 +15,7 @@ interface CustomerPayment {
     customerId: string;
     customerName: string;
     place: string;
+    openingBalance: number;
     totalOrders: number;
     totalBilled: number;
     totalPaid: number;
@@ -28,7 +29,15 @@ interface OrderPaymentRow {
     customers: {
         name: string;
         place: string | null;
+        opening_balance: number | null;
     } | null;
+}
+
+interface CustomerRow {
+    id: string;
+    name: string;
+    place: string | null;
+    opening_balance: number | null;
 }
 
 interface ReceiptPaymentRow {
@@ -58,7 +67,7 @@ export const Payments = () => {
             // Query 1: Fetch orders with customer info
             let ordersQuery = supabase
                 .from('orders')
-                .select('id, customer_id, grand_total, status, created_at, customers(name, place)')
+                .select('id, customer_id, grand_total, status, created_at, customers(name, place, opening_balance)')
                 .in('status', ['Approved', 'Billed', 'Delivered']);
 
             if (dateFrom) {
@@ -77,6 +86,11 @@ export const Payments = () => {
                 .from('receipts')
                 .select('id, order_id, customer_id, amount, payment_status, received_date, created_at')
                 .or('payment_status.is.null,payment_status.neq.Voided');
+
+            const customersQuery = supabase
+                .from('customers')
+                .select('id, name, place, opening_balance')
+                .eq('is_active', true);
             if (dateFrom) {
                 receiptsQuery = receiptsQuery.gte('created_at', new Date(dateFrom).toISOString());
             }
@@ -86,13 +100,15 @@ export const Payments = () => {
                 receiptsQuery = receiptsQuery.lte('created_at', to.toISOString());
             }
 
-            const [{ data: orders, error: ordersError }, { data: receipts, error: receiptsError }] = await Promise.all([
+            const [{ data: orders, error: ordersError }, { data: receipts, error: receiptsError }, { data: customerRows, error: customersError }] = await Promise.all([
                 ordersQuery,
                 receiptsQuery,
+                customersQuery,
             ]);
 
             if (ordersError) throw ordersError;
             if (receiptsError) throw receiptsError;
+            if (customersError) throw customersError;
 
             // Build a lookup: order_id -> total receipt amount
             const receiptsByOrder = new Map<string, number>();
@@ -106,8 +122,22 @@ export const Payments = () => {
                 }
             }
 
-            // Aggregate by customer
+            // Initialize customers so pure opening balances are also represented.
             const customerMap = new Map<string, CustomerPayment>();
+            for (const customer of (customerRows ?? []) as CustomerRow[]) {
+                customerMap.set(customer.id, {
+                    customerId: customer.id,
+                    customerName: customer.name,
+                    place: customer.place ?? '—',
+                    openingBalance: customer.opening_balance ?? 0,
+                    totalOrders: 0,
+                    totalBilled: 0,
+                    totalPaid: 0,
+                    outstanding: customer.opening_balance ?? 0,
+                });
+            }
+
+            // Aggregate orders and receipts by customer.
             for (const o of (orders ?? []) as OrderPaymentRow[]) {
                 const cid = o.customer_id;
                 if (!cid) continue;
@@ -125,17 +155,18 @@ export const Payments = () => {
                         customerId: cid,
                         customerName: customer?.name ?? 'Unknown',
                         place: customer?.place ?? '—',
+                        openingBalance: customer?.opening_balance ?? 0,
                         totalOrders: 1,
                         totalBilled: o.grand_total ?? 0,
                         totalPaid: orderPaid,
-                        outstanding: 0,
+                        outstanding: customer?.opening_balance ?? 0,
                     });
                 }
             }
 
             for (const [customerId, entry] of customerMap) {
                 entry.totalPaid = receiptsByCustomer.get(customerId) ?? entry.totalPaid;
-                entry.outstanding = entry.totalBilled - entry.totalPaid;
+                entry.outstanding = entry.openingBalance + entry.totalBilled - entry.totalPaid;
             }
 
             setCustomers(Array.from(customerMap.values()));
@@ -167,23 +198,24 @@ export const Payments = () => {
     const collectionRate = totalDue > 0 ? ((totalCollected / totalDue) * 100) : 0;
 
     const getPaymentStatus = (c: CustomerPayment) => {
-        if (c.outstanding <= 0) return 'Fully Paid';
-        if (c.totalPaid > 0) return 'Partially Paid';
-        return 'Unpaid';
+        if (c.outstanding > 0) return 'Outstanding';
+        if (c.outstanding < 0) return 'Payable';
+        return 'Settled';
     };
 
     const getStatusBadgeVariant = (status: string) => {
-        if (status === 'Fully Paid') return 'Completed';
-        if (status === 'Partially Paid') return 'Pending';
-        return 'Rejected';
+        if (status === 'Outstanding') return 'Pending';
+        if (status === 'Payable') return 'Approved';
+        return 'Completed';
     };
 
     const exportCSV = () => {
         if (filtered.length === 0) return;
-        const headers = ['Customer Name', 'Place', 'Total Orders', 'Total Billed', 'Total Paid', 'Outstanding', 'Status'];
+        const headers = ['Customer Name', 'Place', 'Opening Balance', 'Total Orders', 'Total Billed', 'Total Paid', 'Net Balance', 'Status'];
         const rows = filtered.map(c => [
             c.customerName,
             c.place,
+            c.openingBalance,
             c.totalOrders,
             c.totalBilled,
             c.totalPaid,
@@ -197,7 +229,7 @@ export const Payments = () => {
     const statsCards = [
         { label: 'Total Billed', value: fmtK(totalBilled), icon: <DollarSign size={20} />, iconBg: 'bg-slate-100 text-slate-600', border: 'border-l-4 border-l-slate-500' },
         { label: 'Total Collected', value: fmtK(totalCollected), icon: <Wallet size={20} />, iconBg: 'bg-emerald-100 text-emerald-600', border: 'border-l-4 border-l-emerald-500' },
-        { label: 'Outstanding', value: fmtK(totalOutstanding), icon: <AlertTriangle size={20} />, iconBg: 'bg-amber-100 text-amber-600', border: 'border-l-4 border-l-amber-500' },
+        { label: 'Net Balance', value: fmtK(totalOutstanding), icon: <AlertTriangle size={20} />, iconBg: totalOutstanding >= 0 ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600', border: totalOutstanding >= 0 ? 'border-l-4 border-l-amber-500' : 'border-l-4 border-l-blue-500' },
         { label: 'Collection Rate', value: `${collectionRate.toFixed(1)}%`, icon: <TrendingUp size={20} />, iconBg: 'bg-violet-100 text-violet-600', border: 'border-l-4 border-l-violet-500' },
     ];
 
@@ -277,7 +309,7 @@ export const Payments = () => {
                                         <StyledTh right>Total Orders</StyledTh>
                                         <StyledTh right>Total Billed (₹)</StyledTh>
                                         <StyledTh right>Total Paid (₹)</StyledTh>
-                                        <StyledTh right>Outstanding (₹)</StyledTh>
+                                        <StyledTh right>Net Balance (₹)</StyledTh>
                                         <StyledTh center>Status</StyledTh>
                                     </tr>
                                 </StyledThead>
@@ -291,7 +323,7 @@ export const Payments = () => {
                                                 <StyledTd right mono className="font-medium">{c.totalOrders}</StyledTd>
                                                 <StyledTd right mono className="font-semibold text-foreground">{fmt(c.totalBilled)}</StyledTd>
                                                 <StyledTd right mono className="font-semibold text-emerald-600">{fmt(c.totalPaid)}</StyledTd>
-                                                <StyledTd right mono className="font-bold text-amber-600">{fmt(c.outstanding)}</StyledTd>
+                                                <StyledTd right mono className={c.outstanding >= 0 ? 'font-bold text-amber-600' : 'font-bold text-blue-600'}>{fmt(c.outstanding)}</StyledTd>
                                                 <StyledTd center>
                                                     <StatusBadge status={getStatusBadgeVariant(status)} />
                                                 </StyledTd>
@@ -306,7 +338,7 @@ export const Payments = () => {
                             <div className="flex items-center gap-4 text-sm font-mono">
                                 <span className="text-muted-foreground">Billed: <span className="font-bold text-foreground">{fmt(totalBilled)}</span></span>
                                 <span className="text-muted-foreground">Collected: <span className="font-bold text-emerald-600">{fmt(totalCollected)}</span></span>
-                                <span className="text-muted-foreground">Outstanding: <span className="font-bold text-amber-600">{fmt(totalOutstanding)}</span></span>
+                                <span className="text-muted-foreground">Net: <span className={totalOutstanding >= 0 ? 'font-bold text-amber-600' : 'font-bold text-blue-600'}>{fmt(totalOutstanding)}</span></span>
                             </div>
                         </div>
                         <TablePagination

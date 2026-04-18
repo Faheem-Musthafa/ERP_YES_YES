@@ -175,11 +175,13 @@ export interface Database {
           id: string;
           name: string;
           phone: string;
+          second_phone: string | null;
           address: string;
           place: string | null;
           location: DistrictEnum | null;
           pincode: string | null;
           gst_pan: string | null;
+          pan_no: string | null;
           opening_balance: number;
           assigned_to: string | null;
           is_active: boolean;
@@ -194,11 +196,13 @@ export interface Database {
         {
           name: string;
           phone: string;
+          second_phone?: string | null;
           address: string;
           place?: string | null;
           location?: DistrictEnum | null;
           pincode?: string | null;
           gst_pan?: string | null;
+          pan_no?: string | null;
           opening_balance?: number;
           assigned_to?: string | null;
           is_active?: boolean;
@@ -211,11 +215,13 @@ export interface Database {
         Partial<{
           name: string;
           phone: string;
+          second_phone?: string | null;
           address: string;
           place?: string | null;
           location?: DistrictEnum | null;
           pincode?: string | null;
           gst_pan?: string | null;
+          pan_no?: string | null;
           opening_balance?: number;
           assigned_to?: string | null;
           is_active?: boolean;
@@ -1016,6 +1022,7 @@ export interface Database {
       stock_transfers: TableDef<
         {
           id: string;
+          company: CompanyEnum | null;
           product_id: string;
           from_location: GodownEnum;
           to_location: GodownEnum;
@@ -1025,6 +1032,7 @@ export interface Database {
           created_at: string;
         },
         {
+          company?: CompanyEnum | null;
           product_id: string;
           from_location: GodownEnum;
           to_location: GodownEnum;
@@ -1033,6 +1041,7 @@ export interface Database {
           transferred_by?: string | null;
         },
         Partial<{
+          company?: CompanyEnum | null;
           product_id: string;
           from_location: GodownEnum;
           to_location: GodownEnum;
@@ -1320,6 +1329,7 @@ export interface Database {
           p_from_location: GodownEnum;
           p_to_location: GodownEnum;
           p_quantity: number;
+          p_company?: CompanyEnum | null;
           p_reason?: string | null;
           p_user_id?: string | null;
         };

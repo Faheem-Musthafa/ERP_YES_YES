@@ -27,7 +27,7 @@ FROM (
         item.pos
       FROM settings st
       CROSS JOIN LATERAL jsonb_array_elements_text(st.value) WITH ORDINALITY AS item(value_text, pos)
-      WHERE st.key IN ('godowns', 'districts', 'vehicle_types')
+      WHERE st.key IN ('Godowns', 'districts', 'vehicle_types')
         AND jsonb_typeof(st.value) = 'array'
     ) cleaned
     WHERE value_text IS NOT NULL
@@ -66,9 +66,9 @@ WHERE location IS NULL
 
 -- 3) Normalize location text columns.
 UPDATE orders
-SET godown = NULLIF(BTRIM(godown), '')
-WHERE godown IS NOT NULL
-  AND (BTRIM(godown) = '' OR godown <> BTRIM(godown));
+SET Godown = NULLIF(BTRIM(Godown), '')
+WHERE Godown IS NOT NULL
+  AND (BTRIM(Godown) = '' OR Godown <> BTRIM(Godown));
 
 UPDATE grn_items
 SET location = BTRIM(location)

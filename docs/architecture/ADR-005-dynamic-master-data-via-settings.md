@@ -5,7 +5,7 @@
 
 ## Context
 
-The system currently stores districts, vehicle types, and godown names in PostgreSQL enum types. This causes two production issues:
+The system currently stores districts, vehicle types, and Godown names in PostgreSQL enum types. This causes two production issues:
 
 - Adding or renaming values requires schema migration instead of admin configuration.
 - Settings page updates can diverge from database-enforced enum values and break transactional flows.
@@ -28,7 +28,7 @@ The system currently stores districts, vehicle types, and godown names in Postgr
 Adopt option 3 now:
 
 - Convert enum columns to `text`.
-- Store master values in `settings` keys (`godowns`, `districts`, `vehicle_types`).
+- Store master values in `settings` keys (`Godowns`, `districts`, `vehicle_types`).
 - Add secure CRUD RPCs for add/update/delete operations.
 - Rebuild transaction RPCs to validate values against settings at write time.
 
@@ -59,4 +59,4 @@ Adopt option 3 now:
 - Confirm enum types are absent from `pg_type` in `public` schema.
 - Confirm settings CRUD RPCs enforce admin-only write behavior.
 - Confirm order/stock/grn RPCs reject values not present in settings.
-- Confirm renaming a godown propagates to stock and transaction tables.
+- Confirm renaming a Godown propagates to stock and transaction tables.

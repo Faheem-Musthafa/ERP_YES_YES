@@ -48,7 +48,7 @@ INSERT INTO settings (key, value) VALUES
     ('max_discount_percentage', '20'),
     ('financial_year_start', '4'),
     ('financial_year_end', '3'),
-    ('godowns', '["Kottakkal", "Chenakkal"]'),
+    ('Godowns', '["Kottakkal", "Chenakkal"]'),
     ('districts', '["Kasaragod", "Kannur", "Wayanad", "Kozhikode", "Malappuram", "Palakkad", "Thrissur", "Ernakulam", "Idukki", "Kottayam", "Alappuzha", "Pathanamthitta", "Kollam", "Thiruvananthapuram"]'),
     ('vehicle_types', '["2-Wheeler", "3-Wheeler", "4-Wheeler", "Truck", "Others"]')
 ON CONFLICT (key) DO NOTHING;

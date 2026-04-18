@@ -2,14 +2,14 @@ import { supabase } from '@/app/supabase';
 import type { InvoiceTypeEnum, Json } from '@/app/types/database';
 
 type SettingsMap = Record<string, Json>;
-type MasterSettingRpcKey = 'godowns' | 'districts' | 'vehicle_types';
+type MasterSettingRpcKey = 'Godowns' | 'districts' | 'vehicle_types';
 type SettingsEntryRow = {
   key: string;
   value?: Json | null;
 };
 
-const ORDER_SETTINGS_KEYS = ['default_invoice_type', 'max_discount_percentage', 'godowns'] as const;
-const MASTER_SETTINGS_KEYS = ['godowns', 'districts', 'vehicle_types'] as const;
+const ORDER_SETTINGS_KEYS = ['default_invoice_type', 'max_discount_percentage', 'Godowns'] as const;
+const MASTER_SETTINGS_KEYS = ['Godowns', 'districts', 'vehicle_types'] as const;
 const MASTER_SETTING_KEY_SET = new Set<string>(MASTER_SETTINGS_KEYS);
 
 const ORDER_INVOICE_TYPES: InvoiceTypeEnum[] = [
@@ -18,20 +18,22 @@ const ORDER_INVOICE_TYPES: InvoiceTypeEnum[] = [
   'IGST',
   'Delivery Challan Out',
   'Delivery Challan In',
+  'Stock Transfer',
+  'Credit Note',
 ];
 
-export const DEFAULT_GODOWNS: readonly string[] = [];
+export const DEFAULT_GodownS: readonly string[] = [];
 export const DEFAULT_DISTRICTS: readonly string[] = [];
 export const DEFAULT_VEHICLE_TYPES: readonly string[] = [];
 
 export interface OrderFormSettings {
   defaultInvoiceType: InvoiceTypeEnum;
   maxDiscountPercentage: number;
-  godowns: string[];
+  Godowns: string[];
 }
 
 export interface MasterDataSettings {
-  godowns: string[];
+  Godowns: string[];
   districts: string[];
   vehicleTypes: string[];
 }
@@ -39,11 +41,11 @@ export interface MasterDataSettings {
 export const DEFAULT_ORDER_FORM_SETTINGS: OrderFormSettings = {
   defaultInvoiceType: 'GST',
   maxDiscountPercentage: 20,
-  godowns: [...DEFAULT_GODOWNS],
+  Godowns: [...DEFAULT_GodownS],
 };
 
 export const DEFAULT_MASTER_DATA_SETTINGS: MasterDataSettings = {
-  godowns: [...DEFAULT_GODOWNS],
+  Godowns: [...DEFAULT_GodownS],
   districts: [...DEFAULT_DISTRICTS],
   vehicleTypes: [...DEFAULT_VEHICLE_TYPES],
 };
@@ -269,18 +271,18 @@ export const loadOrderFormSettings = async (): Promise<OrderFormSettings> => {
     ),
   );
 
-  let godowns = normalizeStringList(settings.godowns ?? null, DEFAULT_ORDER_FORM_SETTINGS.godowns);
-  if (godowns.length === 0) {
-    const rpcGodowns = await loadMasterOptions('godowns');
+  let Godowns = normalizeStringList(settings.Godowns ?? null, DEFAULT_ORDER_FORM_SETTINGS.Godowns);
+  if (Godowns.length === 0) {
+    const rpcGodowns = await loadMasterOptions('Godowns');
     if (rpcGodowns.length > 0) {
-      godowns = rpcGodowns;
+      Godowns = rpcGodowns;
     }
   }
 
   return {
     defaultInvoiceType,
     maxDiscountPercentage,
-    godowns,
+    Godowns,
   };
 };
 
@@ -292,14 +294,14 @@ export const loadMasterDataSettings = async (): Promise<MasterDataSettings> => {
     settings = {};
   }
 
-  let godowns = normalizeStringList(settings.godowns ?? null, DEFAULT_MASTER_DATA_SETTINGS.godowns);
+  let Godowns = normalizeStringList(settings.Godowns ?? null, DEFAULT_MASTER_DATA_SETTINGS.Godowns);
   let districts = normalizeStringList(settings.districts ?? null, DEFAULT_MASTER_DATA_SETTINGS.districts);
   let vehicleTypes = normalizeStringList(settings.vehicle_types ?? null, DEFAULT_MASTER_DATA_SETTINGS.vehicleTypes);
 
-  if (godowns.length === 0) {
-    const rpcGodowns = await loadMasterOptions('godowns');
+  if (Godowns.length === 0) {
+    const rpcGodowns = await loadMasterOptions('Godowns');
     if (rpcGodowns.length > 0) {
-      godowns = rpcGodowns;
+      Godowns = rpcGodowns;
     }
   }
 
@@ -318,7 +320,7 @@ export const loadMasterDataSettings = async (): Promise<MasterDataSettings> => {
   }
 
   return {
-    godowns,
+    Godowns,
     districts,
     vehicleTypes,
   };

@@ -40,11 +40,10 @@ export const MyCustomers = () => {
         if (!user?.id) return;
         setLoading(true);
         try {
-            // Fetch customers assigned to this sales rep
+            // Fetch active customers
             const { data: custData, error: custErr } = await supabase
                 .from('customers')
                 .select('id, name, phone, location, place, is_active')
-                .eq('assigned_to', user.id)
                 .eq('is_active', true);
 
             if (custErr) throw custErr;
@@ -147,7 +146,7 @@ export const MyCustomers = () => {
         <div className="space-y-6">
             <PageHeader
                 title="My Customers"
-                subtitle="Customers assigned to you"
+                subtitle="Active customer portfolio"
                 actions={
                     <CustomTooltip content="Download customer data as CSV file" side="bottom">
                         <Button

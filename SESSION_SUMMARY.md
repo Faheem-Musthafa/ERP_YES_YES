@@ -13,7 +13,7 @@
 - **Features**:
   - Company information management (name, GSTIN, address, phone, email)
   - Business rules configuration (invoice type, max discount, auto-approval, financial year)
-  - Master data management (godowns, districts, vehicle types)
+  - Master data management (Godowns, districts, vehicle types)
   - Real-time form validation
   - Change tracking with smart save/reset
   - Full Supabase database integration
@@ -114,7 +114,7 @@
 - ✅ GRN creation (forms enabled, DB operations working)
 - ✅ GlobalSearch (supplier search fixed)
 - ✅ Customer management (districts, opening balance)
-- ✅ Order creation (godowns)
+- ✅ Order creation (Godowns)
 - ✅ Delivery drivers (vehicle types)
 
 ### Testing Completed

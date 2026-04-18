@@ -6,10 +6,8 @@ import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
-import { Plus, Phone, MapPin, Edit2, UserCircle, UserCheck, Archive, RotateCcw } from 'lucide-react';
+import { Plus, Phone, MapPin, Edit2, UserCircle, Archive, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { Label } from '@/app/components/ui/label';
 import { archiveRecoverableRecord, restoreRecoverableRecord } from '@/app/recovery';
 import {
     PageHeader, SearchBar, DataCard,
@@ -30,8 +28,6 @@ interface Customer {
     pincode: string | null;
     gst_pan: string | null;
     location: string | null;
-    assigned_to: string | null;
-    users: { full_name: string } | null;
     is_active: boolean;
     created_at: string;
 }
@@ -41,9 +37,6 @@ export const Customers = () => {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-    const [assignTarget, setAssignTarget] = useState<{ id: string; name: string; assigned_to: string | null } | null>(null);
-    const [salesReps, setSalesReps] = useState<any[]>([]);
-    const [selectedRep, setSelectedRep] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
 
@@ -51,7 +44,7 @@ export const Customers = () => {
         setLoading(true);
         const { data, error } = await supabase
             .from('customers')
-            .select('id, name, place, address, phone, pincode, gst_pan, location, assigned_to, users(full_name), is_active, created_at')
+            .select('id, name, place, address, phone, pincode, gst_pan, location, is_active, created_at')
             .order('name');
         if (error) toast.error('Failed to load customers');
         else setCustomers(data ?? []);
@@ -60,25 +53,6 @@ export const Customers = () => {
 
     useEffect(() => {
         void fetchCustomers();
-        // Fetch sales reps
-        (async () => {
-            try {
-                const { data, error } = await supabase
-                    .from('users')
-                    .select('id, full_name')
-                    .eq('role', 'sales')
-                    .eq('is_active', true)
-                    .order('full_name');
-                if (error) {
-                    console.error('Failed to fetch sales reps:', error);
-                    toast.error('Could not load sales representatives');
-                } else {
-                    setSalesReps(data ?? []);
-                }
-            } catch (err) {
-                console.error('Sales reps fetch error:', err);
-            }
-        })();
     }, []);
 
     const restoreCustomer = async (id: string, name: string) => {
@@ -105,24 +79,13 @@ export const Customers = () => {
                 id,
                 entityLabel: target.name,
                 reason: 'Archived from Customers management',
-                metadata: { phone: target.phone, assigned_to: target.assigned_to },
+                metadata: { phone: target.phone },
             });
             toast.success('Customer archived');
             setDeleteTarget(null);
             await fetchCustomers();
         } catch (error: any) {
             toast.error(error?.message || 'Failed to archive customer');
-        }
-    };
-
-    const assignSalesRep = async (id: string, repId: string) => {
-        const { error } = await supabase.from('customers').update({ assigned_to: repId || null }).eq('id', id);
-        if (error) toast.error('Failed to assign customer');
-        else {
-            toast.success('Customer assigned successfully!');
-            setAssignTarget(null);
-            setSelectedRep('');
-            fetchCustomers();
         }
     };
 
@@ -183,7 +146,6 @@ export const Customers = () => {
                                             <StyledTh>Phone</StyledTh>
                                             <StyledTh>Pincode</StyledTh>
                                             <StyledTh>GSTIN/PAN</StyledTh>
-                                            <StyledTh>Assigned To</StyledTh>
                                             <StyledTh>Status</StyledTh>
                                             <StyledTh right>Actions</StyledTh>
                                         </tr>
@@ -216,31 +178,11 @@ export const Customers = () => {
                                                 </StyledTd>
                                                 <StyledTd mono className="text-muted-foreground">{c.pincode || '—'}</StyledTd>
                                                 <StyledTd mono className="text-xs text-muted-foreground">{c.gst_pan || '—'}</StyledTd>
-                                                <StyledTd className="text-sm">
-                                                    {c.users?.full_name ? (
-                                                        <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-900">{c.users.full_name}</span>
-                                                    ) : (
-                                                        <span className="text-muted-foreground text-xs">Unassigned</span>
-                                                    )}
-                                                </StyledTd>
                                                 <StyledTd>
                                                     <StatusBadge status={c.is_active ? 'Active' : 'Archived'} />
                                                 </StyledTd>
                                                 <StyledTd right>
                                                     <div className="flex items-center justify-end gap-2">
-                                                        <CustomTooltip content={`Assign sales rep to ${c.name}`} side="top">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setAssignTarget({ id: c.id, name: c.name, assigned_to: c.assigned_to });
-                                                                    setSelectedRep(c.assigned_to || '');
-                                                                }}
-                                                                className="inline-flex items-center justify-center w-7 h-7 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
-                                                            >
-                                                                <UserCheck size={14} />
-                                                            </button>
-                                                        </CustomTooltip>
-
                                                         <Link to={`/admin/customers/${c.id}/edit`}>
                                                             <CustomTooltip content={`Edit ${c.name}`} side="top">
                                                                 <IconBtn><Edit2 size={14} /></IconBtn>
@@ -297,46 +239,6 @@ export const Customers = () => {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-
-            <Dialog open={Boolean(assignTarget)} onOpenChange={open => !open && setAssignTarget(null)}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Assign Sales Representative</DialogTitle>
-                        <DialogDescription>Select a sales rep to assign to {assignTarget?.name}</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Sales Representative</Label>
-                            <Select value={selectedRep} onValueChange={setSelectedRep}>
-                                <SelectTrigger><SelectValue placeholder="Select sales rep" /></SelectTrigger>
-                                <SelectContent>
-                                    {salesReps.map(rep => (
-                                        <SelectItem key={rep.id} value={rep.id}>{rep.full_name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex gap-3 justify-end">
-                            <Button variant="outline" onClick={() => setAssignTarget(null)}>Cancel</Button>
-                            {selectedRep && (
-                                <Button
-                                    variant="outline"
-                                    onClick={() => assignTarget && void assignSalesRep(assignTarget.id, '')}
-                                >
-                                    Unassign
-                                </Button>
-                            )}
-                            <Button
-                                onClick={() => assignTarget && void assignSalesRep(assignTarget.id, selectedRep)}
-                                disabled={!selectedRep}
-                                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                            >
-                                Assign
-                            </Button>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 };

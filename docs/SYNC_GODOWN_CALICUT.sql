@@ -1,4 +1,4 @@
--- One-time sync for legacy godown rename from Kottakkal to Calicut.
+-- One-time sync for legacy Godown rename from Kottakkal to Calicut.
 -- Run this in Supabase SQL editor if Settings already shows "Calicut"
 -- but stock/order pages still show "Kottakkal".
 
@@ -18,7 +18,7 @@ SET
     FROM jsonb_array_elements_text(value) WITH ORDINALITY AS src(item, ord)
   ),
   updated_at = NOW()
-WHERE key = 'godowns'
+WHERE key = 'Godowns'
   AND jsonb_typeof(value) = 'array';
 
 -- 2) Merge stock rows into the renamed location without losing quantities.
@@ -48,8 +48,8 @@ DROP TABLE tmp_product_stock_locations;
 
 -- 3) Rename all transactional references.
 UPDATE orders
-SET godown = 'Calicut'
-WHERE godown = 'Kottakkal';
+SET Godown = 'Calicut'
+WHERE Godown = 'Kottakkal';
 
 UPDATE grn_items
 SET location = 'Calicut'

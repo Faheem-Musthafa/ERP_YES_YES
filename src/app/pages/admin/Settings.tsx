@@ -41,7 +41,7 @@ const DEFAULT_CONFIG: SystemConfig = {
   financial_year_end: 3,
 };
 
-const GODOWNS = [...DEFAULT_MASTER_DATA_SETTINGS.godowns];
+const GodownS = [...DEFAULT_MASTER_DATA_SETTINGS.Godowns];
 const DISTRICTS = [...DEFAULT_MASTER_DATA_SETTINGS.districts];
 const VEHICLE_TYPES = [...DEFAULT_MASTER_DATA_SETTINGS.vehicleTypes];
 const SYSTEM_CONFIG_KEYS = new Set<keyof SystemConfig>([
@@ -52,10 +52,10 @@ const SYSTEM_CONFIG_KEYS = new Set<keyof SystemConfig>([
   'financial_year_end',
 ]);
 
-type MasterSettingKey = 'godowns' | 'districts' | 'vehicle_types';
+type MasterSettingKey = 'Godowns' | 'districts' | 'vehicle_types';
 
 const MASTER_SETTING_LABELS: Record<MasterSettingKey, string> = {
-  godowns: 'Godown',
+  Godowns: 'Godown',
   districts: 'District',
   vehicle_types: 'Vehicle type',
 };
@@ -95,7 +95,7 @@ const toMasterList = (value: unknown) => {
 const isMissingCrudRpc = (err: { code?: string; message?: string }) =>
   err.code === '42883' || /does not exist|Could not find the function/i.test(err.message ?? '');
 
-const GODOWN_RPC_MISSING_ERROR =
+const Godown_RPC_MISSING_ERROR =
   'Godown management RPC is missing. Run docs/ENUM_TO_DYNAMIC_SETTINGS_MIGRATION.sql and retry.';
 
 const isStringArray = (value: Json | null): value is string[] =>
@@ -139,10 +139,10 @@ export const AdminSettings = () => {
   const [resetConfirm, setResetConfirm] = useState(false);
 
   // Dialog states for master data
-  const [godownDialog, setGodownDialog] = useState(false);
+  const [GodownDialog, setGodownDialog] = useState(false);
   const [newGodown, setNewGodown] = useState('');
-  const [godownList, setGodownList] = useState<string[]>(GODOWNS);
-  const [originalGodownList, setOriginalGodownList] = useState<string[]>(GODOWNS);
+  const [GodownList, setGodownList] = useState<string[]>(GodownS);
+  const [originalGodownList, setOriginalGodownList] = useState<string[]>(GodownS);
 
   const [districtDialog, setDistrictDialog] = useState(false);
   const [newDistrict, setNewDistrict] = useState('');
@@ -155,7 +155,7 @@ export const AdminSettings = () => {
   const [originalVehicleList, setOriginalVehicleList] = useState<string[]>(VEHICLE_TYPES);
 
   const [editMasterDialog, setEditMasterDialog] = useState(false);
-  const [editMasterKey, setEditMasterKey] = useState<MasterSettingKey>('godowns');
+  const [editMasterKey, setEditMasterKey] = useState<MasterSettingKey>('Godowns');
   const [editMasterOriginalValue, setEditMasterOriginalValue] = useState('');
   const [editMasterValue, setEditMasterValue] = useState('');
 
@@ -179,7 +179,7 @@ export const AdminSettings = () => {
         let hasCompanyProfilesKey = false;
         let legacyYesYesProfile = { ...profiles['YES YES'] };
         let hasLegacyCompanyValues = false;
-        let nextGodowns = [...GODOWNS];
+        let nextGodowns = [...GodownS];
         let nextDistricts = [...DISTRICTS];
         let nextVehicleTypes = [...VEHICLE_TYPES];
 
@@ -204,8 +204,8 @@ export const AdminSettings = () => {
           } else if (setting.key === 'company_email') {
             legacyYesYesProfile.company_email = readString(setting.value, legacyYesYesProfile.company_email);
             hasLegacyCompanyValues = true;
-          } else if (setting.key === 'godowns') {
-            nextGodowns = isStringArray(setting.value) ? normalizeMasterList(setting.value) : GODOWNS;
+          } else if (setting.key === 'Godowns') {
+            nextGodowns = isStringArray(setting.value) ? normalizeMasterList(setting.value) : GodownS;
           } else if (setting.key === 'districts') {
             nextDistricts = isStringArray(setting.value) ? normalizeMasterList(setting.value) : DISTRICTS;
           } else if (setting.key === 'vehicle_types') {
@@ -222,7 +222,7 @@ export const AdminSettings = () => {
 
         if (nextGodowns.length === 0) {
           const { data: rpcGodowns, error: rpcGodownsError } = await supabase.rpc('get_master_setting_options', {
-            p_key: 'godowns',
+            p_key: 'Godowns',
           });
           if (!rpcGodownsError) {
             const parsed = toMasterList(rpcGodowns);
@@ -264,7 +264,7 @@ export const AdminSettings = () => {
         { key: 'max_discount_percentage', value: config.max_discount_percentage },
         { key: 'financial_year_start', value: config.financial_year_start },
         { key: 'financial_year_end', value: config.financial_year_end },
-        { key: 'godowns', value: godownList },
+        { key: 'Godowns', value: GodownList },
         { key: 'districts', value: districtList },
         { key: 'vehicle_types', value: vehicleList },
       ];
@@ -281,7 +281,7 @@ export const AdminSettings = () => {
       }
 
       setOriginalConfig(config);
-      setOriginalGodownList(godownList);
+      setOriginalGodownList(GodownList);
       setOriginalDistrictList(districtList);
       setOriginalVehicleList(vehicleList);
       toast.success('Business settings saved successfully');
@@ -293,14 +293,14 @@ export const AdminSettings = () => {
   };
 
   const getMasterListByKey = (key: MasterSettingKey) => {
-    if (key === 'godowns') return godownList;
+    if (key === 'Godowns') return GodownList;
     if (key === 'districts') return districtList;
     return vehicleList;
   };
 
   const applyMasterListByKey = (key: MasterSettingKey, values: readonly string[]) => {
     const cleaned = normalizeMasterList(values);
-    if (key === 'godowns') {
+    if (key === 'Godowns') {
       setGodownList(cleaned);
       setOriginalGodownList(cleaned);
       return;
@@ -348,8 +348,8 @@ export const AdminSettings = () => {
       const next = error
         ? await (async () => {
             if (!isMissingCrudRpc(error)) throw error;
-            if (key === 'godowns') {
-              throw new Error(GODOWN_RPC_MISSING_ERROR);
+            if (key === 'Godowns') {
+              throw new Error(Godown_RPC_MISSING_ERROR);
             }
             return saveMasterListFallback(key, [...current, value]);
           })()
@@ -380,8 +380,8 @@ export const AdminSettings = () => {
       const next = error
         ? await (async () => {
             if (!isMissingCrudRpc(error)) throw error;
-            if (key === 'godowns') {
-              throw new Error(GODOWN_RPC_MISSING_ERROR);
+            if (key === 'Godowns') {
+              throw new Error(Godown_RPC_MISSING_ERROR);
             }
             if (current.length <= 1) {
               throw new Error(`You must keep at least one ${label.toLowerCase()}`);
@@ -439,8 +439,8 @@ export const AdminSettings = () => {
       const next = error
         ? await (async () => {
             if (!isMissingCrudRpc(error)) throw error;
-            if (editMasterKey === 'godowns') {
-              throw new Error(GODOWN_RPC_MISSING_ERROR);
+            if (editMasterKey === 'Godowns') {
+              throw new Error(Godown_RPC_MISSING_ERROR);
             }
             const fallback = current.map((item) => (item === editMasterOriginalValue ? nextValue : item));
             return saveMasterListFallback(editMasterKey, fallback);
@@ -530,7 +530,7 @@ export const AdminSettings = () => {
   };
 
   const handleAddGodown = async () => {
-    const ok = await createMasterOption('godowns', newGodown);
+    const ok = await createMasterOption('Godowns', newGodown);
     if (ok) {
       setNewGodown('');
       setGodownDialog(false);
@@ -538,7 +538,7 @@ export const AdminSettings = () => {
   };
 
   const handleRemoveGodown = async (name: string) => {
-    await deleteMasterOption('godowns', name);
+    await deleteMasterOption('Godowns', name);
   };
 
   const handleAddDistrict = async () => {
@@ -567,7 +567,7 @@ export const AdminSettings = () => {
 
   const hasBusinessChanges =
     JSON.stringify(config) !== JSON.stringify(originalConfig)
-    || JSON.stringify(godownList) !== JSON.stringify(originalGodownList)
+    || JSON.stringify(GodownList) !== JSON.stringify(originalGodownList)
     || JSON.stringify(districtList) !== JSON.stringify(originalDistrictList)
     || JSON.stringify(vehicleList) !== JSON.stringify(originalVehicleList);
 
@@ -880,7 +880,7 @@ export const AdminSettings = () => {
                     </div>
                     <div>
                       <h3 className="font-semibold text-slate-900 dark:text-slate-100 leading-tight">Godowns</h3>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">{godownList.length} locations</p>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">{GodownList.length} locations</p>
                     </div>
                   </div>
                   <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800" onClick={() => setGodownDialog(true)}>
@@ -889,22 +889,22 @@ export const AdminSettings = () => {
                 </div>
                 <div className="p-3 bg-slate-50/30 dark:bg-transparent flex-1 h-64 overflow-y-auto w-full custom-scrollbar">
                   <div className="space-y-2">
-                    {godownList.map((godown) => (
-                      <div key={godown} className="group flex items-center justify-between p-3 bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/50 text-sm shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600">
+                    {GodownList.map((Godown) => (
+                      <div key={Godown} className="group flex items-center justify-between p-3 bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/50 text-sm shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600">
                         <span className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div> {godown}
+                          <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div> {Godown}
                         </span>
                         <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => openEditMasterItem('godowns', godown)} className="text-xs font-semibold text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700/60">
+                          <button onClick={() => openEditMasterItem('Godowns', Godown)} className="text-xs font-semibold text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700/60">
                             Edit
                           </button>
-                          <button onClick={() => handleRemoveGodown(godown)} className="text-xs font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10">
+                          <button onClick={() => handleRemoveGodown(Godown)} className="text-xs font-semibold text-rose-500 hover:text-rose-600 px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-500/10">
                             Remove
                           </button>
                         </div>
                       </div>
                     ))}
-                    {godownList.length === 0 && <p className="text-center text-sm text-slate-400 py-6">No godowns configured</p>}
+                    {GodownList.length === 0 && <p className="text-center text-sm text-slate-400 py-6">No Godowns configured</p>}
                   </div>
                 </div>
               </div>
@@ -990,7 +990,7 @@ export const AdminSettings = () => {
       </Tabs>
 
       {/* Dialogs */}
-      <Dialog open={godownDialog} onOpenChange={setGodownDialog}>
+      <Dialog open={GodownDialog} onOpenChange={setGodownDialog}>
         <DialogContent className="sm:max-w-md rounded-2xl overflow-hidden p-0 border-0 shadow-2xl">
           <div className="p-6">
             <DialogHeader className="mb-6">
@@ -1001,12 +1001,12 @@ export const AdminSettings = () => {
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="godown-name" className="text-slate-600 font-medium">Godown Location Name</Label>
+                <Label htmlFor="Godown-name" className="text-slate-600 font-medium">Godown Location Name</Label>
                 <Input
-                  id="godown-name"
+                  id="Godown-name"
                   value={newGodown}
                   onChange={(e) => setNewGodown(e.target.value)}
-                  placeholder="e.g. Main Warehouse"
+                  placeholder="e.g. Main Godown"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddGodown()}
                   className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
                   autoFocus

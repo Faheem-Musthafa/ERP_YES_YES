@@ -60,7 +60,7 @@ const [{ data: brandData }, { data: productData }] = await Promise.all([...]);
 #### 📋 5. Hardcoded Values Instead of Settings
 - **File**: `src/app/pages/admin/CustomerAnalysisReport.tsx` (Lines 96-100)
 - **Issue**: Locations hardcoded as `['KOTTAKKAL ', 'Chenakkal']`
-- **Fix**: Load from `settings` table key: 'godowns'
+- **Fix**: Load from `settings` table key: 'Godowns'
 
 ---
 

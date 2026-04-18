@@ -231,7 +231,7 @@ CREATE OR REPLACE FUNCTION create_order(
   p_company company_enum,
   p_invoice_type invoice_type_enum,
   p_customer_id uuid,
-  p_godown text,
+  p_Godown text,
   p_site_address text,
   p_items jsonb,
   p_remarks text DEFAULT NULL,
@@ -252,7 +252,7 @@ DECLARE
   v_item_amount numeric;
   v_item_discount numeric;
   v_actor uuid := COALESCE(p_created_by, auth.uid());
-  v_godown text;
+  v_Godown text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required';
@@ -267,21 +267,21 @@ BEGIN
     RAISE EXCEPTION 'At least one order item is required';
   END IF;
 
-  v_godown := validate_master_setting_option(
-    'godowns',
-    COALESCE(NULLIF(BTRIM(p_godown), ''), default_master_setting_option('godowns')),
-    'godown',
+  v_Godown := validate_master_setting_option(
+    'Godowns',
+    COALESCE(NULLIF(BTRIM(p_Godown), ''), default_master_setting_option('Godowns')),
+    'Godown',
     true
   );
 
   v_order_number := generate_order_number();
 
   INSERT INTO orders (
-    order_number, company, invoice_type, customer_id, godown,
+    order_number, company, invoice_type, customer_id, Godown,
     site_address, remarks, delivery_date, created_by, status
   )
   VALUES (
-    v_order_number, p_company, p_invoice_type, p_customer_id, v_godown,
+    v_order_number, p_company, p_invoice_type, p_customer_id, v_Godown,
     p_site_address, p_remarks, p_delivery_date, v_actor, 'Pending'
   )
   RETURNING id INTO v_order_id;
@@ -461,7 +461,7 @@ BEGIN
     RAISE EXCEPTION 'Insufficient role to bill order';
   END IF;
 
-  SELECT id, order_number, company, godown, status, invoice_number
+  SELECT id, order_number, company, Godown, status, invoice_number
   INTO v_order
   FROM orders
   WHERE id = p_order_id
@@ -479,9 +479,9 @@ BEGIN
   END IF;
 
   v_location := validate_master_setting_option(
-    'godowns',
-    COALESCE(NULLIF(BTRIM(v_order.godown), ''), default_master_setting_option('godowns')),
-    'order godown',
+    'Godowns',
+    COALESCE(NULLIF(BTRIM(v_order.Godown), ''), default_master_setting_option('Godowns')),
+    'order Godown',
     true
   );
 
@@ -582,7 +582,7 @@ BEGIN
     RAISE EXCEPTION 'Insufficient role to adjust stock';
   END IF;
 
-  v_location := validate_master_setting_option('godowns', p_location, 'location', true);
+  v_location := validate_master_setting_option('Godowns', p_location, 'location', true);
 
   SELECT stock_qty
   INTO v_current_qty
@@ -673,8 +673,8 @@ BEGIN
     RAISE EXCEPTION 'Transfer quantity must be greater than zero';
   END IF;
 
-  v_from_location := validate_master_setting_option('godowns', p_from_location, 'from location', true);
-  v_to_location := validate_master_setting_option('godowns', p_to_location, 'to location', true);
+  v_from_location := validate_master_setting_option('Godowns', p_from_location, 'from location', true);
+  v_to_location := validate_master_setting_option('Godowns', p_to_location, 'to location', true);
 
   IF v_from_location = v_to_location THEN
     RAISE EXCEPTION 'Cannot transfer to same location';
@@ -810,7 +810,7 @@ BEGIN
     RAISE EXCEPTION 'Insufficient role to update delivery status';
   END IF;
 
-  SELECT d.id, d.order_id, d.status AS current_status, o.status AS order_status, o.godown
+  SELECT d.id, d.order_id, d.status AS current_status, o.status AS order_status, o.Godown
   INTO v_delivery
   FROM deliveries d
   JOIN orders o ON o.id = d.order_id
@@ -822,9 +822,9 @@ BEGIN
   END IF;
 
   v_location := validate_master_setting_option(
-    'godowns',
-    COALESCE(NULLIF(BTRIM(v_delivery.godown), ''), default_master_setting_option('godowns')),
-    'delivery godown',
+    'Godowns',
+    COALESCE(NULLIF(BTRIM(v_delivery.Godown), ''), default_master_setting_option('Godowns')),
+    'delivery Godown',
     true
   );
 
@@ -927,7 +927,7 @@ BEGIN
 
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
   LOOP
-    v_item_location := validate_master_setting_option('godowns', v_item->>'location', 'GRN location', true);
+    v_item_location := validate_master_setting_option('Godowns', v_item->>'location', 'GRN location', true);
     v_net_qty := (v_item->>'received_qty')::integer - COALESCE((v_item->>'damaged_qty')::integer, 0);
 
     IF v_net_qty < 0 THEN

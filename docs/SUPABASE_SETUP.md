@@ -61,7 +61,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 
 | Table | Description |
 |-------|-------------|
-| `product_stock_locations` | **Stock per location** - dynamic location names from settings (`godowns`) |
+| `product_stock_locations` | **Stock per location** - dynamic location names from settings (`Godowns`) |
 | `stock_movements` | Audit trail for all stock changes |
 | `stock_transfers` | Records of stock moved between locations |
 | `stock_adjustments` | Manual stock corrections |
@@ -119,7 +119,7 @@ Expected: `product_stock_locations` should have rows (2x number of products if m
 Copy and run `docs/ENUM_TO_DYNAMIC_SETTINGS_MIGRATION.sql`.
 
 This migration:
-- Converts `district_enum`, `vehicle_type_enum`, and `godown_enum` columns to `text`
+- Converts `district_enum`, `vehicle_type_enum`, and `Godown_enum` columns to `text`
 - Drops those enum types from the public schema
 - Adds secure RPCs for settings-page CRUD:
   - `create_master_setting_option`
@@ -178,12 +178,12 @@ stock_transfers: {
 ### Automated Stock Updates
 
 1. **GRN Receipt** - When goods are received:
-  - User selects receiving location (from settings `godowns`)
+  - User selects receiving location (from settings `Godowns`)
    - Stock automatically added to that location
    - Movement logged as `grn_receipt`
 
 2. **Order Delivery** - When delivery is marked "Delivered":
-   - System reads order's `godown` field
+   - System reads order's `Godown` field
    - Stock automatically deducted from that location
    - Movement logged as `order_delivery`
 
@@ -288,14 +288,14 @@ Use this hardened migration for production policy/function setup:
 
 2. **Missing location entries**
    ```sql
-  -- Create missing entries for configured godowns
+  -- Create missing entries for configured Godowns
    INSERT INTO product_stock_locations (product_id, location, stock_qty)
    SELECT p.id, loc.location, 0
    FROM products p
   CROSS JOIN LATERAL (
     SELECT jsonb_array_elements_text(s.value) AS location
     FROM settings s
-    WHERE s.key = 'godowns'
+    WHERE s.key = 'Godowns'
   ) AS loc
    WHERE p.is_active = true
    ON CONFLICT (product_id, location) DO NOTHING;

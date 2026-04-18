@@ -187,7 +187,7 @@ BEGIN
     RETURN FALSE;
   END IF;
 
-  SELECT o.id, o.status, o.godown, o.billed_by, o.invoice_number
+  SELECT o.id, o.order_number, o.status, o.Godown, o.billed_by, o.invoice_number
   INTO v_order
   FROM public.orders o
   WHERE o.id = v_request.order_id
@@ -201,8 +201,8 @@ BEGIN
   END IF;
 
   v_location := validate_master_setting_option(
-    'godowns',
-    COALESCE(NULLIF(BTRIM(v_order.godown), ''), default_master_setting_option('godowns')),
+    'Godowns',
+    COALESCE(NULLIF(BTRIM(v_order.Godown), ''), default_master_setting_option('Godowns')),
     'billing reversal location',
     true
   );

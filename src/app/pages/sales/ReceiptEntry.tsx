@@ -231,7 +231,7 @@ export const ReceiptEntry = () => {
           <div className="absolute right-0 top-0 w-64 h-64 bg-teal-400/10 dark:bg-teal-400/5 blur-3xl opacity-50 pointer-events-none rounded-full" />
           <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
             <div className="space-y-3 md:col-span-2 lg:col-span-1">
-              <Label className="text-xs uppercase tracking-wider text-teal-700 dark:text-teal-400 font-bold">Principal Amount <span className="text-rose-500">*</span></Label>
+              <Label className="text-xs uppercase tracking-wider text-teal-700 dark:text-teal-400 font-bold">Received Amount <span className="text-rose-500">*</span></Label>
               <div className="relative group">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors">
                   <IndianRupee size={24} />
@@ -240,7 +240,7 @@ export const ReceiptEntry = () => {
               </div>
             </div>
             <div className="space-y-3">
-               <Label className="text-xs uppercase tracking-wider text-teal-700 dark:text-teal-400 font-bold">Realization Date <span className="text-rose-500">*</span></Label>
+               <Label className="text-xs uppercase tracking-wider text-teal-700 dark:text-teal-400 font-bold">Received Date <span className="text-rose-500">*</span></Label>
                <div className="relative group">
                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors">
                    <Calendar size={18} />
@@ -292,8 +292,8 @@ export const ReceiptEntry = () => {
               </div>
             </div>
             <div className="flex p-1 bg-slate-200/50 dark:bg-slate-800 rounded-xl">
-              <button type="button" onClick={() => handleCustomerTypeChange('existing')} className={`flex-1 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${customerType === 'existing' ? 'bg-white dark:bg-slate-700 text-primary scale-100 ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 scale-95'}`}>Database</button>
-              <button type="button" onClick={() => handleCustomerTypeChange('new')} className={`flex-1 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${customerType === 'new' ? 'bg-white dark:bg-slate-700 text-primary scale-100 ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 scale-95'}`}>New Entry</button>
+              <button type="button" onClick={() => handleCustomerTypeChange('existing')} className={`flex-1 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${customerType === 'existing' ? 'bg-white dark:bg-slate-700 text-primary scale-100 ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 scale-95'}`}>Existing</button>
+              <button type="button" onClick={() => handleCustomerTypeChange('new')} className={`flex-1 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${customerType === 'new' ? 'bg-white dark:bg-slate-700 text-primary scale-100 ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 scale-95'}`}>New Customer</button>
             </div>
           </div>
           

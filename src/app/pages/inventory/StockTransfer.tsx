@@ -9,8 +9,9 @@ import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import { DataCard, EmptyState, FormSection, PageHeader, SearchBar } from '@/app/components/ui/primitives';
-import type { GodownEnum } from '@/app/types/database';
+import type { CompanyEnum, GodownEnum } from '@/app/types/database';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
+import { COMPANY_LIST } from '@/app/companyProfiles';
 
 interface ProductWithStock {
   id: string;
@@ -23,6 +24,7 @@ interface ProductWithStock {
 
 interface TransferRow {
   id: string;
+  company: CompanyEnum | null;
   quantity: number;
   from_location: GodownEnum;
   to_location: GodownEnum;
@@ -35,10 +37,11 @@ export const StockTransfer = () => {
   const { user } = useAuth();
   const [products, setProducts] = useState<ProductWithStock[]>([]);
   const [recentTransfers, setRecentTransfers] = useState<TransferRow[]>([]);
+  const [company, setCompany] = useState<CompanyEnum>('LLP');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [fromLocation, setFromLocation] = useState('');
   const [toLocation, setToLocation] = useState('');
-  const [locationOptions, setLocationOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.godowns);
+  const [locationOptions, setLocationOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.Godowns);
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
@@ -51,7 +54,7 @@ export const StockTransfer = () => {
         supabase.from('products').select('id, name, sku, brands(name)').eq('is_active', true).order('name'),
         supabase
           .from('stock_transfers')
-          .select('id, quantity, from_location, to_location, reason, created_at, products(name, sku)')
+          .select('id, company, quantity, from_location, to_location, reason, created_at, products(name, sku)')
           .order('created_at', { ascending: false })
           .limit(20),
       ]);
@@ -69,7 +72,7 @@ export const StockTransfer = () => {
 
       const configuredLocations = Array.from(
         new Set(
-          settings.godowns
+          settings.Godowns
             .map((location) => location.trim())
             .filter((location) => location.length > 0),
         ),
@@ -178,7 +181,7 @@ export const StockTransfer = () => {
     }
 
     const confirmTransfer = window.confirm(
-      `Transfer ${qty} units of ${selectedProduct.name} from ${fromLocation} to ${toLocation}?`
+      `Transfer ${qty} units of ${selectedProduct.name} from ${fromLocation} to ${toLocation} under ${company}?`
     );
     if (!confirmTransfer) return;
 
@@ -189,6 +192,7 @@ export const StockTransfer = () => {
         p_from_location: fromLocation as GodownEnum,
         p_to_location: toLocation as GodownEnum,
         p_quantity: qty,
+        p_company: company,
         p_reason: reason || null,
         p_user_id: user?.id ?? null,
       });
@@ -239,6 +243,21 @@ export const StockTransfer = () => {
               subtitle="Transfer stock from one location to another"
             >
               <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label>Company *</Label>
+                  <Select value={company} onValueChange={(value) => setCompany(value as CompanyEnum)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COMPANY_LIST.map((companyOption) => (
+                        <SelectItem key={companyOption} value={companyOption}>
+                          {companyOption}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2">
                   <Label>Product *</Label>
                   <Select value={selectedProductId} onValueChange={setSelectedProductId}>
@@ -448,6 +467,9 @@ export const StockTransfer = () => {
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                    Company
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">
                     Product
                   </th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wide">
@@ -470,6 +492,7 @@ export const StockTransfer = () => {
               <tbody className="divide-y divide-gray-50">
                 {recentTransfers.map(t => (
                   <tr key={t.id} className="hover:bg-gray-50/70 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-xs">{t.company ?? '—'}</td>
                     <td className="px-4 py-3 font-semibold">
                       {(t.products as { name: string } | null)?.name}
                     </td>

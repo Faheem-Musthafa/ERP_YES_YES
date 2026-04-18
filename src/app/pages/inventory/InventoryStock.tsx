@@ -25,7 +25,7 @@ export const InventoryStock = () => {
   const [search, setSearch] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('all');
-  const [locationOptions, setLocationOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.godowns);
+  const [locationOptions, setLocationOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.Godowns);
   const [brands, setBrands] = useState<any[]>([]);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -54,7 +54,7 @@ export const InventoryStock = () => {
       if (stockError) throw stockError;
 
       const configuredLocations = Array.from(new Set(
-        settings.godowns
+        settings.Godowns
           .map((location) => location.trim())
           .filter((location) => location.length > 0),
       ));

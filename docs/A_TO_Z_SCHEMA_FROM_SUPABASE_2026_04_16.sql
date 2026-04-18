@@ -189,7 +189,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
   invoice_type invoice_type_enum NOT NULL,
   invoice_number text,
   customer_id uuid,
-  godown text,
+  Godown text,
   site_address text NOT NULL,
   remarks text,
   delivery_date date,
@@ -484,7 +484,7 @@ BEGIN
     RETURN FALSE;
   END IF;
 
-  SELECT o.id, o.status, o.godown, o.billed_by, o.invoice_number
+  SELECT o.id, o.order_number, o.status, o.Godown, o.billed_by, o.invoice_number
   INTO v_order
   FROM public.orders o
   WHERE o.id = v_request.order_id
@@ -498,8 +498,8 @@ BEGIN
   END IF;
 
   v_location := validate_master_setting_option(
-    'godowns',
-    COALESCE(NULLIF(BTRIM(v_order.godown), ''), default_master_setting_option('godowns')),
+    'Godowns',
+    COALESCE(NULLIF(BTRIM(v_order.Godown), ''), default_master_setting_option('Godowns')),
     'billing reversal location',
     true
   );
@@ -691,7 +691,7 @@ CREATE OR REPLACE FUNCTION public.assert_master_setting_key(p_key text)
  IMMUTABLE
 AS $function$
 BEGIN
-  IF p_key NOT IN ('godowns', 'districts', 'vehicle_types') THEN
+  IF p_key NOT IN ('Godowns', 'districts', 'vehicle_types') THEN
     RAISE EXCEPTION 'Unsupported master setting key: %', p_key;
   END IF;
   RETURN p_key;
@@ -718,14 +718,14 @@ BEGIN
         FROM order_items oi 
         WHERE oi.order_id = p_order_id
     LOOP
-        -- Deduct from order's godown location
+        -- Deduct from order's Godown location
         UPDATE product_stock_locations
         SET stock_qty = GREATEST(0, stock_qty - v_item.quantity), updated_at = NOW()
-        WHERE product_id = v_item.product_id AND location = v_order.godown;
+        WHERE product_id = v_item.product_id AND location = v_order.Godown;
         
         -- Log movement
         INSERT INTO stock_movements (product_id, quantity, movement_type, reference_type, reference_id, location, created_by)
-        VALUES (v_item.product_id, -v_item.quantity, 'order_billed', 'orders', p_order_id, v_order.godown, p_billed_by);
+        VALUES (v_item.product_id, -v_item.quantity, 'order_billed', 'orders', p_order_id, v_order.Godown, p_billed_by);
     END LOOP;
     
     -- Update order status
@@ -763,7 +763,7 @@ BEGIN
     RAISE EXCEPTION 'Insufficient role to bill order';
   END IF;
 
-  SELECT id, order_number, company, godown, status, invoice_number
+  SELECT id, order_number, company, Godown, status, invoice_number
   INTO v_order
   FROM orders
   WHERE id = p_order_id
@@ -781,9 +781,9 @@ BEGIN
   END IF;
 
   v_location := validate_master_setting_option(
-    'godowns',
-    COALESCE(NULLIF(BTRIM(v_order.godown), ''), default_master_setting_option('godowns')),
-    'order godown',
+    'Godowns',
+    COALESCE(NULLIF(BTRIM(v_order.Godown), ''), default_master_setting_option('Godowns')),
+    'order Godown',
     true
   );
 
@@ -1091,7 +1091,7 @@ BEGIN
 
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
   LOOP
-    v_item_location := validate_master_setting_option('godowns', v_item->>'location', 'GRN location', true);
+    v_item_location := validate_master_setting_option('Godowns', v_item->>'location', 'GRN location', true);
     v_net_qty := (v_item->>'received_qty')::integer - COALESCE((v_item->>'damaged_qty')::integer, 0);
 
     IF v_net_qty < 0 THEN
@@ -1207,7 +1207,7 @@ BEGIN
   RETURN save_master_setting_options(v_key, v_current || v_value);
 END;
 $function$
-CREATE OR REPLACE FUNCTION public.create_order(p_company company_enum, p_invoice_type invoice_type_enum, p_customer_id uuid, p_godown text, p_site_address text, p_items jsonb, p_remarks text DEFAULT NULL::text, p_delivery_date date DEFAULT NULL::date, p_created_by uuid DEFAULT NULL::uuid)
+CREATE OR REPLACE FUNCTION public.create_order(p_company company_enum, p_invoice_type invoice_type_enum, p_customer_id uuid, p_Godown text, p_site_address text, p_items jsonb, p_remarks text DEFAULT NULL::text, p_delivery_date date DEFAULT NULL::date, p_created_by uuid DEFAULT NULL::uuid)
  RETURNS uuid
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -1222,7 +1222,7 @@ DECLARE
   v_item_amount numeric;
   v_item_discount numeric;
   v_actor uuid := COALESCE(p_created_by, auth.uid());
-  v_godown text;
+  v_Godown text;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required';
@@ -1237,21 +1237,21 @@ BEGIN
     RAISE EXCEPTION 'At least one order item is required';
   END IF;
 
-  v_godown := validate_master_setting_option(
-    'godowns',
-    COALESCE(NULLIF(BTRIM(p_godown), ''), default_master_setting_option('godowns')),
-    'godown',
+  v_Godown := validate_master_setting_option(
+    'Godowns',
+    COALESCE(NULLIF(BTRIM(p_Godown), ''), default_master_setting_option('Godowns')),
+    'Godown',
     true
   );
 
   v_order_number := generate_order_number();
 
   INSERT INTO orders (
-    order_number, company, invoice_type, customer_id, godown,
+    order_number, company, invoice_type, customer_id, Godown,
     site_address, remarks, delivery_date, created_by, status
   )
   VALUES (
-    v_order_number, p_company, p_invoice_type, p_customer_id, v_godown,
+    v_order_number, p_company, p_invoice_type, p_customer_id, v_Godown,
     p_site_address, p_remarks, p_delivery_date, v_actor, 'Pending'
   )
   RETURNING id INTO v_order_id;
@@ -1336,7 +1336,7 @@ BEGIN
     RAISE EXCEPTION 'Insufficient role to adjust stock';
   END IF;
 
-  v_location := validate_master_setting_option('godowns', p_location, 'location', true);
+  v_location := validate_master_setting_option('Godowns', p_location, 'location', true);
 
   SELECT stock_qty
   INTO v_current_qty
@@ -1455,9 +1455,9 @@ BEGIN
     RAISE EXCEPTION '% must keep at least one option', v_key;
   END IF;
 
-  IF v_key = 'godowns' THEN
+  IF v_key = 'Godowns' THEN
     SELECT
-      (SELECT COUNT(*) FROM orders WHERE godown = v_value)
+      (SELECT COUNT(*) FROM orders WHERE Godown = v_value)
       + (SELECT COUNT(*) FROM grn_items WHERE location = v_value)
       + (SELECT COUNT(*) FROM product_stock_locations WHERE location = v_value)
       + (SELECT COUNT(*) FROM stock_adjustments WHERE location = v_value)
@@ -1466,7 +1466,7 @@ BEGIN
     INTO v_usage_count;
 
     IF v_usage_count > 0 THEN
-      RAISE EXCEPTION 'Cannot delete godown "%" because it is referenced in % rows', v_value, v_usage_count;
+      RAISE EXCEPTION 'Cannot delete Godown "%" because it is referenced in % rows', v_value, v_usage_count;
     END IF;
   ELSIF v_key = 'districts' THEN
     SELECT COUNT(*) INTO v_usage_count
@@ -1817,7 +1817,7 @@ CREATE OR REPLACE FUNCTION public.get_master_settings()
  SET search_path TO 'public'
 AS $function$
 DECLARE
-  v_godowns_raw jsonb;
+  v_Godowns_raw jsonb;
   v_districts_raw jsonb;
   v_vehicle_types_raw jsonb;
 BEGIN
@@ -1825,13 +1825,13 @@ BEGIN
     RAISE EXCEPTION 'active authenticated user required';
   END IF;
 
-  SELECT value INTO v_godowns_raw FROM public.settings WHERE key = 'godowns' LIMIT 1;
+  SELECT value INTO v_Godowns_raw FROM public.settings WHERE key = 'Godowns' LIMIT 1;
   SELECT value INTO v_districts_raw FROM public.settings WHERE key = 'districts' LIMIT 1;
   SELECT value INTO v_vehicle_types_raw FROM public.settings WHERE key = 'vehicle_types' LIMIT 1;
 
   RETURN jsonb_build_object(
-    'godowns', public.normalize_master_settings_array(
-      v_godowns_raw,
+    'Godowns', public.normalize_master_settings_array(
+      v_Godowns_raw,
       ARRAY['Kottakkal', 'Chenakkal'],
       '["Kottakkal", "Chenakkal"]'::jsonb
     ),
@@ -1875,7 +1875,7 @@ CREATE OR REPLACE FUNCTION public.get_stock_by_location(p_location text DEFAULT 
  SET search_path TO 'public'
 AS $function$
 DECLARE
-  v_location text := validate_master_setting_option('godowns', p_location, 'location', false);
+  v_location text := validate_master_setting_option('Godowns', p_location, 'location', false);
 BEGIN
   RETURN QUERY
   SELECT
@@ -2140,8 +2140,8 @@ BEGIN
     RAISE EXCEPTION 'Transfer quantity must be greater than zero';
   END IF;
 
-  v_from_location := validate_master_setting_option('godowns', p_from_location, 'from location', true);
-  v_to_location := validate_master_setting_option('godowns', p_to_location, 'to location', true);
+  v_from_location := validate_master_setting_option('Godowns', p_from_location, 'from location', true);
+  v_to_location := validate_master_setting_option('Godowns', p_to_location, 'to location', true);
 
   IF v_from_location = v_to_location THEN
     RAISE EXCEPTION 'Cannot transfer to same location';
@@ -2226,7 +2226,7 @@ BEGIN
     RAISE EXCEPTION 'Insufficient role to update delivery status';
   END IF;
 
-  SELECT d.id, d.order_id, d.status AS current_status, o.status AS order_status, o.godown
+  SELECT d.id, d.order_id, d.status AS current_status, o.status AS order_status, o.Godown
   INTO v_delivery
   FROM deliveries d
   JOIN orders o ON o.id = d.order_id
@@ -2238,9 +2238,9 @@ BEGIN
   END IF;
 
   v_location := validate_master_setting_option(
-    'godowns',
-    COALESCE(NULLIF(BTRIM(v_delivery.godown), ''), default_master_setting_option('godowns')),
-    'delivery godown',
+    'Godowns',
+    COALESCE(NULLIF(BTRIM(v_delivery.Godown), ''), default_master_setting_option('Godowns')),
+    'delivery Godown',
     true
   );
 
@@ -2370,8 +2370,8 @@ BEGIN
   END IF;
 
   IF v_old <> v_new THEN
-    IF v_key = 'godowns' THEN
-      UPDATE orders SET godown = v_new WHERE godown = v_old;
+    IF v_key = 'Godowns' THEN
+      UPDATE orders SET Godown = v_new WHERE Godown = v_old;
       UPDATE grn_items SET location = v_new WHERE location = v_old;
       UPDATE product_stock_locations SET location = v_new WHERE location = v_old;
       UPDATE stock_adjustments SET location = v_new WHERE location = v_old;
@@ -2405,7 +2405,7 @@ DECLARE
   v_current_qty integer;
   v_new_qty integer;
 BEGIN
-  v_location := validate_master_setting_option('godowns', p_location, 'location', true);
+  v_location := validate_master_setting_option('Godowns', p_location, 'location', true);
 
   SELECT stock_qty INTO v_current_qty
   FROM product_stock_locations
@@ -2534,7 +2534,7 @@ CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON public.order_items USIN
 CREATE UNIQUE INDEX IF NOT EXISTS order_items_pkey ON public.order_items USING btree (id);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders USING btree (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON public.orders USING btree (customer_id);
-CREATE INDEX IF NOT EXISTS idx_orders_godown ON public.orders USING btree (godown);
+CREATE INDEX IF NOT EXISTS idx_orders_Godown ON public.orders USING btree (Godown);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_invoice_number_unique ON public.orders USING btree (invoice_number) WHERE (invoice_number IS NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_orders_order_number ON public.orders USING btree (order_number);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders USING btree (status);
