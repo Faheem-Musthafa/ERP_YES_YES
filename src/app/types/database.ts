@@ -1222,6 +1222,10 @@ export interface Database {
         Args: Record<PropertyKey, never>;
         Returns: Json;
       };
+      get_sales_target_settings: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
       get_master_setting_options: {
         Args: {
           p_key: string;

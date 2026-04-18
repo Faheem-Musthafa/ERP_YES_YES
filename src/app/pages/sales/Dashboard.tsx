@@ -2,6 +2,7 @@
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { fmtK, isCollectedReceiptStatus } from '@/app/utils';
+import { DEFAULT_SALES_TARGET_SETTINGS, loadSalesTargetSettings } from '@/app/settings';
 import {
   ShoppingCart, TrendingUp, CheckCircle,
   DollarSign, Activity, FileText
@@ -12,7 +13,7 @@ import {
   PageHeader, DataCard, StatusBadge, EmptyState, Spinner, ErrorState
 } from '@/app/components/ui/primitives';
 
-const MONTHLY_TARGET = 500000;
+const FALLBACK_MONTHLY_TARGET = DEFAULT_SALES_TARGET_SETTINGS.defaultMonthlyTarget;
 
 export const SalesDashboard = () => {
   const { user } = useAuth();
@@ -24,6 +25,7 @@ export const SalesDashboard = () => {
   });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [monthlyData, setMonthlyData] = useState<{ week: string; sales: number }[]>([]);
+  const [monthlyTarget, setMonthlyTarget] = useState(FALLBACK_MONTHLY_TARGET);
   const [error, setError] = useState('');
 
   const fetchAll = useCallback(async () => {
@@ -38,14 +40,19 @@ export const SalesDashboard = () => {
         { data: myMonthOrders, error: myMonthOrdersError },
         { data: myReceipts, error: myReceiptsError },
         { data: myMonthReceipts, error: myMonthReceiptsError },
+        targetSettings,
       ] = await Promise.all([
         supabase.from('orders').select('id, order_number, status, grand_total, created_at, customers(name)').eq('created_by', user!.id).order('created_at', { ascending: false }).limit(50),
         supabase.from('orders').select('id, status, grand_total, created_at').eq('created_by', user!.id).gte('created_at', monthStart),
         supabase.from('receipts').select('id, amount, payment_status').or('payment_status.is.null,payment_status.neq.Voided').eq('recorded_by', user!.id),
         supabase.from('receipts').select('id, amount, payment_status').or('payment_status.is.null,payment_status.neq.Voided').eq('recorded_by', user!.id).gte('created_at', monthStart),
+        loadSalesTargetSettings().catch(() => DEFAULT_SALES_TARGET_SETTINGS),
       ]);
       const fetchError = allMyOrdersError || myMonthOrdersError || myReceiptsError || myMonthReceiptsError;
       if (fetchError) throw new Error(fetchError.message);
+
+      const resolvedTarget = targetSettings.perUserMonthlyTargets[user!.id] ?? targetSettings.defaultMonthlyTarget;
+      setMonthlyTarget(Math.max(0, resolvedTarget));
 
       const collectedReceipts = (myReceipts ?? []).filter(r => isCollectedReceiptStatus(r.payment_status));
       const monthCollectedReceipts = (myMonthReceipts ?? []).filter(r => isCollectedReceiptStatus(r.payment_status));
@@ -81,7 +88,7 @@ export const SalesDashboard = () => {
 
   useEffect(() => { if (user?.id) fetchAll(); }, [user?.id, fetchAll]);
 
-  const targetPct = Math.min((stats.myMonthSales / MONTHLY_TARGET) * 100, 100);
+  const targetPct = monthlyTarget > 0 ? Math.min((stats.myMonthSales / monthlyTarget) * 100, 100) : 0;
   const monthName = new Date().toLocaleString('en-IN', { month: 'long' });
   const maxWeekSales = Math.max(...monthlyData.map(d => d.sales), 1);
 
@@ -116,7 +123,7 @@ export const SalesDashboard = () => {
                 <p className="text-primary-foreground/80 text-xs uppercase tracking-widest font-semibold mb-1">{monthName} Target</p>
                 <div className="flex items-baseline gap-2">
                   <p className="text-4xl font-bold font-mono tracking-tight">{fmtK(stats.myMonthSales)}</p>
-                  <p className="text-primary-foreground/70 text-sm font-medium">/ {fmtK(MONTHLY_TARGET)}</p>
+                  <p className="text-primary-foreground/70 text-sm font-medium">/ {fmtK(monthlyTarget)}</p>
                 </div>
               </div>
 

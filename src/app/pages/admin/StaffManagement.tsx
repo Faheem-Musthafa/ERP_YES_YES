@@ -17,6 +17,7 @@ import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 import { isValidEmail } from '@/app/utils';
 import { archiveRecoverableRecord, restoreRecoverableRecord } from '@/app/recovery';
+import { loadSalesTargetSettings } from '@/app/settings';
 import {
     PageHeader, SearchBar, DataCard,
     StyledThead, StyledTh, StyledTr, StyledTd,
@@ -147,7 +148,31 @@ export const StaffManagement = () => {
     const [resetting, setResetting] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
+    const [staffTargets, setStaffTargets] = useState<Record<string, number>>({});
+    const [targetDrafts, setTargetDrafts] = useState<Record<string, string>>({});
+    const [savingTargetId, setSavingTargetId] = useState<string | null>(null);
     const pageSize = 10;
+
+    const hydrateTargetDrafts = (usersList: StaffUser[], targets: Record<string, number>, defaultTarget: number) => {
+        const drafts: Record<string, string> = {};
+        usersList.forEach((user) => {
+            if (user.role === 'admin') return;
+            const assignedTarget = targets[user.id] ?? defaultTarget;
+            drafts[user.id] = Math.round(assignedTarget).toString();
+        });
+        return drafts;
+    };
+
+    const refreshTargetsForUsers = async (usersList: StaffUser[]) => {
+        try {
+            const targetSettings = await loadSalesTargetSettings();
+            setStaffTargets(targetSettings.perUserMonthlyTargets);
+            setTargetDrafts(hydrateTargetDrafts(usersList, targetSettings.perUserMonthlyTargets, targetSettings.defaultMonthlyTarget));
+        } catch {
+            setStaffTargets({});
+            setTargetDrafts({});
+        }
+    };
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -156,7 +181,10 @@ export const StaffManagement = () => {
             .select('id, full_name, email, role, is_active, must_change_password, employee_id, created_at')
             .order('created_at', { ascending: false });
         if (error) toast.error('Failed to load staff: ' + error.message);
-        setUsers(data ?? []);
+        const usersList = data ?? [];
+        setUsers(usersList);
+
+        await refreshTargetsForUsers(usersList);
         setLoading(false);
     };
 
@@ -315,6 +343,43 @@ export const StaffManagement = () => {
         } finally { setResetting(false); }
     };
 
+    const handleSaveTarget = async (u: StaffUser) => {
+        if (u.role === 'admin') return;
+
+        const raw = (targetDrafts[u.id] ?? '').trim();
+        if (!raw) {
+            toast.error('Please enter monthly target');
+            return;
+        }
+
+        const parsedTarget = Number(raw);
+        if (!Number.isFinite(parsedTarget) || parsedTarget < 0) {
+            toast.error('Monthly target must be 0 or greater');
+            return;
+        }
+
+        const normalizedTarget = Math.round(parsedTarget);
+        const nextMap = { ...staffTargets, [u.id]: normalizedTarget };
+
+        setSavingTargetId(u.id);
+        try {
+            const { error } = await supabase
+                .from('settings')
+                .upsert({ key: 'sales_monthly_targets_by_user', value: nextMap }, { onConflict: 'key' });
+
+            if (error) throw error;
+
+            setStaffTargets(nextMap);
+            setTargetDrafts((prev) => ({ ...prev, [u.id]: normalizedTarget.toString() }));
+            toast.success(`Monthly target updated for ${u.full_name}`);
+            await refreshTargetsForUsers(users);
+        } catch (err: any) {
+            toast.error(err?.message || 'Failed to save monthly target');
+        } finally {
+            setSavingTargetId(null);
+        }
+    };
+
     const filtered = users.filter(u =>
         !search ||
         u.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -380,6 +445,7 @@ export const StaffManagement = () => {
                                             <StyledTh>Staff Member</StyledTh>
                                             <StyledTh>Employee ID</StyledTh>
                                             <StyledTh>Role</StyledTh>
+                                            <StyledTh>Monthly Target</StyledTh>
                                             <StyledTh>Status</StyledTh>
                                             <StyledTh>Pwd Changed</StyledTh>
                                             <StyledTh>Joined</StyledTh>
@@ -427,6 +493,34 @@ export const StaffManagement = () => {
                                                                 {ROLES.map(r => <SelectItem key={r.value} value={r.value} className="text-xs">{r.label}</SelectItem>)}
                                                             </SelectContent>
                                                         </Select>
+                                                    )}
+                                                </StyledTd>
+                                                <StyledTd>
+                                                    {u.role !== 'admin' ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <Input
+                                                                type="number"
+                                                                min="0"
+                                                                value={targetDrafts[u.id] ?? ''}
+                                                                onChange={(event) => {
+                                                                    const value = event.target.value;
+                                                                    setTargetDrafts((prev) => ({ ...prev, [u.id]: value }));
+                                                                }}
+                                                                className="h-8 w-32"
+                                                                placeholder="Target"
+                                                            />
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                disabled={savingTargetId === u.id}
+                                                                onClick={() => void handleSaveTarget(u)}
+                                                                className="h-8 px-2 text-xs"
+                                                            >
+                                                                {savingTargetId === u.id ? 'Saving...' : 'Save'}
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground">—</span>
                                                     )}
                                                 </StyledTd>
                                                 <StyledTd><StatusBadge status={u.is_active ? 'Active' : 'Archived'} /></StyledTd>

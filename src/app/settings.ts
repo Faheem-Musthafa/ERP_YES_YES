@@ -10,6 +10,7 @@ type SettingsEntryRow = {
 
 const ORDER_SETTINGS_KEYS = ['default_invoice_type', 'max_discount_percentage', 'Godowns'] as const;
 const MASTER_SETTINGS_KEYS = ['Godowns', 'districts', 'vehicle_types'] as const;
+const SALES_TARGET_SETTINGS_KEYS = ['default_sales_monthly_target', 'sales_monthly_targets_by_user'] as const;
 const MASTER_SETTING_KEY_SET = new Set<string>(MASTER_SETTINGS_KEYS);
 
 const ORDER_INVOICE_TYPES: InvoiceTypeEnum[] = [
@@ -38,6 +39,11 @@ export interface MasterDataSettings {
   vehicleTypes: string[];
 }
 
+export interface SalesTargetSettings {
+  defaultMonthlyTarget: number;
+  perUserMonthlyTargets: Record<string, number>;
+}
+
 export const DEFAULT_ORDER_FORM_SETTINGS: OrderFormSettings = {
   defaultInvoiceType: 'GST',
   maxDiscountPercentage: 20,
@@ -48,6 +54,11 @@ export const DEFAULT_MASTER_DATA_SETTINGS: MasterDataSettings = {
   Godowns: [...DEFAULT_GodownS],
   districts: [...DEFAULT_DISTRICTS],
   vehicleTypes: [...DEFAULT_VEHICLE_TYPES],
+};
+
+export const DEFAULT_SALES_TARGET_SETTINGS: SalesTargetSettings = {
+  defaultMonthlyTarget: 500000,
+  perUserMonthlyTargets: {},
 };
 
 const isJsonObject = (value: Json | null): value is Record<string, Json> =>
@@ -64,6 +75,45 @@ const readString = (value: Json | null, fallback = '') =>
 
 const readNumber = (value: Json | null, fallback = 0) =>
   typeof value === 'number' ? value : fallback;
+
+const readTargetMap = (value: Json | null): Record<string, number> => {
+  if (!isJsonObject(value)) {
+    return {};
+  }
+
+  const map: Record<string, number> = {};
+  Object.entries(value).forEach(([key, targetValue]) => {
+    if (typeof targetValue === 'number' && Number.isFinite(targetValue) && targetValue >= 0) {
+      map[key] = targetValue;
+    }
+  });
+
+  return map;
+};
+
+const loadSalesTargetSettingsByRpc = async (): Promise<SalesTargetSettings | null> => {
+  const { data, error } = await supabase.rpc('get_sales_target_settings');
+  if (error) {
+    return null;
+  }
+
+  if (!isJsonObject(data as Json)) {
+    return null;
+  }
+
+  const payload = data as Record<string, Json>;
+  const defaultMonthlyTarget = Math.max(
+    0,
+    readNumber(payload.default_sales_monthly_target ?? null, DEFAULT_SALES_TARGET_SETTINGS.defaultMonthlyTarget),
+  );
+
+  const perUserMonthlyTargets = readTargetMap(payload.sales_monthly_targets_by_user ?? null);
+
+  return {
+    defaultMonthlyTarget,
+    perUserMonthlyTargets,
+  };
+};
 
 const isInvoiceType = (value: string): value is InvoiceTypeEnum =>
   ORDER_INVOICE_TYPES.includes(value as InvoiceTypeEnum);
@@ -323,5 +373,31 @@ export const loadMasterDataSettings = async (): Promise<MasterDataSettings> => {
     Godowns,
     districts,
     vehicleTypes,
+  };
+};
+
+export const loadSalesTargetSettings = async (): Promise<SalesTargetSettings> => {
+  const rpcSettings = await loadSalesTargetSettingsByRpc();
+  if (rpcSettings) {
+    return rpcSettings;
+  }
+
+  let settings: SettingsMap = {};
+  try {
+    settings = await loadSettingsMap(SALES_TARGET_SETTINGS_KEYS);
+  } catch {
+    settings = {};
+  }
+
+  const defaultMonthlyTarget = Math.max(
+    0,
+    readNumber(settings.default_sales_monthly_target ?? null, DEFAULT_SALES_TARGET_SETTINGS.defaultMonthlyTarget),
+  );
+
+  const perUserMonthlyTargets = readTargetMap(settings.sales_monthly_targets_by_user ?? null);
+
+  return {
+    defaultMonthlyTarget,
+    perUserMonthlyTargets,
   };
 };
