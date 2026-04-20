@@ -117,7 +117,7 @@ export const CustomerForm = () => {
             const brandIdx = findIndex('brand');
             const nameIdx = findIndex('customername', 'name');
             const placeIdx = findIndex('place');
-            const locationIdx = findIndex('distract', 'district', 'location');
+            const locationIdx = findIndex('District', 'district', 'location');
             const pincodeIdx = findIndex('pincode', 'zipcode', 'pin');
             const gstIdx = findIndex('gstin', 'gstpan', 'gst', 'gstno', 'gstnumber');
             const panIdx = findIndex('panno', 'pan', 'pannumber');
@@ -132,7 +132,7 @@ export const CustomerForm = () => {
             }
 
             if (companyIdx === -1 || brandIdx === -1 || placeIdx === -1 || locationIdx === -1 || pincodeIdx === -1 || gstIdx === -1 || openingBalanceIdx === -1) {
-                toast.error('Expected CSV format: Company, Brand, Customer Name, Place, Distract, pincode, GSTIN, Address, Opening Balance');
+                toast.error('Expected CSV format: Company, Brand, Customer Name, Place, District, pincode, GSTIN, Address, Opening Balance');
                 return;
             }
 
@@ -358,7 +358,7 @@ export const CustomerForm = () => {
                                 />
                             </div>
                             <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 text-xs text-slate-500 font-medium leading-relaxed">
-                                <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Expected columns:</span> Company, Brand, Customer Name, Place, Distract, pincode, GSTIN, PAN No, Address, Opening Balance</p>
+                                <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Expected columns:</span> Company, Brand, Customer Name, Place, District, pincode, GSTIN, PAN No, Address, Opening Balance</p>
                                 <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Notes:</span> Company and Brand are accepted for compatibility but not stored in customer master.</p>
                                 <p><span className="font-bold text-slate-700 dark:text-slate-300">Phone fields:</span> <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Phone</code> and <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Second Phone No</code> are optional. Missing primary phone defaults to <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">N/A</code>.</p>
                             </div>

@@ -437,8 +437,8 @@ export const CreateOrder = () => {
                   <h2 className="text-base font-bold text-gray-900 tracking-tight">Customer Profile</h2>
                 </div>
                 <div className="flex gap-1.5 p-1 bg-gray-100/80 rounded-lg">
-                  <Pill active={customerType === 'existing'} onClick={() => handleCustomerTypeChange('existing')}>Database</Pill>
-                  <Pill active={customerType === 'new'} onClick={() => handleCustomerTypeChange('new')}>New Lead</Pill>
+                  <Pill active={customerType === 'existing'} onClick={() => handleCustomerTypeChange('existing')}>Existing</Pill>
+                  <Pill active={customerType === 'new'} onClick={() => handleCustomerTypeChange('new')}>New</Pill>
                 </div>
               </div>
 
