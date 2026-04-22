@@ -15,9 +15,9 @@ import {
 import { Plus, Copy, Check, UserPlus, Eye, EyeOff, Shield, Pencil, KeyRound, Archive, RotateCcw } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
-import { isValidEmail } from '@/app/utils';
 import { archiveRecoverableRecord, restoreRecoverableRecord } from '@/app/recovery';
 import { loadSalesTargetSettings } from '@/app/settings';
+import { LIMITS, sanitizeEmail, sanitizeText, validateEmail, validateRequired } from '@/app/validation';
 import {
     PageHeader, SearchBar, DataCard,
     StyledThead, StyledTh, StyledTr, StyledTd,
@@ -191,11 +191,19 @@ export const StaffManagement = () => {
     useEffect(() => { fetchUsers(); }, []);
 
     const handleCreate = async () => {
-        if (!form.full_name.trim() || !form.email.trim() || !form.role) {
-            toast.error('Please fill in all required fields'); return;
-        }
-        if (!isValidEmail(form.email)) {
-            toast.error('Please enter a valid email address'); return;
+        let normalizedName = '';
+        let normalizedEmail = '';
+        let normalizedEmployeeId = '';
+        try {
+            normalizedName = sanitizeText(form.full_name, LIMITS.mediumText);
+            normalizedEmail = sanitizeEmail(form.email);
+            normalizedEmployeeId = sanitizeText(form.employee_id, LIMITS.employeeId);
+            validateRequired(normalizedName, 'Full name');
+            validateRequired(normalizedEmail, 'Email address');
+            validateEmail(normalizedEmail);
+            if (!form.role) throw new Error('Role is required');
+        } catch (err: any) {
+            toast.error(err?.message || 'Please fill in all required fields'); return;
         }
         setCreating(true);
         const generatedPassword = generatePassword(12);
@@ -219,14 +227,14 @@ export const StaffManagement = () => {
 
             const { data: result, error: fnError } = await supabase.functions.invoke('invite-user', {
                 body: {
-                    email: form.email.trim().toLowerCase(), full_name: form.full_name.trim(),
-                    role: form.role, password: generatedPassword, employee_id: form.employee_id.trim() || null,
+                    email: normalizedEmail, full_name: normalizedName,
+                    role: form.role, password: generatedPassword, employee_id: normalizedEmployeeId || null,
                 },
             });
             if (fnError || result?.error) {
                 throw new Error(await resolveFunctionError(fnError, result, 'Failed to create user'));
             }
-            setCreatedUser({ name: form.full_name, email: form.email, password: generatedPassword });
+            setCreatedUser({ name: normalizedName, email: normalizedEmail, password: generatedPassword });
             setCreateOpen(false);
             setSuccessOpen(true);
             setForm({ full_name: '', email: '', role: '', employee_id: '' });
@@ -284,13 +292,20 @@ export const StaffManagement = () => {
     };
 
     const handleEditSave = async () => {
-        if (!editTarget || !editForm.full_name.trim()) {
-            toast.error('Name is required'); return;
+        if (!editTarget) return;
+        let normalizedName = '';
+        let normalizedEmployeeId = '';
+        try {
+            normalizedName = sanitizeText(editForm.full_name, LIMITS.mediumText);
+            normalizedEmployeeId = sanitizeText(editForm.employee_id, LIMITS.employeeId);
+            validateRequired(normalizedName, 'Name');
+        } catch (err: any) {
+            toast.error(err?.message || 'Name is required'); return;
         }
         setEditSaving(true);
         const { error } = await supabase.from('users').update({
-            full_name: editForm.full_name.trim(),
-            employee_id: editForm.employee_id.trim() || null,
+            full_name: normalizedName,
+            employee_id: normalizedEmployeeId || null,
         }).eq('id', editTarget.id);
         if (error) toast.error('Failed to update staff');
         else { toast.success('Staff details updated'); setEditOpen(false); fetchUsers(); }
@@ -588,11 +603,11 @@ export const StaffManagement = () => {
                     <div className="space-y-3 py-2">
                         <div className="space-y-1.5">
                             <Label className="text-xs">Full Name <span className="text-destructive">*</span></Label>
-                            <Input value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} placeholder="e.g. Rahul Sharma" />
+                            <Input value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: sanitizeText(e.target.value, LIMITS.mediumText) }))} placeholder="e.g. Rahul Sharma" maxLength={LIMITS.mediumText} />
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Email Address <span className="text-destructive">*</span></Label>
-                            <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="e.g. rahul@company.com" />
+                            <Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: sanitizeEmail(e.target.value) }))} placeholder="e.g. rahul@company.com" maxLength={LIMITS.email} autoComplete="email" />
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Role <span className="text-destructive">*</span></Label>
@@ -605,7 +620,7 @@ export const StaffManagement = () => {
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Employee ID <span className="text-muted-foreground">(optional)</span></Label>
-                            <Input value={form.employee_id} onChange={e => setForm(f => ({ ...f, employee_id: e.target.value }))} placeholder="e.g. EMP-001" />
+                            <Input value={form.employee_id} onChange={e => setForm(f => ({ ...f, employee_id: sanitizeText(e.target.value, LIMITS.employeeId) }))} placeholder="e.g. EMP-001" maxLength={LIMITS.employeeId} />
                         </div>
                         <div className="p-3 bg-primary/5 border border-primary/15 rounded-lg">
                             <p className="text-xs text-muted-foreground">
@@ -692,8 +707,9 @@ export const StaffManagement = () => {
                                 <Label className="text-xs">Full Name <span className="text-destructive">*</span></Label>
                                 <Input
                                     value={editForm.full_name}
-                                    onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))}
+                                    onChange={e => setEditForm(f => ({ ...f, full_name: sanitizeText(e.target.value, LIMITS.mediumText) }))}
                                     placeholder="Full name"
+                                    maxLength={LIMITS.mediumText}
                                 />
                             </div>
                             <div className="space-y-1.5">
@@ -705,8 +721,9 @@ export const StaffManagement = () => {
                                 <Label className="text-xs">Employee ID</Label>
                                 <Input
                                     value={editForm.employee_id}
-                                    onChange={e => setEditForm(f => ({ ...f, employee_id: e.target.value }))}
+                                    onChange={e => setEditForm(f => ({ ...f, employee_id: sanitizeText(e.target.value, LIMITS.employeeId) }))}
                                     placeholder="e.g. EMP-001"
+                                    maxLength={LIMITS.employeeId}
                                 />
                             </div>
                             <div className="pt-2 border-t">

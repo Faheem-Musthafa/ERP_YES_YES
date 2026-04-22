@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { DataCard, EmptyState, FormSection, PageHeader, SearchBar } from '@/app/components/ui/primitives';
 import type { GodownEnum } from '@/app/types/database';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
+import { LIMITS, sanitizeIntegerInput, sanitizeMultilineText, validatePositiveAmount, validateRequired } from '@/app/validation';
 
 interface ProductWithStock {
   id: string;
@@ -135,12 +136,20 @@ export const StockAdjustment = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProductId || !quantity || !reason || !selectedLocation) { 
-      toast.error('All fields required'); 
-      return; 
+    let qty = 0;
+    let normalizedReason = '';
+    try {
+      validateRequired(selectedProductId, 'Product');
+      validateRequired(selectedLocation, 'Location');
+      validateRequired(quantity, 'Quantity');
+      normalizedReason = sanitizeMultilineText(reason, LIMITS.reason);
+      validateRequired(normalizedReason, 'Reason');
+      qty = Number(quantity);
+      validatePositiveAmount(qty, 'Quantity');
+    } catch (err: any) {
+      toast.error(err?.message || 'All fields required');
+      return;
     }
-    const qty = Number(quantity);
-    if (!Number.isFinite(qty) || qty <= 0) { toast.error('Quantity must be greater than zero'); return; }
     if (!selectedProduct) return;
     if (type === 'Subtraction') {
       const confirmSubtraction = window.confirm(`You are reducing stock by ${qty} for ${selectedProduct.name} at ${selectedLocation}. Continue?`);
@@ -153,7 +162,7 @@ export const StockAdjustment = () => {
         p_location: selectedLocation as GodownEnum,
         p_quantity: qty,
         p_type: type,
-        p_reason: reason,
+        p_reason: normalizedReason,
         p_user_id: user?.id ?? null,
       });
 
@@ -243,7 +252,7 @@ export const StockAdjustment = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Quantity *</Label>
-                  <Input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="Enter quantity" required />
+                  <Input type="number" min="1" step="1" value={quantity} onChange={e => setQuantity(sanitizeIntegerInput(e.target.value))} placeholder="Enter quantity" required />
                   {selectedProduct && quantity && (
                     <p className="text-xs text-gray-600">
                       New stock at {selectedLocation}: {type === 'Addition' ? currentLocationStock + Number(quantity) : Math.max(0, currentLocationStock - Number(quantity))} units
@@ -252,7 +261,7 @@ export const StockAdjustment = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Reason *</Label>
-                  <Textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="Reason for adjustment" rows={3} required />
+                  <Textarea value={reason} onChange={e => setReason(sanitizeMultilineText(e.target.value, LIMITS.reason))} placeholder="Reason for adjustment" rows={3} maxLength={LIMITS.reason} required />
                 </div>
                 <div className="border-t border-gray-100 pt-4 flex flex-col sm:flex-row gap-3">
                   <Button type="submit" className={`w-full sm:w-auto rounded-xl ${type === 'Subtraction' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#34b0a7] hover:bg-[#2a9d94]'}`} disabled={saving}>

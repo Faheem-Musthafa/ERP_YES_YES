@@ -12,6 +12,7 @@ import { DataCard, EmptyState, FormSection, PageHeader, SearchBar } from '@/app/
 import type { CompanyEnum, GodownEnum } from '@/app/types/database';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
 import { COMPANY_LIST } from '@/app/companyProfiles';
+import { LIMITS, sanitizeIntegerInput, sanitizeMultilineText, validatePositiveAmount, validateRequired } from '@/app/validation';
 
 interface ProductWithStock {
   id: string;
@@ -161,17 +162,22 @@ export const StockTransfer = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProductId || !quantity || !fromLocation || !toLocation) {
-      toast.error('All fields required');
+    let qty = 0;
+    let normalizedReason = '';
+    try {
+      validateRequired(selectedProductId, 'Product');
+      validateRequired(fromLocation, 'From location');
+      validateRequired(toLocation, 'To location');
+      validateRequired(quantity, 'Quantity');
+      qty = Number(quantity);
+      validatePositiveAmount(qty, 'Quantity');
+      normalizedReason = sanitizeMultilineText(reason, LIMITS.reason);
+    } catch (err: any) {
+      toast.error(err?.message || 'All fields required');
       return;
     }
     if (fromLocation === toLocation) {
       toast.error('From and To locations must be different');
-      return;
-    }
-    const qty = Number(quantity);
-    if (!Number.isFinite(qty) || qty <= 0) {
-      toast.error('Quantity must be greater than zero');
       return;
     }
     if (!selectedProduct) return;
@@ -193,7 +199,7 @@ export const StockTransfer = () => {
         p_to_location: toLocation as GodownEnum,
         p_quantity: qty,
         p_company: company,
-        p_reason: reason || null,
+        p_reason: normalizedReason || null,
         p_user_id: user?.id ?? null,
       });
 
@@ -345,7 +351,7 @@ export const StockTransfer = () => {
                     min="1"
                     max={fromStock}
                     value={quantity}
-                    onChange={e => setQuantity(e.target.value)}
+                    onChange={e => setQuantity(sanitizeIntegerInput(e.target.value))}
                     placeholder="Enter quantity"
                     required
                   />
@@ -359,9 +365,10 @@ export const StockTransfer = () => {
                   <Label>Reason (Optional)</Label>
                   <Textarea
                     value={reason}
-                    onChange={e => setReason(e.target.value)}
+                    onChange={e => setReason(sanitizeMultilineText(e.target.value, LIMITS.reason))}
                     placeholder="Reason for transfer"
                     rows={3}
+                    maxLength={LIMITS.reason}
                   />
                 </div>
                 <div className="border-t border-gray-100 pt-4 flex flex-col sm:flex-row gap-3">

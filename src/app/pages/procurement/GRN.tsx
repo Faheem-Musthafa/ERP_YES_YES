@@ -9,6 +9,7 @@ import { supabase } from '@/app/supabase';
 import { DataCard, EmptyState, FormSection, PageHeader, SearchBar, StyledThead, StyledTh, StyledTr, StyledTd, StatusBadge } from '@/app/components/ui/primitives';
 import type { GodownEnum } from '@/app/types/database';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
+import { LIMITS, sanitizeIntegerInput, sanitizeMultilineText, sanitizeText, sanitizeUpperAlnum, validatePositiveAmount, validateRequired } from '@/app/validation';
 
 interface PendingDelivery {
   id: string;
@@ -44,30 +45,27 @@ export const GRN = () => {
 
   const handleCreateGRN = async (e: React.FormEvent) => {
     e.preventDefault();
+    let requestedQty = 0;
+    let normalizedChallanNumber = '';
+    let normalizedRemarks = '';
 
-    if (!selectedPO) {
-      toast.error('Please select a purchase order');
-      return;
-    }
-
-    if (!receivingLocation) {
-      toast.error('Please select receiving location');
-      return;
-    }
-
-    if (!receivedDate) {
-      toast.error('Please enter received date');
-      return;
-    }
-
-    if (!receivedQty || Number(receivedQty) <= 0) {
-      toast.error('Please enter received quantity');
+    try {
+      if (!selectedPO) throw new Error('Please select a purchase order');
+      validateRequired(receivingLocation, 'Receiving location');
+      validateRequired(receivedDate, 'Received date');
+      validateRequired(receivedQty, 'Received quantity');
+      requestedQty = Number(receivedQty);
+      validatePositiveAmount(requestedQty, 'Received quantity');
+      normalizedChallanNumber = sanitizeUpperAlnum(challanNumber, LIMITS.mediumText);
+      normalizedRemarks = sanitizeMultilineText(remarks, LIMITS.reason);
+    } catch (err: any) {
+      toast.error(err?.message || 'Please complete GRN details');
       return;
     }
 
     const poItems = selectedPO.po_items ?? [];
     const expectedQty = poItems.reduce((sum, item) => sum + (item.quantity ?? 0), 0);
-    if (Number(receivedQty) > expectedQty) {
+    if (requestedQty > expectedQty) {
       toast.error(`Received quantity cannot exceed expected quantity (${expectedQty})`);
       return;
     }
@@ -78,7 +76,6 @@ export const GRN = () => {
 
     setSubmitting(true);
     try {
-      const requestedQty = Number(receivedQty);
       const proportionalItems = poItems.map((item) => ({
         product_id: item.product_id,
         expected_qty: item.quantity,
@@ -95,12 +92,12 @@ export const GRN = () => {
       }
       const grnItems = proportionalItems.filter((item) => item.received_qty > 0);
       const remarksText = [
-        challanNumber.trim() ? `Challan: ${challanNumber.trim()}` : null,
-        remarks.trim() || null,
+        normalizedChallanNumber ? `Challan: ${normalizedChallanNumber}` : null,
+        normalizedRemarks || null,
         receivedDate ? `Received Date: ${receivedDate}` : null,
       ].filter(Boolean).join(' | ');
 
-      const idempotencyKey = `grn:${selectedPOId}:${receivingLocation}:${receivedDate}:${requestedQty}:${challanNumber.trim() || 'na'}`;
+      const idempotencyKey = `grn:${selectedPOId}:${receivingLocation}:${receivedDate}:${requestedQty}:${normalizedChallanNumber || 'na'}`;
 
       let grnId: string | null = null;
       const { data: idempotentGrnId, error: idempotentErr } = await supabase.rpc('create_grn_idempotent', {
@@ -312,17 +309,17 @@ export const GRN = () => {
 
                 <div>
                   <Label>Received Quantity</Label>
-                  <Input type="number" value={receivedQty} onChange={(e) => setReceivedQty(e.target.value)} placeholder="Enter quantity received" min="1" required />
+                  <Input type="number" value={receivedQty} onChange={(e) => setReceivedQty(sanitizeIntegerInput(e.target.value))} placeholder="Enter quantity received" min="1" step="1" required />
                 </div>
 
                 <div>
                   <Label>Delivery Challan Number</Label>
-                  <Input value={challanNumber} onChange={(e) => setChallanNumber(e.target.value)} placeholder="Enter challan number" />
+                  <Input value={challanNumber} onChange={(e) => setChallanNumber(sanitizeUpperAlnum(e.target.value, LIMITS.mediumText))} maxLength={LIMITS.mediumText} placeholder="Enter challan number" />
                 </div>
 
                 <div>
                   <Label>Remarks</Label>
-                  <Input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Any additional notes" />
+                  <Input value={remarks} onChange={(e) => setRemarks(sanitizeText(e.target.value, LIMITS.reason))} maxLength={LIMITS.reason} placeholder="Any additional notes" />
                 </div>
 
                 <Button type="submit" disabled={submitting || !selectedPO} className="w-full bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl">

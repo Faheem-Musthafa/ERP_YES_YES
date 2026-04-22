@@ -10,6 +10,7 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { VehicleTypeEnum } from '@/app/types/database';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
+import { LIMITS, sanitizePhone, sanitizeText, sanitizeVehicleNumber, validatePhone, validateRequired, validateVehicleNumber } from '@/app/validation';
 import {
   PageHeader, SearchBar, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -96,7 +97,19 @@ export const DeliveryDrivers = () => {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { toast.error('Driver name is required'); return; }
+    let driverName = '';
+    let phone = '';
+    let vehicleNumber = '';
+    try {
+      driverName = sanitizeText(form.name, LIMITS.mediumText);
+      phone = sanitizePhone(form.phone);
+      vehicleNumber = sanitizeVehicleNumber(form.vehicle_number);
+      validateRequired(driverName, 'Driver name');
+      if (phone) validatePhone(phone);
+      if (vehicleNumber) validateVehicleNumber(vehicleNumber);
+    } catch (err: any) {
+      toast.error(err?.message || 'Invalid driver details'); return;
+    }
     const selectedVehicleType = form.vehicle_type.trim();
     const mappedVehicleType = !selectedVehicleType
       ? null
@@ -118,23 +131,23 @@ export const DeliveryDrivers = () => {
       if (editTarget) {
         const { error } = await supabase
           .from('delivery_agents')
-          .update({
-            name: form.name.trim(),
-            vehicle_number: form.vehicle_number.trim().toUpperCase() || null,
+            .update({
+            name: driverName,
+            vehicle_number: vehicleNumber || null,
             vehicle_type: mappedVehicleType,
             vehicle_type_other: mappedVehicleTypeOther,
-            phone: form.phone.trim() || null,
+            phone: phone || null,
           })
           .eq('id', editTarget.id);
         if (error) throw error;
         toast.success('Driver updated');
       } else {
         const { error } = await supabase.from('delivery_agents').insert({
-          name: form.name.trim(),
-          vehicle_number: form.vehicle_number.trim().toUpperCase() || null,
+          name: driverName,
+          vehicle_number: vehicleNumber || null,
           vehicle_type: mappedVehicleType,
           vehicle_type_other: mappedVehicleTypeOther,
-          phone: form.phone.trim() || null,
+          phone: phone || null,
           is_active: true,
           created_by: user?.id ?? null,
         });
@@ -287,8 +300,9 @@ export const DeliveryDrivers = () => {
               <Label>Driver Name *</Label>
               <Input
                 value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                onChange={e => setForm(f => ({ ...f, name: sanitizeText(e.target.value, LIMITS.mediumText) }))}
                 placeholder="e.g. Ravi Kumar"
+                maxLength={LIMITS.mediumText}
               />
             </div>
             <div className="space-y-2">
@@ -307,8 +321,9 @@ export const DeliveryDrivers = () => {
                 <Label>Specify Vehicle Type</Label>
                 <Input
                   value={form.vehicle_type_other}
-                  onChange={e => setForm(f => ({ ...f, vehicle_type_other: e.target.value }))}
+                  onChange={e => setForm(f => ({ ...f, vehicle_type_other: sanitizeText(e.target.value, LIMITS.mediumText) }))}
                   placeholder="e.g. Van, Auto, etc."
+                  maxLength={LIMITS.mediumText}
                 />
               </div>
             )}
@@ -316,9 +331,10 @@ export const DeliveryDrivers = () => {
               <Label>Vehicle Number Plate</Label>
               <Input
                 value={form.vehicle_number}
-                onChange={e => setForm(f => ({ ...f, vehicle_number: e.target.value.toUpperCase() }))}
+                onChange={e => setForm(f => ({ ...f, vehicle_number: sanitizeVehicleNumber(e.target.value) }))}
                 placeholder="e.g. MH12AB1234"
                 className="font-mono tracking-wider"
+                maxLength={LIMITS.vehicleNumber}
               />
               <p className="text-xs text-gray-400">Auto-fills when this driver is selected in a delivery.</p>
             </div>
@@ -326,9 +342,10 @@ export const DeliveryDrivers = () => {
               <Label>Phone Number</Label>
               <Input
                 value={form.phone}
-                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                onChange={e => setForm(f => ({ ...f, phone: sanitizePhone(e.target.value) }))}
                 placeholder="e.g. 9876543210"
                 type="tel"
+                maxLength={LIMITS.phone}
               />
             </div>
           </div>

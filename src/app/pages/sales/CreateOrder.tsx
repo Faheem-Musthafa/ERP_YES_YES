@@ -15,6 +15,7 @@ import { cn } from '@/app/components/ui/utils';
 import { COMPANY_LIST, cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import { DEFAULT_ORDER_FORM_SETTINGS, loadOrderFormSettings } from '@/app/settings';
 import type { CompanyEnum, InvoiceTypeEnum, GodownEnum, Json } from '@/app/types/database';
+import { LIMITS, sanitizeDecimalInput, sanitizeMultilineText, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePhone, validatePositiveAmount, validateRequired } from '@/app/validation';
 
 interface OrderItem {
   id: string; productId: string; product: string; brand: string; sku: string;
@@ -258,10 +259,16 @@ export const CreateOrder = () => {
     try {
       let customerId: string | null = null;
       if (customerType === 'new') {
-        if (!customerName.trim() || !customerPhone.trim() || !customerAddress.trim()) {
-          throw new Error('Name, phone and address are required for new customers');
-        }
-        const { data: newCust, error: custErr } = await supabase.from('customers').insert({ name: customerName, phone: customerPhone, address: customerAddress, gst_pan: customerGst || null, is_active: true }).select('id').single();
+        const normalizedCustomerName = sanitizeText(customerName, LIMITS.longText);
+        const normalizedCustomerPhone = sanitizePhone(customerPhone);
+        const normalizedCustomerAddress = sanitizeMultilineText(customerAddress, LIMITS.address);
+        const normalizedCustomerGst = sanitizeUpperAlnum(customerGst, LIMITS.gstin) || null;
+        validateRequired(normalizedCustomerName, 'Customer name');
+        validateRequired(normalizedCustomerPhone, 'Customer phone');
+        validateRequired(normalizedCustomerAddress, 'Customer address');
+        validatePhone(normalizedCustomerPhone);
+        if (normalizedCustomerGst) validateGSTIN(normalizedCustomerGst);
+        const { data: newCust, error: custErr } = await supabase.from('customers').insert({ name: normalizedCustomerName, phone: normalizedCustomerPhone, address: normalizedCustomerAddress, gst_pan: normalizedCustomerGst, is_active: true }).select('id').single();
         if (custErr) throw custErr;
         customerId = newCust.id;
       } else if (customerType === 'existing') {
@@ -275,6 +282,12 @@ export const CreateOrder = () => {
         dealer_price: i.dp,
         discount_pct: Number(i.discount) || 0,
       }));
+      itemsPayload.forEach((item, index) => {
+        validatePositiveAmount(item.quantity, `Quantity for item ${index + 1}`);
+        if (!Number.isFinite(item.dealer_price) || item.dealer_price < 0) {
+          throw new Error(`Dealer price for item ${index + 1} is invalid`);
+        }
+      });
 
       const deliveryDate = getDeliveryDate();
       const { data: createdOrderId, error: createOrderErr } = await supabase.rpc('create_order', {
@@ -282,9 +295,9 @@ export const CreateOrder = () => {
         p_invoice_type: invoiceType as InvoiceTypeEnum,
         p_customer_id: customerId,
         p_godown: Godown as GodownEnum,
-        p_site_address: siteAddress,
+        p_site_address: sanitizeMultilineText(siteAddress, LIMITS.address),
         p_items: itemsPayload as unknown as Json,
-        p_remarks: remarks || null,
+        p_remarks: sanitizeMultilineText(remarks, LIMITS.reason) || null,
         p_delivery_date: deliveryDate || null,
         p_created_by: user?.id ?? null,
       });
@@ -297,7 +310,7 @@ export const CreateOrder = () => {
         const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
         const { data: legacyOrder, error: legacyOrderErr } = await supabase.from('orders').insert({
             order_number: orderNumber, company: company as CompanyEnum, invoice_type: invoiceType as InvoiceTypeEnum,
-            customer_id: customerId, godown: Godown as GodownEnum, site_address: siteAddress, remarks: remarks || null, delivery_date: deliveryDate || null,
+            customer_id: customerId, godown: Godown as GodownEnum, site_address: sanitizeMultilineText(siteAddress, LIMITS.address), remarks: sanitizeMultilineText(remarks, LIMITS.reason) || null, delivery_date: deliveryDate || null,
             subtotal, total_discount: totalDiscount, grand_total: grandTotal, status: 'Pending', created_by: user?.id ?? null,
           }).select('id').single();
         if (legacyOrderErr) throw legacyOrderErr;
@@ -472,7 +485,7 @@ export const CreateOrder = () => {
                 </FL>
               ) : (
                 <FL label="Full Name / Company Name" htmlFor="customerName" required>
-                  <Input id="customerName" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter name" className="h-10 rounded-xl bg-gray-50 border-gray-200 shadow-none focus:ring-[#00bdb4]" required />
+                  <Input id="customerName" value={customerName} onChange={(e) => setCustomerName(sanitizeText(e.target.value, LIMITS.longText))} placeholder="Enter name" maxLength={LIMITS.longText} className="h-10 rounded-xl bg-gray-50 border-gray-200 shadow-none focus:ring-[#00bdb4]" required />
                 </FL>
               )}
 
@@ -481,24 +494,24 @@ export const CreateOrder = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   <FL label="Phone Number" htmlFor="customerPhone" required>
                     <div className="relative">
-                      <Input id="customerPhone" type="tel" value={customerPhone} onChange={(e) => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }}
-                        placeholder="Mobile" required className={cn("h-10 rounded-xl shadow-none", phoneAutoFilled ? "bg-[#e6fffe] border-[#b3fffc] text-[#007571]" : "bg-gray-50 border-gray-200")} />
+                      <Input id="customerPhone" type="tel" value={customerPhone} onChange={(e) => { setCustomerPhone(sanitizePhone(e.target.value)); setPhoneAutoFilled(false); }}
+                        placeholder="Mobile" required maxLength={LIMITS.phone} className={cn("h-10 rounded-xl shadow-none", phoneAutoFilled ? "bg-[#e6fffe] border-[#b3fffc] text-[#007571]" : "bg-gray-50 border-gray-200")} />
                       {phoneAutoFilled && <Info size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#00bdb4]" />}
                     </div>
                   </FL>
                   
                   <FL label="GST/PAN Number" htmlFor="customerGst">
                     <div className="relative">
-                      <Input id="customerGst" value={customerGst} onChange={(e) => { setCustomerGst(e.target.value); setGstAutoFilled(false); }}
-                        placeholder="Optional" className={cn("h-10 rounded-xl font-mono text-sm shadow-none", gstAutoFilled ? "bg-[#e6fffe] border-[#b3fffc] text-[#007571]" : "bg-gray-50 border-gray-200")} />
+                      <Input id="customerGst" value={customerGst} onChange={(e) => { setCustomerGst(sanitizeUpperAlnum(e.target.value, LIMITS.gstin)); setGstAutoFilled(false); }}
+                        placeholder="Optional" maxLength={LIMITS.gstin} className={cn("h-10 rounded-xl font-mono text-sm shadow-none", gstAutoFilled ? "bg-[#e6fffe] border-[#b3fffc] text-[#007571]" : "bg-gray-50 border-gray-200")} />
                     </div>
                   </FL>
 
                   <div className="md:col-span-2">
                     <FL label="Billing Address" htmlFor="customerAddress" required>
                       <div className="relative">
-                        <Textarea id="customerAddress" value={customerAddress} onChange={(e) => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }}
-                          placeholder="Complete registered address" rows={3} required className={cn("rounded-xl resize-none shadow-none text-sm", addressAutoFilled ? "bg-[#e6fffe] border-[#b3fffc] text-[#007571]" : "bg-gray-50 border-gray-200")} />
+                        <Textarea id="customerAddress" value={customerAddress} onChange={(e) => { setCustomerAddress(sanitizeMultilineText(e.target.value, LIMITS.address)); setAddressAutoFilled(false); }}
+                          placeholder="Complete registered address" rows={3} required maxLength={LIMITS.address} className={cn("rounded-xl resize-none shadow-none text-sm", addressAutoFilled ? "bg-[#e6fffe] border-[#b3fffc] text-[#007571]" : "bg-gray-50 border-gray-200")} />
                       </div>
                       {(phoneAutoFilled || addressAutoFilled) && <p className="text-xs text-[#009994] mt-1.5 font-medium">✨ Contact details synchronized from CRM profile</p>}
                     </FL>
@@ -581,26 +594,26 @@ export const CreateOrder = () => {
                         {/* Calculations Matrix (Tabular Nums) */}
                         <div className="lg:col-span-7 grid grid-cols-2 md:grid-cols-4 gap-3 lg:pt-5 pt-2">
                           <FL label="Qty" required>
-                             <Input type="number" value={item.quantity} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, quantity: e.target.value, lastEdited: 'quantity' } : i))}
+                             <Input type="number" min="0" step="1" value={item.quantity} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, quantity: sanitizeDecimalInput(e.target.value, 9), lastEdited: 'quantity' } : i))}
                                className={cn("h-10 text-right font-mono font-semibold text-base shadow-none border-gray-200 focus:bg-white bg-gray-50 rounded-lg", isOverStock && "border-red-300 bg-red-50 text-red-700")} placeholder="0" />
                           </FL>
                           <FL label="Rate (DP)">
                             <div className="relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-mono text-sm">₹</span>
-                              <Input type="number" value={item.dp} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, dp: Number(e.target.value) || 0, lastEdited: 'dp' } : i))}
+                              <Input type="number" min="0" step="0.01" value={item.dp} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, dp: Number(sanitizeDecimalInput(e.target.value)) || 0, lastEdited: 'dp' } : i))}
                                 className="h-10 pl-7 text-right font-mono bg-gray-50 border-gray-200 shadow-none rounded-lg" />
                             </div>
                           </FL>
                           <FL label={`Disc (max ${maxDiscountPercentage}%)`}>
                             <div className="relative">
-                              <Input type="number" max={maxDiscountPercentage} value={item.discount} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, discount: clampDiscountInput(e.target.value), lastEdited: 'discount' } : i))}
+                              <Input type="number" min="0" max={maxDiscountPercentage} step="0.01" value={item.discount} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, discount: clampDiscountInput(sanitizeDecimalInput(e.target.value, 6)), lastEdited: 'discount' } : i))}
                                 className="h-10 pr-6 text-right font-mono bg-gray-50 border-gray-200 shadow-none rounded-lg" placeholder="0" />
                               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-mono text-sm">%</span>
                             </div>
                           </FL>
                           <FL label="Total Value">
                             <div className="relative h-10 w-full rounded-lg bg-[#e6fffe] border border-[#b3fffc] flex items-center justify-end px-3">
-                               <Input type="number" value={item.amount} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, amount: e.target.value, lastEdited: 'amount' } : i))}
+                               <Input type="number" min="0" step="0.01" value={item.amount} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, amount: sanitizeDecimalInput(e.target.value), lastEdited: 'amount' } : i))}
                                   className="absolute inset-0 bg-transparent opacity-0 cursor-text" />
                                <span className="text-gray-500 font-mono text-sm mr-1">₹</span>
                                <span className="font-mono font-bold text-[#007571] text-base">{Number(item.amount) ? Number(item.amount).toFixed(2) : "0.00"}</span>
@@ -654,7 +667,7 @@ export const CreateOrder = () => {
                        </div>
                        
                        {isSiteOrder === 'yes' && (
-                          <Textarea id="siteAddress" value={siteAddress} onChange={(e) => setSiteAddress(e.target.value)} placeholder="Enter alternative site / delivery address" rows={3} required className="resize-none" />
+                          <Textarea id="siteAddress" value={siteAddress} onChange={(e) => setSiteAddress(sanitizeMultilineText(e.target.value, LIMITS.address))} placeholder="Enter alternative site / delivery address" rows={3} required maxLength={LIMITS.address} className="resize-none" />
                        )}
                        {isSiteOrder === 'no' && customerAddress && (
                           <div className="p-3 bg-gray-50 border border-gray-100 rounded-lg text-sm text-gray-600 italic">
@@ -664,7 +677,7 @@ export const CreateOrder = () => {
                     </div>
                     
                     <FL label="Internal Remarks">
-                       <Textarea id="remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Pack safely, specific requests, etc." rows={3} className="resize-none h-[106px]" />
+                       <Textarea id="remarks" value={remarks} onChange={(e) => setRemarks(sanitizeMultilineText(e.target.value, LIMITS.reason))} placeholder="Pack safely, specific requests, etc." rows={3} maxLength={LIMITS.reason} className="resize-none h-[106px]" />
                     </FL>
                  </div>
               </div>

@@ -1,6 +1,7 @@
 ﻿import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase';
 import type { UserRole } from '../types/database';
+import { sanitizeEmail, validateEmail, validateRequired } from '../validation';
 
 interface User {
   id: string;
@@ -147,9 +148,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { success: false, error: error.message };
-    return { success: true };
+    try {
+      const normalizedEmail = sanitizeEmail(email);
+      validateRequired(normalizedEmail, 'Email');
+      validateEmail(normalizedEmail);
+      validateRequired(password, 'Password');
+
+      const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error?.message || 'Invalid email or password' };
+    }
   };
 
   const logout = async () => {

@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PageHeader, FormCard, FormSection, Spinner, CustomTooltip } from '@/app/components/ui/primitives';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
+import { LIMITS, sanitizeDigits, sanitizeMultilineText, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePAN, validatePhone, validatePincode, validateRequired } from '@/app/validation';
 
 export const CustomerForm = () => {
     const navigate = useNavigate();
@@ -57,20 +58,29 @@ export const CustomerForm = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!form.name.trim()) { toast.error('Customer name is required'); return; }
-        if (!form.phone.trim()) { toast.error('Phone number is required'); return; }
-        if (!form.address.trim()) { toast.error('Address is required'); return; }
         setLoading(true);
         try {
             const payload = {
-                name: form.name.trim(), place: form.place.trim() || null,
-                address: form.address.trim(), phone: form.phone.trim(),
-                second_phone: form.second_phone.trim() || null,
-                pincode: form.pincode.trim() || null, gst_pan: form.gst_pan.trim() || null,
-                pan_no: form.pan_no.trim() || null,
+                name: sanitizeText(form.name, LIMITS.longText),
+                place: sanitizeText(form.place, LIMITS.mediumText) || null,
+                address: sanitizeMultilineText(form.address, LIMITS.address),
+                phone: sanitizePhone(form.phone),
+                second_phone: sanitizePhone(form.second_phone) || null,
+                pincode: sanitizeDigits(form.pincode, LIMITS.pincode) || null,
+                gst_pan: sanitizeUpperAlnum(form.gst_pan, LIMITS.gstin) || null,
+                pan_no: sanitizeUpperAlnum(form.pan_no, LIMITS.pan) || null,
                 location: (form.location || null) as any,
                 opening_balance: parseFloat(form.opening_balance?.toString() || '0') || 0,
             };
+            validateRequired(payload.name, 'Customer name');
+            validateRequired(payload.phone, 'Phone number');
+            validateRequired(payload.address, 'Address');
+            validatePhone(payload.phone);
+            if (payload.second_phone) validatePhone(payload.second_phone, 'Alternate phone number');
+            if (payload.pincode) validatePincode(payload.pincode);
+            if (payload.gst_pan) validateGSTIN(payload.gst_pan);
+            if (payload.pan_no) validatePAN(payload.pan_no);
+            if (!Number.isFinite(payload.opening_balance)) throw new Error('Opening balance must be a valid number');
             if (isEdit) {
                 if (!id) throw new Error('Customer ID is missing');
                 const { error } = await supabase.from('customers').update(payload).eq('id', id);
@@ -104,12 +114,50 @@ export const CustomerForm = () => {
     const handleCSVUpload = async (file: File) => {
         setUploadLoading(true);
         try {
+            if (!file.name.toLowerCase().endsWith('.csv')) throw new Error('Only CSV files are allowed');
+            if (file.size > LIMITS.csvFileBytes) throw new Error('CSV file is too large. Keep it under 5 MB');
+            const parseCSVLine = (line: string) => {
+                const cols: string[] = [];
+                let current = '';
+                let inQuotes = false;
+
+                for (let index = 0; index < line.length; index += 1) {
+                    const char = line[index];
+                    const nextChar = line[index + 1];
+
+                    if (char === '"') {
+                        if (inQuotes && nextChar === '"') {
+                            current += '"';
+                            index += 1;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                        continue;
+                    }
+
+                    if (char === ',' && !inQuotes) {
+                        cols.push(current.trim());
+                        current = '';
+                        continue;
+                    }
+
+                    current += char;
+                }
+
+                cols.push(current.trim());
+                return cols;
+            };
+
             const text = await file.text();
-            const lines = text.trim().split('\n');
+            const lines = text
+                .replace(/\r\n/g, '\n')
+                .replace(/\r/g, '\n')
+                .split('\n')
+                .filter((line) => line.trim().length > 0);
             if (lines.length < 2) { toast.error('CSV must have at least a header and one row'); return; }
 
             const normalizeHeader = (header: string) => header.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const headers = lines[0].split(',').map(h => normalizeHeader(h.trim()));
+            const headers = parseCSVLine(lines[0]).map(h => normalizeHeader(h));
 
             const findIndex = (...candidates: string[]) => headers.findIndex((header) => candidates.includes(header));
 
@@ -136,35 +184,68 @@ export const CustomerForm = () => {
                 return;
             }
 
-            const districtMap = new Map<string, string>();
-            districtOptions.forEach((district) => {
-                districtMap.set(district.toLowerCase(), district);
-            });
-
-            const toInsert = lines.slice(1).map(line => {
-                const cols = line.split(',').map(c => c.trim().replace(/"/g, ''));
-                const normalizedDistrict = locationIdx >= 0 ? cols[locationIdx]?.toLowerCase() : '';
-                const matchedDistrict = normalizedDistrict ? (districtMap.get(normalizedDistrict) ?? null) : null;
+            const parsedRows = lines.slice(1).map(line => {
+                const cols = parseCSVLine(line);
                 const openingBalanceValue = openingBalanceIdx >= 0
                     ? (parseFloat(cols[openingBalanceIdx] || '0') || 0)
                     : 0;
 
                 return {
-                    name: cols[nameIdx] || '',
-                    phone: phoneIdx >= 0 ? (cols[phoneIdx] || 'N/A') : 'N/A',
-                    address: cols[addressIdx] || '',
-                    place: placeIdx >= 0 ? cols[placeIdx] || null : null,
-                    location: matchedDistrict ? (matchedDistrict as any) : null,
-                    pincode: pincodeIdx >= 0 ? cols[pincodeIdx] || null : null,
-                    gst_pan: gstIdx >= 0 ? cols[gstIdx] || null : null,
-                    pan_no: panIdx >= 0 ? cols[panIdx] || null : null,
-                    second_phone: secondPhoneIdx >= 0 ? cols[secondPhoneIdx] || null : null,
+                    brand: brandIdx >= 0 ? cols[brandIdx] || null : null,
+                    name: sanitizeText(cols[nameIdx] || '', LIMITS.longText),
+                    phone: phoneIdx >= 0 ? (sanitizePhone(cols[phoneIdx] || '') || 'N/A') : 'N/A',
+                    address: sanitizeMultilineText(cols[addressIdx] || '', LIMITS.address),
+                    place: placeIdx >= 0 ? sanitizeText(cols[placeIdx] || '', LIMITS.mediumText) || null : null,
+                    location: locationIdx >= 0 ? sanitizeText(cols[locationIdx] || '', LIMITS.mediumText) || null : null,
+                    pincode: pincodeIdx >= 0 ? sanitizeDigits(cols[pincodeIdx] || '', LIMITS.pincode) || null : null,
+                    gst_pan: gstIdx >= 0 ? sanitizeUpperAlnum(cols[gstIdx] || '', LIMITS.gstin) || null : null,
+                    pan_no: panIdx >= 0 ? sanitizeUpperAlnum(cols[panIdx] || '', LIMITS.pan) || null : null,
+                    second_phone: secondPhoneIdx >= 0 ? sanitizePhone(cols[secondPhoneIdx] || '') || null : null,
                     opening_balance: openingBalanceValue,
                     is_active: true,
                 };
-            }).filter(r => r.name && r.address);
+            });
+
+            const toInsert = parsedRows
+                .filter(r => r.name && r.address)
+                .filter((row) => row.phone === 'N/A' || /^\+?\d{7,15}$/.test(row.phone))
+                .map(({ brand: _brand, ...customer }) => customer);
 
             if (toInsert.length === 0) { toast.error('No valid rows to import'); return; }
+
+            const csvBrands = Array.from(
+                new Set(
+                    parsedRows
+                        .map((row) => row.brand?.trim())
+                        .filter((brand): brand is string => Boolean(brand))
+                        .map((brand) => brand.toLowerCase()),
+                ),
+            );
+
+            if (csvBrands.length > 0) {
+                const { data: existingBrands, error: brandsFetchError } = await supabase
+                    .from('brands')
+                    .select('name');
+                if (brandsFetchError) throw brandsFetchError;
+
+                const existingBrandNames = new Set(
+                    (existingBrands ?? [])
+                        .map((brand) => brand.name?.trim().toLowerCase())
+                        .filter((brandName): brandName is string => Boolean(brandName)),
+                );
+
+                const brandsToCreate = parsedRows
+                    .map((row) => row.brand?.trim())
+                    .filter((brand): brand is string => Boolean(brand))
+                    .filter((brand, index, array) => array.findIndex((value) => value.toLowerCase() === brand.toLowerCase()) === index)
+                    .filter((brand) => !existingBrandNames.has(brand.toLowerCase()))
+                    .map((brand) => ({ name: brand, is_active: true }));
+
+                if (brandsToCreate.length > 0) {
+                    const { error: brandInsertError } = await supabase.from('brands').insert(brandsToCreate);
+                    if (brandInsertError) throw brandInsertError;
+                }
+            }
 
             const { error } = await supabase.from('customers').insert(toInsert);
             if (error) throw error;
@@ -221,11 +302,11 @@ export const CustomerForm = () => {
                     <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
                         <div className="md:col-span-2 space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Customer Name <span className="text-rose-500">*</span></Label>
-                            <Input value={form.name} onChange={field('name')} placeholder="Full business or legal name" required className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-semibold" />
+                            <Input value={form.name} onChange={(e) => setForm(f => ({ ...f, name: sanitizeText(e.target.value, LIMITS.longText) }))} placeholder="Full business or legal name" required maxLength={LIMITS.longText} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-semibold" />
                         </div>
                         <div className="space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Place <span className="text-rose-500">*</span></Label>
-                            <Input value={form.place} onChange={field('place')} placeholder="e.g. Kochi Terminal" className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50" />
+                            <Input value={form.place} onChange={(e) => setForm(f => ({ ...f, place: sanitizeText(e.target.value, LIMITS.mediumText) }))} placeholder="e.g. Kochi Terminal" maxLength={LIMITS.mediumText} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50" />
                         </div>
                         <div className="space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">District Zone <span className="text-rose-500">*</span></Label>
@@ -242,12 +323,12 @@ export const CustomerForm = () => {
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Phone Number <span className="text-rose-500">*</span></Label>
                             <div className="relative">
                                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"><Phone size={16} /></div>
-                                <Input type="tel" value={form.phone} onChange={field('phone')} placeholder="Primary contact string" required className="pl-11 h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-mono tracking-widest" />
+                                <Input type="tel" value={form.phone} onChange={(e) => setForm(f => ({ ...f, phone: sanitizePhone(e.target.value) }))} placeholder="Primary contact string" required maxLength={LIMITS.phone} className="pl-11 h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-mono tracking-widest" />
                             </div>
                         </div>
                         <div className="space-y-2 group ">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Alternate Phone No</Label>
-                            <Input type="tel" value={form.second_phone} onChange={field('second_phone')} placeholder="Alternate contact number" className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-mono tracking-widest"  />
+                            <Input type="tel" value={form.second_phone} onChange={(e) => setForm(f => ({ ...f, second_phone: sanitizePhone(e.target.value) }))} placeholder="Alternate contact number" maxLength={LIMITS.phone} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-mono tracking-widest"  />
                         </div>
                     </div>
                 </div>
@@ -266,11 +347,11 @@ export const CustomerForm = () => {
                     <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
                         <div className="md:col-span-2 space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Customer Address <span className="text-rose-500">*</span></Label>
-                            <Textarea value={form.address} onChange={field('address')} placeholder="Suite, Building, Street mapping..." rows={3} required className="resize-none rounded-xl bg-slate-50 dark:bg-slate-800/50 p-4" />
+                            <Textarea value={form.address} onChange={(e) => setForm(f => ({ ...f, address: sanitizeMultilineText(e.target.value, LIMITS.address) }))} placeholder="Suite, Building, Street mapping..." rows={3} required maxLength={LIMITS.address} className="resize-none rounded-xl bg-slate-50 dark:bg-slate-800/50 p-4" />
                         </div>
                         <div className="space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Pin / Zip Code</Label>
-                            <Input value={form.pincode} onChange={field('pincode')} placeholder="e.g. 682001" maxLength={6} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-mono tracking-widest" />
+                            <Input value={form.pincode} onChange={(e) => setForm(f => ({ ...f, pincode: sanitizeDigits(e.target.value, LIMITS.pincode) }))} placeholder="e.g. 682001" maxLength={LIMITS.pincode} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-mono tracking-widest" />
                         </div>
                     </div>
                 </div>
@@ -291,11 +372,11 @@ export const CustomerForm = () => {
                     <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
                         <div className="space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">GSTIN</Label>
-                            <Input value={form.gst_pan} onChange={field('gst_pan')} placeholder="Enter verified tax code" className="h-12 rounded-xl bg-white dark:bg-slate-900 uppercase font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
+                            <Input value={form.gst_pan} onChange={(e) => setForm(f => ({ ...f, gst_pan: sanitizeUpperAlnum(e.target.value, LIMITS.gstin) }))} placeholder="Enter verified tax code" maxLength={LIMITS.gstin} className="h-12 rounded-xl bg-white dark:bg-slate-900 uppercase font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
                         </div>
                         <div className="space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">PAN No</Label>
-                            <Input value={form.pan_no} onChange={field('pan_no')} placeholder="Enter PAN number" className="h-12 rounded-xl bg-white dark:bg-slate-900 uppercase font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
+                            <Input value={form.pan_no} onChange={(e) => setForm(f => ({ ...f, pan_no: sanitizeUpperAlnum(e.target.value, LIMITS.pan) }))} placeholder="Enter PAN number" maxLength={LIMITS.pan} className="h-12 rounded-xl bg-white dark:bg-slate-900 uppercase font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
                         </div>
                         <div className="space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">Opening Balance (Credit / Debit)</Label>

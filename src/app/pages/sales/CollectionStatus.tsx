@@ -15,6 +15,7 @@ import {
   EmptyState, Spinner, StatusBadge, TablePagination, ErrorState,
 } from '@/app/components/ui/primitives';
 import { DEFAULT_RECEIPT_STATUS, RECEIPT_STATUS_OPTIONS_BY_MODE } from '@/app/utils';
+import { LIMITS, sanitizeMultilineText, validateRequired } from '@/app/validation';
 
 interface ReceiptRow {
   id: string;
@@ -114,9 +115,15 @@ export const CollectionStatus = () => {
   };
 
   const confirmBounce = async () => {
-    if (!bounceReason.trim()) { toast.error('Please enter a reason'); return; }
+    let normalizedReason = '';
+    try {
+      normalizedReason = sanitizeMultilineText(bounceReason, LIMITS.reason);
+      validateRequired(normalizedReason, 'Bounce reason');
+    } catch (err: any) {
+      toast.error(err?.message || 'Please enter a reason'); return;
+    }
     setSavingStatus(bounceTargetId);
-    const { error } = await supabase.from('receipts').update({ payment_status: 'Bounced', bounce_reason: bounceReason.trim() }).eq('id', bounceTargetId);
+    const { error } = await supabase.from('receipts').update({ payment_status: 'Bounced', bounce_reason: normalizedReason }).eq('id', bounceTargetId);
     if (error) toast.error('Failed to update');
     else { toast.success('Marked as Bounced'); fetchReceipts(); }
     setBounceDialog(false);
@@ -277,9 +284,10 @@ export const CollectionStatus = () => {
             <Label>Reason for Bounce *</Label>
             <Textarea
               value={bounceReason}
-              onChange={e => setBounceReason(e.target.value)}
+              onChange={e => setBounceReason(sanitizeMultilineText(e.target.value, LIMITS.reason))}
               placeholder="e.g. Insufficient funds, Signature mismatch..."
               rows={3}
+              maxLength={LIMITS.reason}
               className="rounded-xl resize-none"
             />
           </div>

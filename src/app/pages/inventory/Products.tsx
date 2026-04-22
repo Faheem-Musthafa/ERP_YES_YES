@@ -13,6 +13,7 @@ import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
 import { archiveRecoverableRecord, restoreRecoverableRecord } from '@/app/recovery';
+import { LIMITS, sanitizeDecimalInput, sanitizeIntegerInput, sanitizeSku, sanitizeText, validateNonNegativeAmount, validateRequired, validateSku } from '@/app/validation';
 import {
   PageHeader, SearchBar, DataCard, FilterBar, FilterField,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -103,10 +104,25 @@ export const Products = () => {
   const openEdit = (p: ProductStockRow) => { setEditing(p); setForm({ name: p.name, brand_id: p.brands?.id ?? '', sku: p.sku, dealer_price: String(p.dealer_price), stock_qty: String(p.live_stock_qty) }); setOpen(true); };
 
   const handleSave = async () => {
-    if (!form.name || !form.sku) { toast.error('Name and SKU are required'); return; }
+    let productName = '';
+    let sku = '';
+    let dealerPrice = 0;
+    let initialStock = 0;
+    try {
+      productName = sanitizeText(form.name, LIMITS.longText);
+      sku = sanitizeSku(form.sku);
+      validateRequired(productName, 'Name');
+      validateRequired(sku, 'SKU');
+      validateSku(sku);
+      dealerPrice = Number(form.dealer_price || 0);
+      initialStock = Number(form.stock_qty || 0);
+      validateNonNegativeAmount(dealerPrice, 'Dealer price');
+      validateNonNegativeAmount(initialStock, 'Initial stock');
+    } catch (err: any) {
+      toast.error(err?.message || 'Invalid product details'); return;
+    }
     setSaving(true);
-    const initialStock = Number(form.stock_qty) || 0;
-    const payload = { name: form.name, brand_id: form.brand_id || null, sku: form.sku, dealer_price: Number(form.dealer_price) || 0, stock_qty: initialStock };
+    const payload = { name: productName, brand_id: form.brand_id || null, sku, dealer_price: dealerPrice, stock_qty: initialStock };
     try {
       if (editing) {
         const { error } = await supabase
@@ -302,7 +318,7 @@ export const Products = () => {
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label className="text-xs">Product Name <span className="text-destructive">*</span></Label>
-              <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Premium Widget 2000" />
+              <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: sanitizeText(e.target.value, LIMITS.longText) }))} placeholder="e.g. Premium Widget 2000" maxLength={LIMITS.longText} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -316,17 +332,17 @@ export const Products = () => {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">SKU <span className="text-destructive">*</span></Label>
-                <Input value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))} placeholder="e.g. WGT-2000" />
+                <Input value={form.sku} onChange={e => setForm(f => ({ ...f, sku: sanitizeSku(e.target.value) }))} placeholder="e.g. WGT-2000" maxLength={LIMITS.sku} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs">Dealer Price (₹)</Label>
-                <Input type="number" value={form.dealer_price} onChange={e => setForm(f => ({ ...f, dealer_price: e.target.value }))} />
+                <Input type="number" min="0" step="0.01" value={form.dealer_price} onChange={e => setForm(f => ({ ...f, dealer_price: sanitizeDecimalInput(e.target.value) }))} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Initial Stock</Label>
-                <Input type="number" value={form.stock_qty} onChange={e => setForm(f => ({ ...f, stock_qty: e.target.value }))} disabled={Boolean(editing)} />
+                <Input type="number" min="0" step="1" value={form.stock_qty} onChange={e => setForm(f => ({ ...f, stock_qty: sanitizeIntegerInput(e.target.value) }))} disabled={Boolean(editing)} />
                 <p className="text-[10px] text-muted-foreground">
                   {Boolean(editing) ? 'Live stock is managed through Adjustments, Transfers, GRN and Billing' : 'Initial stock is seeded into live inventory during product creation'}
                 </p>

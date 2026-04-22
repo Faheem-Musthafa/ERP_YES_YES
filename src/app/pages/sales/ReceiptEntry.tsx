@@ -13,6 +13,7 @@ import { FormSection, FormCard, PageHeader } from '@/app/components/ui/primitive
 import { COMPANY_LIST, cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import type { CompanyEnum, PaymentModeEnum } from '@/app/types/database';
 import { DEFAULT_RECEIPT_STATUS } from '@/app/utils';
+import { LIMITS, sanitizeDecimalInput, sanitizeMultilineText, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePhone, validatePositiveAmount, validateRequired } from '@/app/validation';
 
 interface CustomerOption {
   id: string;
@@ -124,8 +125,16 @@ export const ReceiptEntry = () => {
     try {
       let finalCustomerId = selectedCustomerId;
       if (customerType === 'new') {
+        const normalizedCustomerName = sanitizeText(customerName, LIMITS.longText);
+        const normalizedCustomerPhone = sanitizePhone(customerPhone);
+        const normalizedCustomerAddress = sanitizeMultilineText(customerAddress, LIMITS.address);
+        const normalizedCustomerGst = sanitizeUpperAlnum(customerGst, LIMITS.gstin) || null;
+        validateRequired(normalizedCustomerName, 'Customer name');
+        validateRequired(normalizedCustomerPhone, 'Customer phone');
+        validatePhone(normalizedCustomerPhone);
+        if (normalizedCustomerGst) validateGSTIN(normalizedCustomerGst);
         const { data: newCust, error: errC } = await supabase.from('customers').insert({
-          name: customerName, phone: customerPhone, address: customerAddress, gst_pan: customerGst || null, is_active: true
+          name: normalizedCustomerName, phone: normalizedCustomerPhone, address: normalizedCustomerAddress, gst_pan: normalizedCustomerGst, is_active: true
         }).select('id').single();
         if (errC) throw errC;
         finalCustomerId = newCust.id;
@@ -133,17 +142,19 @@ export const ReceiptEntry = () => {
 
       const receiptNumber = `RCPT-${Date.now()}`;
       const finalBrand = brand === 'Other' ? otherBrand.trim() : brand;
+      const normalizedAmount = Number(receivedAmount);
+      validatePositiveAmount(normalizedAmount, 'Received amount');
       const { error } = await supabase.from('receipts').insert({
         receipt_number: receiptNumber,
         order_id: onAccountOf === 'Invoice' ? selectedOrderId : null,
         customer_id: finalCustomerId,
-        amount: Number(receivedAmount),
+        amount: normalizedAmount,
         payment_mode: modeOfReceipt,
         payment_status: DEFAULT_RECEIPT_STATUS,
         company,
-        brand: finalBrand,
+        brand: sanitizeText(finalBrand, LIMITS.mediumText),
         received_date: receivedDate,
-        cheque_number: chequeNumber.trim() || null,
+        cheque_number: sanitizeUpperAlnum(chequeNumber, LIMITS.mediumText) || null,
         cheque_date: chequeDate || null,
         on_account_of: onAccountOf,
         recorded_by: user?.id ?? null,
@@ -236,7 +247,7 @@ export const ReceiptEntry = () => {
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors">
                   <IndianRupee size={24} />
                 </div>
-                <Input type="number" value={receivedAmount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedAmount(e.target.value)} placeholder="0.00" required className="pl-12 h-16 text-3xl font-bold font-mono bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-inner rounded-2xl focus-visible:ring-teal-500/30" />
+                <Input type="number" min="0.01" step="0.01" value={receivedAmount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedAmount(sanitizeDecimalInput(e.target.value))} placeholder="0.00" required className="pl-12 h-16 text-3xl font-bold font-mono bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-inner rounded-2xl focus-visible:ring-teal-500/30" />
               </div>
             </div>
             <div className="space-y-3">
@@ -273,7 +284,7 @@ export const ReceiptEntry = () => {
             {brand === 'Other' && (
               <div className="space-y-2 group animate-in slide-in-from-left-4 duration-300">
                 <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Custom Brand <span className="text-rose-500">*</span></Label>
-                <Input value={otherBrand} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOtherBrand(e.target.value)} placeholder="Type manually..." required className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50" />
+                  <Input value={otherBrand} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOtherBrand(sanitizeText(e.target.value, LIMITS.mediumText))} placeholder="Type manually..." required maxLength={LIMITS.mediumText} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50" />
               </div>
             )}
           </div>
@@ -312,25 +323,25 @@ export const ReceiptEntry = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                 <div className="space-y-2 md:col-span-2 group">
                   <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Legal Name <span className="text-rose-500">*</span></Label>
-                  <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Full business or personal name" required className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50" />
+                  <Input value={customerName} onChange={(e) => setCustomerName(sanitizeText(e.target.value, LIMITS.longText))} placeholder="Full business or personal name" required maxLength={LIMITS.longText} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50" />
                 </div>
                 <div className="space-y-2 group">
                   <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Contact Number <span className="text-rose-500">*</span></Label>
                   <div className="relative">
-                    <Input type="tel" value={customerPhone} onChange={(e) => { setCustomerPhone(e.target.value); setPhoneAutoFilled(false); }} placeholder="Primary phone" required className={`h-12 rounded-xl ${phoneAutoFilled ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 dark:bg-slate-800/50'}`} />
+                    <Input type="tel" value={customerPhone} onChange={(e) => { setCustomerPhone(sanitizePhone(e.target.value)); setPhoneAutoFilled(false); }} placeholder="Primary phone" required maxLength={LIMITS.phone} className={`h-12 rounded-xl ${phoneAutoFilled ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 dark:bg-slate-800/50'}`} />
                     {phoneAutoFilled && <Info size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary" />}
                   </div>
                 </div>
                 <div className="space-y-2 group">
                   <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Tax ID (GST/PAN)</Label>
                   <div className="relative">
-                    <Input value={customerGst} onChange={(e) => { setCustomerGst(e.target.value); setGstAutoFilled(false); }} placeholder="Optional tax reference" className={`h-12 rounded-xl ${gstAutoFilled ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 dark:bg-slate-800/50'}`} />
+                    <Input value={customerGst} onChange={(e) => { setCustomerGst(sanitizeUpperAlnum(e.target.value, LIMITS.gstin)); setGstAutoFilled(false); }} placeholder="Optional tax reference" maxLength={LIMITS.gstin} className={`h-12 rounded-xl ${gstAutoFilled ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 dark:bg-slate-800/50'}`} />
                     {gstAutoFilled && <Info size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary" />}
                   </div>
                 </div>
                 <div className="space-y-2 md:col-span-2 group">
                   <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Billing/Shipping Address <span className="text-rose-500">*</span></Label>
-                  <Textarea value={customerAddress} onChange={(e) => { setCustomerAddress(e.target.value); setAddressAutoFilled(false); }} placeholder="Complete regional address..." rows={3} required className={`resize-none rounded-xl ${addressAutoFilled ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 dark:bg-slate-800/50'}`} />
+                  <Textarea value={customerAddress} onChange={(e) => { setCustomerAddress(sanitizeMultilineText(e.target.value, LIMITS.address)); setAddressAutoFilled(false); }} placeholder="Complete regional address..." rows={3} required maxLength={LIMITS.address} className={`resize-none rounded-xl ${addressAutoFilled ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 dark:bg-slate-800/50'}`} />
                 </div>
               </div>
             )}
@@ -404,7 +415,7 @@ export const ReceiptEntry = () => {
              <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 group">
                   <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Reference ID <span className="text-rose-500">*</span></Label>
-                  <Input value={chequeNumber} onChange={(e) => setChequeNumber(e.target.value)} placeholder="000123" required className="h-12 rounded-xl bg-slate-50 font-mono text-lg" />
+                  <Input value={chequeNumber} onChange={(e) => setChequeNumber(sanitizeUpperAlnum(e.target.value, LIMITS.mediumText))} placeholder="000123" required maxLength={LIMITS.mediumText} className="h-12 rounded-xl bg-slate-50 font-mono text-lg" />
                 </div>
                 <div className="space-y-2 group">
                   <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Instrument Date <span className="text-rose-500">*</span></Label>

@@ -13,6 +13,7 @@ import {
   StyledThead, StyledTh, StyledTr, StyledTd,
   EmptyState, Spinner, StatusBadge, TablePagination,
 } from '@/app/components/ui/primitives';
+import { sanitizeDecimalInput } from '@/app/validation';
 
 interface OrderItem {
   id: string; product_id: string; quantity: number; dealer_price: number;
@@ -70,11 +71,12 @@ export const OrderReview = () => {
     setItems(prev => prev.map(i => {
       if (i.id !== id) return i;
       if (field === 'approvedDP' || field === 'approvedDiscount') {
-        const dp = field === 'approvedDP' ? val : i.approvedDP;
-        const disc = field === 'approvedDiscount' ? val : i.approvedDiscount;
-        return { ...i, [field]: val, approvedAmount: parseFloat((dp * i.quantity * (1 - disc / 100)).toFixed(2)) };
+        const nextValue = field === 'approvedDP' ? Math.max(0, val) : Math.max(0, Math.min(100, val));
+        const dp = field === 'approvedDP' ? nextValue : i.approvedDP;
+        const disc = field === 'approvedDiscount' ? nextValue : i.approvedDiscount;
+        return { ...i, [field]: nextValue, approvedAmount: parseFloat((dp * i.quantity * (1 - disc / 100)).toFixed(2)) };
       }
-      return { ...i, [field]: val };
+      return { ...i, [field]: Math.max(0, val) };
     }));
   };
 
@@ -106,8 +108,33 @@ export const OrderReview = () => {
     navigate('/accounts/pending-orders', { replace: true });
   };
 
+  useEffect(() => {
+    setItems((prev) => prev.map((item) => {
+      const approvedDP = Math.max(0, item.approvedDP);
+      const approvedDiscount = Math.max(0, Math.min(100, item.approvedDiscount));
+      const approvedAmount = parseFloat((approvedDP * item.quantity * (1 - approvedDiscount / 100)).toFixed(2));
+      if (approvedDP === item.approvedDP && approvedDiscount === item.approvedDiscount && approvedAmount === item.approvedAmount) {
+        return item;
+      }
+      return { ...item, approvedDP, approvedDiscount, approvedAmount };
+    }));
+  }, []);
+
   const handleApprove = async () => {
     if (!selectedOrder || !user) return;
+    const invalidItem = items.find((item) =>
+      !Number.isFinite(item.approvedDP)
+      || item.approvedDP < 0
+      || !Number.isFinite(item.approvedDiscount)
+      || item.approvedDiscount < 0
+      || item.approvedDiscount > 100
+      || !Number.isFinite(item.approvedAmount)
+      || item.approvedAmount < 0,
+    );
+    if (invalidItem) {
+      toast.error('Approved pricing contains invalid values');
+      return;
+    }
     setSubmitting(true);
     try {
       const payload = items.map((item) => ({
@@ -280,14 +307,14 @@ export const OrderReview = () => {
                       <StyledTd right>
                         <input
                           type="number" value={i.approvedDP}
-                          onChange={e => updateApprovedField(i.id, 'approvedDP', Number(e.target.value))}
+                          onChange={e => updateApprovedField(i.id, 'approvedDP', Number(sanitizeDecimalInput(e.target.value)) || 0)}
                           className="w-24 text-right border border-border rounded-lg px-2 py-1 text-xs bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
                         />
                       </StyledTd>
                       <StyledTd right>
                         <input
                           type="number" min="0" max="100" value={i.approvedDiscount}
-                          onChange={e => updateApprovedField(i.id, 'approvedDiscount', Number(e.target.value))}
+                          onChange={e => updateApprovedField(i.id, 'approvedDiscount', Number(sanitizeDecimalInput(e.target.value, 6)) || 0)}
                           className="w-16 text-right border border-border rounded-lg px-2 py-1 text-xs bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
                         />
                       </StyledTd>

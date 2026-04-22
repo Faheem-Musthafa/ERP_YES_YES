@@ -7,6 +7,7 @@ import { Lock, Check, X, Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
+import { LIMITS, validatePasswordStrength } from '@/app/validation';
 
 interface CheckItem {
     label: string;
@@ -38,6 +39,13 @@ export const ChangePassword = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        try {
+            validatePasswordStrength(newPassword);
+            if (newPassword !== confirmPassword) throw new Error('Passwords do not match');
+        } catch (err: any) {
+            toast.error(err?.message || 'Password does not meet requirements');
+            return;
+        }
         if (!canSubmit) return;
         setSaving(true);
         try {
@@ -100,6 +108,7 @@ export const ChangePassword = () => {
                                 className="h-11 pr-12"
                                 autoComplete="new-password"
                                 autoFocus
+                                maxLength={LIMITS.password}
                             />
                             <button type="button" onClick={() => setShowNew(v => !v)} aria-label={showNew ? 'Hide new password' : 'Show new password'} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                                 {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -135,6 +144,7 @@ export const ChangePassword = () => {
                                         : 'border-red-300 focus-visible:ring-red-200 bg-red-50'
                                     : ''}`}
                                 autoComplete="new-password"
+                                maxLength={LIMITS.password}
                             />
                             <button type="button" onClick={() => setShowConfirm(v => !v)} aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                                 {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}

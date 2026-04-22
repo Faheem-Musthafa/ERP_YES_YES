@@ -11,6 +11,7 @@ import { Plus, Pencil, Tag, Archive, RotateCcw } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 import { archiveRecoverableRecord, restoreRecoverableRecord } from '@/app/recovery';
+import { LIMITS, sanitizeText, validateRequired } from '@/app/validation';
 import {
   PageHeader, SearchBar, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -76,15 +77,21 @@ export const Brands = () => {
   const openEdit = (b: any) => { setEditing(b); setName(b.name); setOpen(true); };
 
   const handleSave = async () => {
-    if (!name.trim()) { toast.error('Brand name is required'); return; }
+    let normalizedName = '';
+    try {
+      normalizedName = sanitizeText(name, LIMITS.mediumText);
+      validateRequired(normalizedName, 'Brand name');
+    } catch (err: any) {
+      toast.error(err?.message || 'Brand name is required'); return;
+    }
     setSaving(true);
     try {
       if (editing) {
-        const { error } = await supabase.from('brands').update({ name: name.trim() }).eq('id', editing.id);
+        const { error } = await supabase.from('brands').update({ name: normalizedName }).eq('id', editing.id);
         if (error) throw error;
         toast.success('Brand updated!');
       } else {
-        const { error } = await supabase.from('brands').insert({ name: name.trim(), is_active: true });
+        const { error } = await supabase.from('brands').insert({ name: normalizedName, is_active: true });
         if (error) throw error;
         toast.success('Brand added!');
       }
@@ -243,7 +250,7 @@ export const Brands = () => {
           </DialogHeader>
           <div className="py-4">
             <Label className="text-xs">Brand Name <span className="text-destructive">*</span></Label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Sony, Samsung" className="mt-1.5" />
+            <Input value={name} onChange={e => setName(sanitizeText(e.target.value, LIMITS.mediumText))} placeholder="e.g. Sony, Samsung" className="mt-1.5" maxLength={LIMITS.mediumText} />
           </div>
           <DialogFooter className="gap-2">
             <CustomTooltip content="Close without saving" side="top">

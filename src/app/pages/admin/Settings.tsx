@@ -24,6 +24,7 @@ import {
 import { DEFAULT_MASTER_DATA_SETTINGS } from '@/app/settings';
 import { COMPANY_LIST, cloneCompanyProfiles, readCompanyProfiles, type CompanyProfile, type CompanyProfiles } from '@/app/companyProfiles';
 import type { CompanyEnum, Json } from '@/app/types/database';
+import { LIMITS, sanitizeDigits, sanitizeEmail, sanitizeMultilineText, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateEmail, validateGSTIN, validatePhone, validateRequired } from '@/app/validation';
 
 interface SystemConfig {
   default_invoice_type: string;
@@ -61,6 +62,7 @@ const MASTER_SETTING_LABELS: Record<MasterSettingKey, string> = {
 };
 
 const normalizeMasterLookupKey = (value: string) => value.trim().toLowerCase();
+const normalizeMasterInput = (value: string) => sanitizeText(value, LIMITS.mediumText);
 
 const normalizeMasterList = (values: readonly string[]) => {
   const unique = new Set<string>();
@@ -326,7 +328,7 @@ export const AdminSettings = () => {
 
   const createMasterOption = async (key: MasterSettingKey, rawValue: string) => {
     const current = getMasterListByKey(key);
-    const value = rawValue.trim();
+    const value = normalizeMasterInput(rawValue);
     const label = MASTER_SETTING_LABELS[key];
 
     if (!value) {
@@ -412,7 +414,7 @@ export const AdminSettings = () => {
   const handleUpdateMasterItem = async () => {
     const label = MASTER_SETTING_LABELS[editMasterKey];
     const current = getMasterListByKey(editMasterKey);
-    const nextValue = editMasterValue.trim();
+    const nextValue = normalizeMasterInput(editMasterValue);
 
     if (!nextValue) {
       toast.error(`${label} is required`);
@@ -462,13 +464,32 @@ export const AdminSettings = () => {
 
   const handleSaveCompanyProfile = async (company: CompanyEnum) => {
     const profile = companyProfiles[company];
-    const companyDisplayName = profile.company_name.trim() || company;
-    if (!profile.company_name.trim()) {
+    const normalizedProfile: CompanyProfile = {
+      company_name: sanitizeText(profile.company_name, LIMITS.longText),
+      company_gstin: sanitizeUpperAlnum(profile.company_gstin, LIMITS.gstin),
+      company_address: sanitizeMultilineText(profile.company_address, LIMITS.address),
+      company_phone: sanitizePhone(profile.company_phone),
+      company_email: sanitizeEmail(profile.company_email),
+    };
+    const sanitizedProfiles: CompanyProfiles = {
+      ...companyProfiles,
+      [company]: normalizedProfile,
+    };
+    const companyDisplayName = normalizedProfile.company_name || company;
+    if (!normalizedProfile.company_name) {
       toast.error(`${companyDisplayName} company name is required`);
       return;
     }
-    if (!profile.company_address.trim()) {
+    if (!normalizedProfile.company_address) {
       toast.error(`${companyDisplayName} company address is required`);
+      return;
+    }
+    try {
+      if (normalizedProfile.company_phone) validatePhone(normalizedProfile.company_phone, 'Company phone');
+      if (normalizedProfile.company_email) validateEmail(normalizedProfile.company_email);
+      if (normalizedProfile.company_gstin) validateGSTIN(normalizedProfile.company_gstin);
+    } catch (err: any) {
+      toast.error(err?.message || 'Invalid company profile');
       return;
     }
 
@@ -479,7 +500,7 @@ export const AdminSettings = () => {
         .upsert(
           {
             key: 'company_profiles',
-            value: companyProfiles as unknown as Json,
+            value: sanitizedProfiles as unknown as Json,
           },
           { onConflict: 'key' },
         );
@@ -488,11 +509,11 @@ export const AdminSettings = () => {
 
       if (company === 'YES YES') {
         const legacySettings = [
-          { key: 'company_name', value: profile.company_name },
-          { key: 'company_gstin', value: profile.company_gstin },
-          { key: 'company_address', value: profile.company_address },
-          { key: 'company_phone', value: profile.company_phone },
-          { key: 'company_email', value: profile.company_email },
+          { key: 'company_name', value: normalizedProfile.company_name },
+          { key: 'company_gstin', value: normalizedProfile.company_gstin },
+          { key: 'company_address', value: normalizedProfile.company_address },
+          { key: 'company_phone', value: normalizedProfile.company_phone },
+          { key: 'company_email', value: normalizedProfile.company_email },
         ];
 
         for (const setting of legacySettings) {
@@ -510,7 +531,8 @@ export const AdminSettings = () => {
         }
       }
 
-      setOriginalCompanyProfiles(companyProfiles);
+      setCompanyProfiles(sanitizedProfiles);
+      setOriginalCompanyProfiles(sanitizedProfiles);
       toast.success(`${companyDisplayName} profile saved`);
     } catch (err: any) {
       toast.error(err.message || 'Failed to save company profile');
@@ -578,11 +600,18 @@ export const AdminSettings = () => {
     JSON.stringify(companyProfiles[company]) !== JSON.stringify(originalCompanyProfiles[company]);
 
   const updateCompanyProfile = (company: CompanyEnum, key: keyof CompanyProfile, value: string) => {
+    const normalizedValue = (() => {
+      if (key === 'company_gstin') return sanitizeUpperAlnum(value, LIMITS.gstin);
+      if (key === 'company_phone') return sanitizePhone(value);
+      if (key === 'company_email') return sanitizeEmail(value);
+      if (key === 'company_address') return sanitizeMultilineText(value, LIMITS.address);
+      return sanitizeText(value, LIMITS.longText);
+    })();
     setCompanyProfiles((prev) => ({
       ...prev,
       [company]: {
         ...prev[company],
-        [key]: value,
+        [key]: normalizedValue,
       },
     }));
   };
@@ -691,7 +720,7 @@ export const AdminSettings = () => {
                       min="0"
                       max="100"
                       value={config.max_discount_percentage}
-                      onChange={(e) => setConfig({ ...config, max_discount_percentage: Number(e.target.value) || 0 })}
+                      onChange={(e) => setConfig({ ...config, max_discount_percentage: Math.max(0, Math.min(100, Number(sanitizeDigits(e.target.value, 3)) || 0)) })}
                       placeholder="0-100"
                       className="h-11 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20"
                     />
@@ -804,6 +833,7 @@ export const AdminSettings = () => {
                           onChange={(e) => updateCompanyProfile(company, 'company_name', e.target.value)}
                           placeholder={`Legal Name for ${companyDisplayName}`}
                           required
+                          maxLength={LIMITS.longText}
                           className="h-10 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/60"
                         />
                       </div>
@@ -814,8 +844,9 @@ export const AdminSettings = () => {
                         </Label>
                         <Input
                           value={profile.company_gstin}
-                          onChange={(e) => updateCompanyProfile(company, 'company_gstin', e.target.value.toUpperCase())}
+                          onChange={(e) => updateCompanyProfile(company, 'company_gstin', e.target.value)}
                           placeholder="e.g. 32AABCT1234F1Z5"
+                          maxLength={LIMITS.gstin}
                           className="h-10 uppercase rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/60 font-mono tracking-wider text-sm"
                         />
                       </div>
@@ -829,6 +860,7 @@ export const AdminSettings = () => {
                             value={profile.company_phone}
                             onChange={(e) => updateCompanyProfile(company, 'company_phone', e.target.value)}
                             placeholder="+91..."
+                            maxLength={LIMITS.phone}
                             className="h-10 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/60"
                           />
                         </div>
@@ -842,6 +874,7 @@ export const AdminSettings = () => {
                             value={profile.company_email}
                             onChange={(e) => updateCompanyProfile(company, 'company_email', e.target.value)}
                             placeholder="mail@..."
+                            maxLength={LIMITS.email}
                             className="h-10 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/60"
                           />
                         </div>
@@ -857,6 +890,7 @@ export const AdminSettings = () => {
                           placeholder="Full operational address for invoices"
                           rows={3}
                           required
+                          maxLength={LIMITS.address}
                           className="rounded-xl resize-none bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/60 text-sm leading-relaxed"
                         />
                       </div>
@@ -1005,7 +1039,7 @@ export const AdminSettings = () => {
                 <Input
                   id="Godown-name"
                   value={newGodown}
-                  onChange={(e) => setNewGodown(e.target.value)}
+                  onChange={(e) => setNewGodown(normalizeMasterInput(e.target.value))}
                   placeholder="e.g. Main Godown"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddGodown()}
                   className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
@@ -1038,7 +1072,7 @@ export const AdminSettings = () => {
                 <Input
                   id="district-name"
                   value={newDistrict}
-                  onChange={(e) => setNewDistrict(e.target.value)}
+                  onChange={(e) => setNewDistrict(normalizeMasterInput(e.target.value))}
                   placeholder="e.g. Kottayam"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddDistrict()}
                   className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
@@ -1071,7 +1105,7 @@ export const AdminSettings = () => {
                 <Input
                   id="vehicle-name"
                   value={newVehicle}
-                  onChange={(e) => setNewVehicle(e.target.value)}
+                  onChange={(e) => setNewVehicle(normalizeMasterInput(e.target.value))}
                   placeholder="e.g. Auto Rickshaw"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddVehicle()}
                   className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
@@ -1104,7 +1138,7 @@ export const AdminSettings = () => {
                 <Input
                   id="edit-master-value"
                   value={editMasterValue}
-                  onChange={(e) => setEditMasterValue(e.target.value)}
+                  onChange={(e) => setEditMasterValue(normalizeMasterInput(e.target.value))}
                   onKeyDown={(e) => e.key === 'Enter' && void handleUpdateMasterItem()}
                   className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
                   autoFocus

@@ -8,6 +8,7 @@ import { Label } from '@/app/components/ui/label';
 import { Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { cloneCompanyProfiles, getPrimaryCompanyName, loadCompanyProfiles } from '@/app/companyProfiles';
+import { LIMITS, sanitizeEmail, validateEmail, validateRequired } from '@/app/validation';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
@@ -34,14 +35,16 @@ export const Login = () => {
   }, [resetCooldown]);
 
   const handleForgotPassword = async () => {
-    if (!email.trim()) { toast.error('Enter your email address first, then click Forgot password.'); return; }
+    const normalizedEmail = sanitizeEmail(email);
+    if (!normalizedEmail) { toast.error('Enter your email address first, then click Forgot password.'); return; }
     if (resetCooldown > 0) {
       toast.error(`Please wait ${resetCooldown}s before requesting another reset link.`);
       return;
     }
     setResetLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      validateEmail(normalizedEmail);
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: `${window.location.origin}/change-password`,
       });
       if (error) throw error;
@@ -55,9 +58,20 @@ export const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    let normalizedEmail = '';
+    try {
+      normalizedEmail = sanitizeEmail(email);
+      validateRequired(normalizedEmail, 'Email');
+      validateEmail(normalizedEmail);
+      validateRequired(password, 'Password');
+      setEmail(normalizedEmail);
+    } catch (err: any) {
+      setError(err?.message || 'Invalid email or password');
+      return;
+    }
     setLoading(true);
     try {
-      const result = await login(email, password);
+      const result = await login(normalizedEmail, password);
       if (result.success) navigate('/');
       else setError(result.error || 'Invalid email or password');
     } catch { setError('Login failed. Please try again.'); }
@@ -100,9 +114,11 @@ export const Login = () => {
                 id="email"
                 type="email"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={e => setEmail(sanitizeEmail(e.target.value))}
                 placeholder="name@company.com"
                 required
+                maxLength={LIMITS.email}
+                autoComplete="email"
                 className="h-11 bg-[#f5f7fa] border-[#dde2ea] focus:border-[#34b0a7] focus:ring-2 focus:ring-[#34b0a7]/20 transition-all rounded-xl text-sm"
               />
             </div>
@@ -128,6 +144,8 @@ export const Login = () => {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
+                maxLength={LIMITS.password}
+                autoComplete="current-password"
                 className="h-11 bg-[#f5f7fa] border-[#dde2ea] focus:border-[#34b0a7] focus:ring-2 focus:ring-[#34b0a7]/20 transition-all rounded-xl text-sm"
               />
             </div>
