@@ -184,34 +184,51 @@ export const CustomerForm = () => {
                 return;
             }
 
+            const phoneRegex = /^\+?\d{7,15}$/;
+            const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+            const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+            const pincodeRegex = /^\d{6}$/;
             const parsedRows = lines.slice(1).map(line => {
                 const cols = parseCSVLine(line);
                 const openingBalanceValue = openingBalanceIdx >= 0
                     ? (parseFloat(cols[openingBalanceIdx] || '0') || 0)
                     : 0;
 
+                const rawPhone = phoneIdx >= 0 ? sanitizePhone(cols[phoneIdx] || '') : '';
+                const rawSecondPhone = secondPhoneIdx >= 0 ? sanitizePhone(cols[secondPhoneIdx] || '') : '';
+                const rawGstin = gstIdx >= 0 ? sanitizeUpperAlnum(cols[gstIdx] || '', LIMITS.gstin) : '';
+                const rawPan = panIdx >= 0 ? sanitizeUpperAlnum(cols[panIdx] || '', LIMITS.pan) : '';
+                const rawPincode = pincodeIdx >= 0 ? sanitizeDigits(cols[pincodeIdx] || '', LIMITS.pincode) : '';
+
                 return {
                     brand: brandIdx >= 0 ? cols[brandIdx] || null : null,
                     name: sanitizeText(cols[nameIdx] || '', LIMITS.longText),
-                    phone: phoneIdx >= 0 ? (sanitizePhone(cols[phoneIdx] || '') || 'N/A') : 'N/A',
+                    phone: rawPhone,
                     address: sanitizeMultilineText(cols[addressIdx] || '', LIMITS.address),
                     place: placeIdx >= 0 ? sanitizeText(cols[placeIdx] || '', LIMITS.mediumText) || null : null,
                     location: locationIdx >= 0 ? sanitizeText(cols[locationIdx] || '', LIMITS.mediumText) || null : null,
-                    pincode: pincodeIdx >= 0 ? sanitizeDigits(cols[pincodeIdx] || '', LIMITS.pincode) || null : null,
-                    gst_pan: gstIdx >= 0 ? sanitizeUpperAlnum(cols[gstIdx] || '', LIMITS.gstin) || null : null,
-                    pan_no: panIdx >= 0 ? sanitizeUpperAlnum(cols[panIdx] || '', LIMITS.pan) || null : null,
-                    second_phone: secondPhoneIdx >= 0 ? sanitizePhone(cols[secondPhoneIdx] || '') || null : null,
+                    pincode: pincodeRegex.test(rawPincode) ? rawPincode : null,
+                    gst_pan: gstinRegex.test(rawGstin) ? rawGstin : null,
+                    pan_no: panRegex.test(rawPan) ? rawPan : null,
+                    second_phone: phoneRegex.test(rawSecondPhone) ? rawSecondPhone : null,
                     opening_balance: openingBalanceValue,
                     is_active: true,
                 };
             });
 
+            const totalRows = parsedRows.length;
             const toInsert = parsedRows
-                .filter(r => r.name && r.address)
-                .filter((row) => row.phone === 'N/A' || /^\+?\d{7,15}$/.test(row.phone))
+                .filter((row) => row.name && row.address && phoneRegex.test(row.phone))
                 .map(({ brand: _brand, ...customer }) => customer);
 
-            if (toInsert.length === 0) { toast.error('No valid rows to import'); return; }
+            const skipped = totalRows - toInsert.length;
+            if (toInsert.length === 0) {
+                toast.error('No valid rows to import. Every row needs a name, address, and a 7-15 digit phone number.');
+                return;
+            }
+            if (skipped > 0) {
+                toast.warning(`${skipped} row${skipped === 1 ? '' : 's'} skipped (missing name, address, or invalid phone format).`);
+            }
 
             const csvBrands = Array.from(
                 new Set(
@@ -441,7 +458,8 @@ export const CustomerForm = () => {
                             <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 text-xs text-slate-500 font-medium leading-relaxed">
                                 <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Expected columns:</span> Company, Brand, Customer Name, Place, District, pincode, GSTIN, PAN No, Address, Opening Balance</p>
                                 <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Notes:</span> Company and Brand are accepted for compatibility but not stored in customer master.</p>
-                                <p><span className="font-bold text-slate-700 dark:text-slate-300">Phone fields:</span> <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Phone</code> and <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Second Phone No</code> are optional. Missing primary phone defaults to <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">N/A</code>.</p>
+                                <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Phone fields:</span> <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Phone</code> is required and must be 7-15 digits with an optional leading <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">+</code> (e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">9876543210</code>). Rows missing a valid primary phone are skipped. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Second Phone No</code> is optional; invalid values are dropped silently.</p>
+                                <p><span className="font-bold text-slate-700 dark:text-slate-300">Tax IDs:</span> <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">GSTIN</code> (15 chars, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">32ABCDE1234F1Z5</code>), <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">PAN No</code> (10 chars, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">ABCDE1234F</code>) and <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">pincode</code> (6 digits) are all optional. Leave the cell blank if unknown — placeholder text like <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">N/A</code> or <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Nil</code> is treated as missing. Invalid values are silently stored as <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">NULL</code>.</p>
                             </div>
                         </div>
                     </div>
