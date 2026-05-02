@@ -24,6 +24,7 @@ interface CustomerData {
     phone: string;
     location: string | null;
     place: string | null;
+    openingBalance: number;
     totalOrders: number;
     totalRevenue: number;
     averageOrderValue: number;
@@ -78,7 +79,7 @@ export const MyCustomers = () => {
             // Fetch active customers
             const { data: custData, error: custErr } = await supabase
                 .from('customers')
-                .select('id, name, phone, location, place, is_active')
+                .select('id, name, phone, location, place, opening_balance, is_active')
                 .eq('is_active', true);
 
             if (custErr) throw custErr;
@@ -111,6 +112,7 @@ export const MyCustomers = () => {
                     phone: c.phone,
                     location: c.location,
                     place: c.place,
+                    openingBalance: c.opening_balance ?? 0,
                     totalOrders: orderInfo.count,
                     totalRevenue: orderInfo.revenue,
                     averageOrderValue: orderInfo.count > 0 ? orderInfo.revenue / orderInfo.count : 0,
@@ -571,7 +573,41 @@ export const MyCustomers = () => {
                         ) : (
                             <div className="space-y-6">
                                 {/* Summary Cards */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                    {(() => {
+                                        const ob = selectedCustomer?.openingBalance ?? 0;
+                                        const isCredit = ob < 0;
+                                        const isDebit = ob > 0;
+                                        const tone = isDebit
+                                            ? 'text-rose-600 dark:text-rose-400'
+                                            : isCredit
+                                                ? 'text-emerald-600 dark:text-emerald-400'
+                                                : 'text-muted-foreground';
+                                        const iconTone = isDebit
+                                            ? 'bg-rose-500/10 text-rose-500 group-hover:bg-rose-500/20'
+                                            : isCredit
+                                                ? 'bg-emerald-500/10 text-emerald-500 group-hover:bg-emerald-500/20'
+                                                : 'bg-slate-500/10 text-slate-500 group-hover:bg-slate-500/20';
+                                        const sublabel = isDebit
+                                            ? 'Customer owes us'
+                                            : isCredit
+                                                ? 'Advance held'
+                                                : 'Settled';
+                                        return (
+                                            <div className="p-4 rounded-xl bg-card border border-border/50 shadow-sm flex flex-col justify-between group hover:border-primary/20 transition-colors">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm text-muted-foreground font-medium">Opening Balance</span>
+                                                    <div className={`p-2 rounded-md transition-colors ${iconTone}`}><IndianRupee size={16} /></div>
+                                                </div>
+                                                <div className="mt-3 flex flex-col">
+                                                    <span className={`text-2xl font-bold font-mono ${tone}`}>
+                                                        ₹ {Math.abs(ob).toLocaleString('en-IN')}
+                                                    </span>
+                                                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-semibold mt-1">{sublabel}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                     <div className="p-4 rounded-xl bg-card border border-border/50 shadow-sm flex flex-col justify-between group hover:border-primary/20 transition-colors">
                                         <div className="flex items-center justify-between">
                                             <span className="text-sm text-muted-foreground font-medium">Total Orders</span>
