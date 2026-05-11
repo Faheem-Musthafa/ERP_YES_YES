@@ -60,6 +60,8 @@ Legend: `[ ]` todo · `[x]` done · `[-]` deferred (reason).
 
 - [x] **F-1** CustomerForm post-import `setTimeout(navigate, 1000)` tracked via `navTimerRef` + unmount cleanup.
 - [x] **F-2** GlobalSearch focus `setTimeout(..., 100)` returned from effect for cleanup.
+- [x] **F-3** CreateOrder line-amount + subtotal/totalDiscount/grandTotal now go through `decimal.js` helpers (`computeLineAmount`, `addMoney`, `mulMoney`, `pctMoney`, `roundMoney`). No more float drift on long orders.
+- [x] **F-4** CreateOrder legacy-fallback hard-delete on item-insert failure replaced with `status='Voided'` so the order sequence number is not burned (matches CreditNote behaviour).
 - Verified: 0 ungated `console.*` left, 0 `toISOString().split` patterns left in real code, 0 npm-audit vulns, 0 always-true policies, 0 anon-callable SECURITY DEFINER, 0 search_path mutable, 0 `parseInt` without radix, no app-side localStorage outside Supabase client.
 
 ## P2 — Bigger redesign (deferred unless fast-track requested)

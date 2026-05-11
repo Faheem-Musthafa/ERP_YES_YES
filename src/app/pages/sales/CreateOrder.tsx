@@ -17,6 +17,7 @@ import { DEFAULT_ORDER_FORM_SETTINGS, loadOrderFormSettings } from '@/app/settin
 import type { CompanyEnum, InvoiceTypeEnum, GodownEnum, Json } from '@/app/types/database';
 import { LIMITS, sanitizeMultilineText, sanitizeNonNegativeDecimal, sanitizeNonNegativeInteger, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePhone, validatePositiveAmount, validateRequired } from '@/app/validation';
 import { todayLocalISO, addDaysISO } from '@/app/dates';
+import { addMoney, computeLineAmount, mulMoney, pctMoney, roundMoney, toMoney, toNumber } from '@/app/money';
 
 interface OrderItem {
   id: string; productId: string; product: string; brand: string; sku: string;
@@ -219,13 +220,21 @@ export const CreateOrder = () => {
       const qty = Number(item.quantity) || 0; const dp = item.dp || 0;
       if (!qty || !dp) return item;
       if (item.lastEdited === 'amount' && item.amount !== '') {
-        const maxAmount = dp * qty;
-        if (maxAmount > 0) return { ...item, discount: Math.max(0, Math.min(maxDiscountPercentage, ((maxAmount - (Number(item.amount) || 0)) / maxAmount) * 100)).toFixed(2), lastEdited: undefined };
+        // discount % = (max - entered) / max * 100, in decimal so the field
+        // round-trips cleanly back to the amount on the next pass.
+        const maxAmount = mulMoney(dp, qty);
+        if (maxAmount.gt(0)) {
+          const entered = toMoney(item.amount);
+          const pct = maxAmount.minus(entered).dividedBy(maxAmount).times(100);
+          const clamped = Math.max(0, Math.min(maxDiscountPercentage, toNumber(pct)));
+          return { ...item, discount: clamped.toFixed(2), lastEdited: undefined };
+        }
       }
       if (item.lastEdited === 'discount' || item.lastEdited === 'quantity' || item.lastEdited === 'dp')
-        return { ...item, amount: (dp * qty * (1 - (Number(item.discount) || 0) / 100)).toFixed(2), lastEdited: undefined };
+        return { ...item, amount: toNumber(computeLineAmount(dp, qty, Number(item.discount) || 0)).toFixed(2), lastEdited: undefined };
       return item;
     }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderItems.map(i => `${i.id}-${i.quantity}-${i.discount}-${i.amount}-${i.dp}-${i.lastEdited}`).join(',')]);
 
   useEffect(() => {
@@ -236,9 +245,15 @@ export const CreateOrder = () => {
     }));
   }, [maxDiscountPercentage]);
 
-  const subtotal = Math.round(orderItems.reduce((s, i) => s + (i.dp * (Number(i.quantity) || 0)), 0) * 100) / 100;
-  const totalDiscount = Math.round(orderItems.reduce((s, i) => s + (i.dp * (Number(i.quantity) || 0) * (Number(i.discount) || 0) / 100), 0) * 100) / 100;
-  const grandTotal = Math.round(orderItems.reduce((s, i) => s + (Number(i.amount) || 0), 0) * 100) / 100;
+  const subtotal = toNumber(roundMoney(orderItems.reduce((s, i) =>
+    addMoney(s, mulMoney(i.dp, Number(i.quantity) || 0)), toMoney(0)
+  )));
+  const totalDiscount = toNumber(roundMoney(orderItems.reduce((s, i) =>
+    addMoney(s, pctMoney(mulMoney(i.dp, Number(i.quantity) || 0), Number(i.discount) || 0)), toMoney(0)
+  )));
+  const grandTotal = toNumber(roundMoney(orderItems.reduce((s, i) =>
+    addMoney(s, Number(i.amount) || 0), toMoney(0)
+  )));
 
   const getDeliveryDate = (): string => {
     // Local-tz aware so 23:50 IST orders don't shift to next-day UTC.
@@ -335,10 +350,15 @@ export const CreateOrder = () => {
 
         const { error: legacyItemsErr } = await supabase.from('order_items').insert(validItems.map(i => ({
             order_id: legacyOrder.id, product_id: i.productId, quantity: Number(i.quantity), dealer_price: i.dp,
-            discount_pct: Number(i.discount) || 0, amount: Math.round((Number(i.amount) || 0) * 100) / 100,
+            discount_pct: Number(i.discount) || 0, amount: toNumber(roundMoney(Number(i.amount) || 0)),
           })));
 
-        if (legacyItemsErr) { await supabase.from('orders').delete().eq('id', legacyOrder.id); throw legacyItemsErr; }
+        if (legacyItemsErr) {
+          // Mark as Voided rather than hard-delete so the allocated sequence
+          // number is preserved (GSTR-1 requires no gaps in invoice numbering).
+          await supabase.from('orders').update({ status: 'Voided' }).eq('id', legacyOrder.id);
+          throw legacyItemsErr;
+        }
         resolvedOrderId = legacyOrder.id;
       }
 
