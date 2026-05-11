@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { cn } from '@/app/components/ui/utils';
+import { escapePostgrestLike } from '@/app/utils';
 import {
   Dialog,
   DialogContent,
@@ -91,14 +92,18 @@ export const GlobalSearch = ({
     setSelectedIndex(0);
 
     try {
-      const query_lower = searchQuery.toLowerCase();
+      const safe = escapePostgrestLike(searchQuery.toLowerCase());
+      if (!safe) {
+        setResults([]);
+        return;
+      }
       const results_list: SearchResult[] = [];
 
       // Search customers
       const { data: customers, error: customersError } = await supabase
         .from('customers')
         .select('id, name, phone, location')
-        .or(`name.ilike.%${query_lower}%,phone.ilike.%${query_lower}%`)
+        .or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`)
         .limit(5);
 
       if (customersError) throw customersError;
@@ -119,7 +124,7 @@ export const GlobalSearch = ({
       const { data: products, error: productsError } = await supabase
         .from('products')
         .select('id, name, brand_id, brands(name)')
-        .or(`name.ilike.%${query_lower}%`)
+        .ilike('name', `%${safe}%`)
         .limit(5);
 
       if (productsError) throw productsError;
@@ -140,7 +145,7 @@ export const GlobalSearch = ({
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
         .select('id, order_number, customers(name)')
-        .or(`order_number.ilike.%${query_lower}%`)
+        .ilike('order_number', `%${safe}%`)
         .limit(5);
 
       if (ordersError) throw ordersError;
@@ -163,7 +168,7 @@ export const GlobalSearch = ({
           const { data: suppliers, error: suppliersError } = await supabase
             .from('suppliers')
             .select('id, name, contact_person')
-            .ilike('name', `%${query_lower}%`)
+            .ilike('name', `%${safe}%`)
             .limit(5);
 
           if (suppliersError) {
@@ -189,7 +194,7 @@ export const GlobalSearch = ({
       const { data: brands, error: brandsError } = await supabase
         .from('brands')
         .select('id, name')
-        .ilike('name', `%${query_lower}%`)
+        .ilike('name', `%${safe}%`)
         .limit(5);
 
       if (brandsError) throw brandsError;
@@ -283,6 +288,7 @@ export const GlobalSearch = ({
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
+                maxLength={100}
                 className="flex-1 bg-transparent outline-none text-sm placeholder-muted-foreground"
               />
               {loading && <Loader2 size={16} className="animate-spin text-muted-foreground" />}

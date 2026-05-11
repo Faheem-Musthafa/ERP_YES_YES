@@ -1003,22 +1003,38 @@ export const Billing = () => {
       let billedInvoiceNo: string | null = null;
 
       if (isCreditNote) {
-        const nextInvoiceNo = order.invoice_number ?? await createCreditNoteInvoiceNumber(order);
-        const { data: billedOrder, error: billErr } = await supabase
-          .from('orders')
-          .update({
-            status: 'Billed',
-            billed_by: user?.id ?? null,
-            billed_at: new Date().toISOString(),
-            invoice_number: nextInvoiceNo,
-          })
-          .eq('id', order.id)
-          .eq('status', 'Approved')
-          .select('invoice_number')
-          .maybeSingle();
+        const idempotencyKey = `bill-cn:${order.id}`;
+        const { data: cnInvoice, error: cnErr } = await supabase.rpc('bill_credit_note_idempotent', {
+          p_order_id: order.id,
+          p_billed_by: user?.id ?? null,
+          p_idempotency_key: idempotencyKey,
+        });
+        if (cnErr) {
+          const rpcMissing = cnErr.code === 'PGRST202' || cnErr.message?.toLowerCase().includes('could not find the function');
+          if (!rpcMissing) throw cnErr;
 
-        if (billErr) throw billErr;
-        billedInvoiceNo = billedOrder?.invoice_number ?? nextInvoiceNo;
+          // Fallback path for environments where the new RPC has not been
+          // deployed yet. Retained only for the migration window; remove
+          // once docs/INVOICE_NUMBER_SEQUENCES.sql is rolled out everywhere.
+          const nextInvoiceNo = order.invoice_number ?? await createCreditNoteInvoiceNumber(order);
+          const { data: billedOrder, error: billErr } = await supabase
+            .from('orders')
+            .update({
+              status: 'Billed',
+              billed_by: user?.id ?? null,
+              billed_at: new Date().toISOString(),
+              invoice_number: nextInvoiceNo,
+            })
+            .eq('id', order.id)
+            .eq('status', 'Approved')
+            .select('invoice_number')
+            .maybeSingle();
+
+          if (billErr) throw billErr;
+          billedInvoiceNo = billedOrder?.invoice_number ?? nextInvoiceNo;
+        } else {
+          billedInvoiceNo = extractInvoiceNumber(cnInvoice);
+        }
       } else {
         const idempotencyKey = `bill:${order.id}`;
         const { data: idempotentInvoiceNo, error: idempotentErr } = await supabase.rpc('bill_order_idempotent', {

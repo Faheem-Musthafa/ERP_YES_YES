@@ -22,10 +22,10 @@ export const normalizeSpaces = (value: string) => value.replace(/\s+/g, ' ').tri
 
 export const stripControlChars = (value: string) => value.replace(CONTROL_CHAR_REGEX, '');
 
-export const sanitizeText = (value: string, maxLength = LIMITS.longText) =>
+export const sanitizeText = (value: string, maxLength: number = LIMITS.longText) =>
   normalizeSpaces(stripControlChars(value)).slice(0, maxLength);
 
-export const sanitizeMultilineText = (value: string, maxLength = LIMITS.address) =>
+export const sanitizeMultilineText = (value: string, maxLength: number = LIMITS.address) =>
   stripControlChars(value)
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
@@ -77,6 +77,25 @@ export const sanitizeIntegerInput = (value: string, maxLength = 9) =>
     .replace(/[^\d-]/g, '')
     .slice(0, maxLength);
 
+/** Like `sanitizeDecimalInput` but strips `-` so values are non-negative. */
+export const sanitizeNonNegativeDecimal = (value: string, maxLength = 18) =>
+  stripControlChars(value)
+    .replace(/[^0-9.]/g, '')
+    .slice(0, maxLength);
+
+/** Like `sanitizeIntegerInput` but strips `-` so values are non-negative. */
+export const sanitizeNonNegativeInteger = (value: string, maxLength = 9) =>
+  stripControlChars(value)
+    .replace(/\D/g, '')
+    .slice(0, maxLength);
+
+/** Challan / cheque number — preserves `/` and `-` separators. */
+export const sanitizeChallanNumber = (value: string, maxLength = 30) =>
+  stripControlChars(value)
+    .toUpperCase()
+    .replace(/[^A-Z0-9/-]/g, '')
+    .slice(0, maxLength);
+
 export const validateRequired = (value: string, label: string) => {
   if (!value.trim()) {
     throw new Error(`${label} is required`);
@@ -89,7 +108,20 @@ export const validateEmail = (value: string) => {
   }
 };
 
+/**
+ * Validates an Indian mobile number (10 digits, starts with 6-9). An optional
+ * `+91` country-code prefix is allowed and stripped before the digit check.
+ * Use `validatePhoneLoose` for legacy callers that need 7-15 generic digits.
+ */
 export const validatePhone = (value: string, label = 'Phone number') => {
+  const normalized = value.replace(/^\+91/, '').replace(/^0/, '');
+  if (!/^[6-9]\d{9}$/.test(normalized)) {
+    throw new Error(`Enter a valid Indian mobile number for ${label.toLowerCase()}`);
+  }
+};
+
+/** Legacy loose 7-15 digit phone check (kept for non-IN landlines / fallbacks). */
+export const validatePhoneLoose = (value: string, label = 'Phone number') => {
   if (!/^\+?\d{7,15}$/.test(value)) {
     throw new Error(`Enter a valid ${label.toLowerCase()}`);
   }
@@ -108,9 +140,48 @@ export const validatePAN = (value: string) => {
 };
 
 export const validateGSTIN = (value: string) => {
-  if (value && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(value)) {
+  if (!value) return;
+  if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(value)) {
     throw new Error('GSTIN must be 15 characters in valid format');
   }
+  // First two digits encode the state code (01..37 currently assigned).
+  const stateCode = Number(value.slice(0, 2));
+  if (!Number.isFinite(stateCode) || stateCode < 1 || stateCode > 37) {
+    throw new Error('GSTIN state code must be between 01 and 37');
+  }
+};
+
+/** Bank IFSC code: 4 letters + `0` + 6 alphanumeric. */
+export const validateIFSC = (value: string) => {
+  if (value && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(value)) {
+    throw new Error('IFSC code must be 11 characters in valid format');
+  }
+};
+
+/** GST tax rate must be one of the statutory slabs. */
+const GST_SLABS = [0, 0.1, 0.25, 1, 1.5, 3, 5, 7.5, 12, 18, 28] as const;
+export const validateGSTSlab = (value: number) => {
+  if (!Number.isFinite(value)) throw new Error('GST rate must be a number');
+  if (!GST_SLABS.includes(value as typeof GST_SLABS[number])) {
+    throw new Error(`GST rate must be one of ${GST_SLABS.join(', ')}`);
+  }
+};
+
+/**
+ * Generic monetary value validator. Enforces non-negative, finite, and an
+ * upper bound (default 1e9 — ten crores — which is wider than any single
+ * line item but tight enough to reject typo-level garbage).
+ */
+export const validateMoneyAmount = (
+  value: number,
+  label: string,
+  opts: { max?: number; allowZero?: boolean } = {},
+) => {
+  const max = opts.max ?? 1_000_000_000;
+  if (!Number.isFinite(value)) throw new Error(`${label} must be a number`);
+  if (value < 0) throw new Error(`${label} cannot be negative`);
+  if (!opts.allowZero && value === 0) throw new Error(`${label} must be greater than zero`);
+  if (value > max) throw new Error(`${label} must be at most ${max.toLocaleString('en-IN')}`);
 };
 
 export const validateSku = (value: string) => {

@@ -74,32 +74,47 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     ([, config]) => config.theme || config.color,
   );
 
-  if (!colorConfig.length) {
-    return null;
-  }
+  // Defense in depth: keys / colors are statically defined today but this block
+  // would be exploitable if untrusted values ever reached it. Constrain
+  // identifiers to CSS-safe chars and reject color values containing
+  // delimiter chars (`<`, `>`, `;`, `{`, `}`, quotes, backticks).
+  const safeIdent = (value: string) => value.replace(/[^A-Za-z0-9_-]/g, '');
+  const safeColor = (value: string) =>
+    /[<>"'`;{}]/.test(value) ? '' : value;
+  const safeId = safeIdent(id);
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
+  const styleRef = React.useRef<HTMLStyleElement | null>(null);
+
+  React.useEffect(() => {
+    if (!styleRef.current) return;
+    if (!colorConfig.length) {
+      styleRef.current.textContent = '';
+      return;
+    }
+    styleRef.current.textContent = Object.entries(THEMES)
+      .map(
+        ([theme, prefix]) => `
+${prefix} [data-chart=${safeId}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
     const color =
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
       itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
+    if (!color) return null;
+    const sk = safeIdent(key);
+    const sc = safeColor(color);
+    return sc ? `  --color-${sk}: ${sc};` : null;
   })
+  .filter(Boolean)
   .join("\n")}
 }
 `,
-          )
-          .join("\n"),
-      }}
-    />
-  );
+      )
+      .join("\n");
+  });
+
+  if (!colorConfig.length) return null;
+  return <style ref={styleRef} />;
 };
 
 const ChartTooltip = RechartsPrimitive.Tooltip;

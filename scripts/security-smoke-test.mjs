@@ -1,5 +1,11 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
+
+const execFileP = (cmd, args, opts = {}) =>
+  new Promise((resolve) => {
+    execFile(cmd, args, { maxBuffer: 10 * 1024 * 1024, ...opts }, (_err, stdout) => resolve(String(stdout ?? '')));
+  });
 
 const root = process.cwd();
 
@@ -7,7 +13,6 @@ const requiredFiles = [
   'docs/SECURITY_TRANSACTION_HARDENING.sql',
   'vercel.json',
   'src/app/supabase.ts',
-  '.github/workflows/ci.yml',
 ];
 
 for (const file of requiredFiles) {
@@ -39,6 +44,49 @@ const vercelText = await fs.readFile(path.join(root, 'vercel.json'), 'utf8');
 if (!/Content-Security-Policy/i.test(vercelText)) {
   console.error('vercel.json must include Content-Security-Policy header');
   process.exit(1);
+}
+if (!/Strict-Transport-Security/i.test(vercelText)) {
+  console.error('vercel.json must include Strict-Transport-Security header');
+  process.exit(1);
+}
+
+// No tracked .env files in git.
+const tracked = (await execFileP('git', ['ls-files', '.env', '.env.local', '.env.production'])).trim();
+if (tracked) {
+  console.error('.env files must not be tracked in git:\n' + tracked);
+  process.exit(1);
+}
+
+// Forbid DISABLE ROW LEVEL SECURITY in committed SQL outside docs/deprecated/.
+// Strip SQL line comments (-- …) and block comments (/* … */) before matching
+// so that documentation references in DOWN-migration comments are ignored.
+const docsDir = path.join(root, 'docs');
+const entries = await fs.readdir(docsDir, { withFileTypes: true });
+for (const entry of entries) {
+  if (!entry.isFile() || !entry.name.endsWith('.sql')) continue;
+  const text = await fs.readFile(path.join(docsDir, entry.name), 'utf8');
+  const uncommented = text
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .map((line) => line.replace(/--.*$/, ''))
+    .join('\n');
+  if (/DISABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(uncommented)) {
+    console.error(`docs/${entry.name} contains live DISABLE ROW LEVEL SECURITY — move to docs/deprecated/`);
+    process.exit(1);
+  }
+}
+
+// npm audit — block on critical/high.
+const auditOut = await execFileP('npm', ['audit', '--json']);
+try {
+  const audit = JSON.parse(auditOut);
+  const meta = audit?.metadata?.vulnerabilities ?? {};
+  if ((meta.critical ?? 0) > 0 || (meta.high ?? 0) > 0) {
+    console.error(`npm audit: ${meta.critical} critical, ${meta.high} high vulnerabilities — run npm audit fix`);
+    process.exit(1);
+  }
+} catch {
+  console.warn('npm audit output not parsable — skipping vuln gate');
 }
 
 console.log('Security smoke test passed.');

@@ -117,15 +117,34 @@ async function resolveFunctionError(fnError: unknown, result: unknown, fallback:
     return first ?? fallback;
 }
 
+/**
+ * Generates a 12-char temporary password using rejection sampling on
+ * crypto.getRandomValues. Plain `random % alphabet.length` (the previous
+ * implementation) introduces modulo bias when alphabet.length does not divide
+ * 2**32 evenly, weakening entropy. This version discards samples in the
+ * remainder window and resamples until uniform.
+ */
+function unbiasedIndex(maxExclusive: number): number {
+    const limit = Math.floor(0x1_0000_0000 / maxExclusive) * maxExclusive;
+    const buf = new Uint32Array(1);
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+        crypto.getRandomValues(buf);
+        if (buf[0] < limit) return buf[0] % maxExclusive;
+    }
+}
+
 function generatePassword(length = 12): string {
     const u = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', l = 'abcdefghijklmnopqrstuvwxyz',
         n = '0123456789', s = '@#$!%&*', all = u + l + n + s;
-    const rand4 = crypto.getRandomValues(new Uint32Array(4));
-    const required = [u[rand4[0] % u.length], l[rand4[1] % l.length], n[rand4[2] % n.length], s[rand4[3] % s.length]];
-    const rest = Array.from(crypto.getRandomValues(new Uint32Array(length - 4)), x => all[x % all.length]);
+    const required = [u[unbiasedIndex(u.length)], l[unbiasedIndex(l.length)], n[unbiasedIndex(n.length)], s[unbiasedIndex(s.length)]];
+    const rest = Array.from({ length: length - required.length }, () => all[unbiasedIndex(all.length)]);
     const pwd = [...required, ...rest];
-    const sh = crypto.getRandomValues(new Uint32Array(pwd.length));
-    for (let i = pwd.length - 1; i > 0; i--) { const j = sh[i] % (i + 1);[pwd[i], pwd[j]] = [pwd[j], pwd[i]]; }
+    // Unbiased Fisher-Yates shuffle.
+    for (let i = pwd.length - 1; i > 0; i--) {
+        const j = unbiasedIndex(i + 1);
+        [pwd[i], pwd[j]] = [pwd[j], pwd[i]];
+    }
     return pwd.join('');
 }
 
@@ -240,7 +259,7 @@ export const StaffManagement = () => {
             setForm({ full_name: '', email: '', role: '', employee_id: '' });
             fetchUsers();
         } catch (err: any) {
-            console.error('Staff create failed:', err);
+            if (import.meta.env.DEV) console.error('Staff create failed:', err);
             toast.error(err.message || 'Failed to create user');
         } finally { setCreating(false); }
     };

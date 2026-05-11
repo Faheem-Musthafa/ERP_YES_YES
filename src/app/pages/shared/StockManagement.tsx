@@ -151,7 +151,8 @@ export const StockManagement = () => {
 
   const lowCount = products.filter(p => {
     const relevantStock = getLocationStock(p, locationFilter);
-    return relevantStock <= 5;
+    // Strictly > 0 so Out-of-Stock items are not double-counted in Low.
+    return relevantStock > 0 && relevantStock <= 5;
   }).length;
 
   const outOfStockCount = products.filter(p => {

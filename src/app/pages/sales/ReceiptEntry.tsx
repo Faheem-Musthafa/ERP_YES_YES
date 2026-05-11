@@ -13,6 +13,7 @@ import { FormSection, FormCard, PageHeader } from '@/app/components/ui/primitive
 import { COMPANY_LIST, cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import type { CompanyEnum, PaymentModeEnum } from '@/app/types/database';
 import { DEFAULT_RECEIPT_STATUS } from '@/app/utils';
+import { todayLocalISO, validateDateNotInFuture } from '@/app/dates';
 import { LIMITS, sanitizeDecimalInput, sanitizeMultilineText, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePhone, validatePositiveAmount, validateRequired } from '@/app/validation';
 
 interface CustomerOption {
@@ -56,7 +57,7 @@ export const ReceiptEntry = () => {
   const [addressAutoFilled, setAddressAutoFilled] = useState(false);
   const [gstAutoFilled, setGstAutoFilled] = useState(false);
   const [receivedAmount, setReceivedAmount] = useState('');
-  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0] ?? '');
+  const [receivedDate, setReceivedDate] = useState(todayLocalISO());
   const [onAccountOf, setOnAccountOf] = useState<'Invoice' | 'Advance' | ''>('');
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [chequeNumber, setChequeNumber] = useState('');
@@ -119,6 +120,7 @@ export const ReceiptEntry = () => {
     if (onAccountOf === 'Invoice' && !invoiceCustomerId) { toast.error('Please select a customer first'); return; }
     if (onAccountOf === 'Invoice' && !selectedOrderId) { toast.error('Please select an invoice'); return; }
     if (!receivedAmount || !receivedDate) { toast.error('Please enter amount and date'); return; }
+    try { validateDateNotInFuture(receivedDate, 'Received date'); } catch (err: any) { toast.error(err.message); return; }
     if (modeOfReceipt === 'Cheque' && (!chequeNumber.trim() || !chequeDate)) { toast.error('Please complete cheque details'); return; }
 
     setLoading(true);
@@ -256,7 +258,7 @@ export const ReceiptEntry = () => {
                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors">
                    <Calendar size={18} />
                  </div>
-                 <Input type="date" value={receivedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedDate(e.target.value)} required className="pl-12 h-16 text-lg font-medium bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-inner rounded-2xl focus-visible:ring-teal-500/30 [&::-webkit-calendar-picker-indicator]:opacity-50" />
+                 <Input type="date" value={receivedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedDate(e.target.value)} max={todayLocalISO()} required className="pl-12 h-16 text-lg font-medium bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-inner rounded-2xl focus-visible:ring-teal-500/30 [&::-webkit-calendar-picker-indicator]:opacity-50" />
                </div>
             </div>
           </div>

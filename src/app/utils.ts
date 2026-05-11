@@ -3,20 +3,22 @@
  * Centralised here to avoid copy-pasting across page files.
  */
 import type { PaymentModeEnum } from '@/app/types/database';
+import { formatMoney, formatMoneyCompact } from '@/app/money';
 
 // ── Currency formatters ────────────────────────────────────────────────────
 
-/** Full Indian-locale currency string, e.g. "₹ 1,25,000" */
-export const fmt = (n: number) =>
-    `₹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+/**
+ * Default Indian-locale currency formatter. Shows paise (2 decimals) — this
+ * is the right default for billing / receipts / customer-facing values.
+ * Dashboards that want compact integers should call `fmtDashboard`.
+ */
+export const fmt = (n: number) => formatMoney(n);
 
-/** Compact currency string — uses K/L abbreviations for large amounts */
-export const fmtK = (n: number) =>
-    n >= 100000
-        ? `₹ ${(n / 100000).toFixed(1)}L`
-        : n >= 1000
-            ? `₹ ${(n / 1000).toFixed(1)}K`
-            : fmt(n);
+/** Compact currency string — uses K/L abbreviations for large amounts. */
+export const fmtK = (n: number) => formatMoneyCompact(n);
+
+/** Integer-rupee formatter for dashboard tiles where paise are noise. */
+export const fmtDashboard = (n: number) => formatMoney(n, { paise: false });
 
 // ── Order status → Tailwind badge classes ─────────────────────────────────
 
@@ -47,6 +49,26 @@ export const isCollectedReceiptStatus = (status: string | null | undefined): boo
 
 export const isVoidedReceiptStatus = (status: string | null | undefined): boolean =>
     status === VOIDED_RECEIPT_STATUS;
+
+// ── PostgREST LIKE escape ───────────────────────────────────────────────
+
+/**
+ * Escapes a user-supplied search term for safe use in PostgREST `.ilike()` /
+ * `.or()` filters. PostgREST splits the `.or(...)` argument on commas, dots,
+ * and parens, so untrusted characters can break out of the value and inject
+ * additional filter clauses. We also escape SQL LIKE metacharacters (`%`, `_`)
+ * and the escape char itself (`\`) so that callers can pass the result inside
+ * `%...%` without unintended wildcards.
+ *
+ * Length is capped (default 100) to avoid pathological queries.
+ */
+export const escapePostgrestLike = (value: string, maxLength = 100): string => {
+    const sliced = String(value ?? '').slice(0, maxLength);
+    // Strip PostgREST filter delimiters that have no place in a LIKE value.
+    const stripped = sliced.replace(/[,()*]/g, '');
+    // Escape LIKE metacharacters.
+    return stripped.replace(/[\\%_]/g, (m) => `\\${m}`);
+};
 
 // ── Email validation ────────────────────────────────────────────────────
 
@@ -86,7 +108,8 @@ export const downloadCSV = (
         headers.map(escape).join(','),
         ...rows.map(r => r.map(escape).join(',')),
     ].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // Prepend UTF-8 BOM so Excel renders ₹/non-ASCII names correctly.
+    const blob = new Blob(['﻿', csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;

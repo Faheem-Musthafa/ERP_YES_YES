@@ -67,7 +67,7 @@ async function fetchUserProfile(authId: string, email: string): Promise<User | n
       employee_id: row.employee_id ?? null,
     };
   } catch (err) {
-    console.error('Failed to fetch user profile:', err);
+    if (import.meta.env.DEV) console.error('Failed to fetch user profile:', err);
     return null;
   }
 }
@@ -98,6 +98,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
+    const pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       // *** SYNCHRONOUS handler *** — must NOT be async.
       // Calling supabase DB queries (even via fetchUserProfile) directly inside an async
@@ -108,7 +110,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       //
       // Fix: Keep handler sync, defer DB work to next macrotask via setTimeout(0).
       (event, session) => {
-        setTimeout(async () => {
+        const handle = setTimeout(async () => {
+          pendingTimeouts.delete(handle);
           if (event === 'SIGNED_OUT') {
             if (!isMounted) return;
             setUser(null);
@@ -130,11 +133,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setLoading(false);
           }
         }, 0);
+        pendingTimeouts.add(handle);
       }
     );
 
     return () => {
       isMounted = false;
+      pendingTimeouts.forEach((h) => clearTimeout(h));
+      pendingTimeouts.clear();
       subscription.unsubscribe();
     };
   }, []);
@@ -166,7 +172,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await supabase.auth.signOut();
     } catch (err) {
-      console.error('Sign out error:', err);
+      if (import.meta.env.DEV) console.error('Sign out error:', err);
     }
     setUser(null);
   };

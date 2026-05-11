@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/app/supabase';
 import { fmt, fmtK, downloadCSV, isCollectedReceiptStatus } from '@/app/utils';
+import { localRangeToUTC, todayLocalISO, validateDateRange } from '@/app/dates';
 import {
     PageHeader, SearchBar, DataCard, FilterBar, FilterField,
     StyledThead, StyledTh, StyledTr, StyledTd,
@@ -70,35 +71,32 @@ export const Payments = () => {
                 .select('id, customer_id, grand_total, status, created_at, customers(name, place, opening_balance)')
                 .in('status', ['Approved', 'Billed', 'Delivered']);
 
-            if (dateFrom) {
-                const from = new Date(dateFrom);
-                from.setHours(0, 0, 0, 0);
-                ordersQuery = ordersQuery.gte('created_at', from.toISOString());
+            // Local calendar day → UTC half-open range, so an IST late-evening
+            // order isn't excluded by a UTC-midnight boundary.
+            try {
+                validateDateRange(dateFrom || null, dateTo || null);
+            } catch (err: any) {
+                toast.error(err?.message || 'Invalid date range');
+                setLoading(false);
+                return;
             }
-            if (dateTo) {
-                const to = new Date(dateTo);
-                to.setHours(23, 59, 59, 999);
-                ordersQuery = ordersQuery.lte('created_at', to.toISOString());
-            }
+            const { gte, lt } = localRangeToUTC(dateFrom || null, dateTo || null);
+            if (gte) ordersQuery = ordersQuery.gte('created_at', gte);
+            if (lt) ordersQuery = ordersQuery.lt('created_at', lt);
 
-            // Query 2: Fetch all receipts
+            // Query 2: Fetch all receipts. Range is applied with the same
+            // local→UTC translation so receipts and orders share the boundary.
             let receiptsQuery = supabase
                 .from('receipts')
                 .select('id, order_id, customer_id, amount, payment_status, received_date, created_at')
                 .or('payment_status.is.null,payment_status.neq.Voided');
+            if (gte) receiptsQuery = receiptsQuery.gte('created_at', gte);
+            if (lt) receiptsQuery = receiptsQuery.lt('created_at', lt);
 
             const customersQuery = supabase
                 .from('customers')
                 .select('id, name, place, opening_balance')
                 .eq('is_active', true);
-            if (dateFrom) {
-                receiptsQuery = receiptsQuery.gte('created_at', new Date(dateFrom).toISOString());
-            }
-            if (dateTo) {
-                const to = new Date(dateTo);
-                to.setHours(23, 59, 59, 999);
-                receiptsQuery = receiptsQuery.lte('created_at', to.toISOString());
-            }
 
             const [{ data: orders, error: ordersError }, { data: receipts, error: receiptsError }, { data: customerRows, error: customersError }] = await Promise.all([
                 ordersQuery,
@@ -199,13 +197,15 @@ export const Payments = () => {
 
     const getPaymentStatus = (c: CustomerPayment) => {
         if (c.outstanding > 0) return 'Outstanding';
-        if (c.outstanding < 0) return 'Payable';
+        if (c.outstanding < 0) return 'Advance';
         return 'Settled';
     };
 
     const getStatusBadgeVariant = (status: string) => {
         if (status === 'Outstanding') return 'Pending';
-        if (status === 'Payable') return 'Approved';
+        // Advance / refundable balance — customer has overpaid. Distinct
+        // from Settled so it shouldn't reuse the green Approved variant.
+        if (status === 'Advance') return 'Rejected';
         return 'Completed';
     };
 
@@ -222,7 +222,7 @@ export const Payments = () => {
             c.outstanding,
             getPaymentStatus(c),
         ]);
-        downloadCSV(headers, rows, `Payments_Report_${new Date().toISOString().split('T')[0]}.csv`);
+        downloadCSV(headers, rows, `Payments_Report_${todayLocalISO()}.csv`);
         toast.success('CSV exported successfully');
     };
 

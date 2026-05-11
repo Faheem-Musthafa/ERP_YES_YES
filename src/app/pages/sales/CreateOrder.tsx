@@ -15,7 +15,8 @@ import { cn } from '@/app/components/ui/utils';
 import { COMPANY_LIST, cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import { DEFAULT_ORDER_FORM_SETTINGS, loadOrderFormSettings } from '@/app/settings';
 import type { CompanyEnum, InvoiceTypeEnum, GodownEnum, Json } from '@/app/types/database';
-import { LIMITS, sanitizeDecimalInput, sanitizeMultilineText, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePhone, validatePositiveAmount, validateRequired } from '@/app/validation';
+import { LIMITS, sanitizeDecimalInput, sanitizeMultilineText, sanitizeNonNegativeDecimal, sanitizeNonNegativeInteger, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePhone, validatePositiveAmount, validateRequired } from '@/app/validation';
+import { todayLocalISO, addDaysISO } from '@/app/dates';
 
 interface OrderItem {
   id: string; productId: string; product: string; brand: string; sku: string;
@@ -240,9 +241,9 @@ export const CreateOrder = () => {
   const grandTotal = Math.round(orderItems.reduce((s, i) => s + (Number(i.amount) || 0), 0) * 100) / 100;
 
   const getDeliveryDate = (): string => {
-    const today = new Date();
-    if (deliveryOption === 'today') return today.toISOString().split('T')[0];
-    if (deliveryOption === 'tomorrow') { today.setDate(today.getDate() + 1); return today.toISOString().split('T')[0]; }
+    // Local-tz aware so 23:50 IST orders don't shift to next-day UTC.
+    if (deliveryOption === 'today') return todayLocalISO();
+    if (deliveryOption === 'tomorrow') return addDaysISO(todayLocalISO(), 1);
     return customDate;
   };
 
@@ -307,7 +308,24 @@ export const CreateOrder = () => {
         const rpcMissing = createOrderErr.code === 'PGRST202' || createOrderErr.message?.toLowerCase().includes('could not find the function');
         if (!rpcMissing) throw createOrderErr;
 
-        const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
+        // Server-side sequence allocator removes the race-prone Date.now()
+        // fallback. If allocate_order_number is also missing (very old
+        // DB), use a stable UUID so we still avoid timestamp collisions.
+        let orderNumber: string;
+        try {
+          const { data: allocated, error: allocErr } = await supabase
+            .rpc('allocate_order_number', { p_company: company as CompanyEnum });
+          if (allocErr) throw allocErr;
+          orderNumber = typeof allocated === 'string' && allocated.length > 0
+            ? allocated
+            : `ORD-${crypto.randomUUID()}`;
+        } catch (allocErr: any) {
+          const allocMissing = allocErr?.code === 'PGRST202'
+            || String(allocErr?.message ?? '').toLowerCase().includes('could not find the function');
+          if (!allocMissing) throw allocErr;
+          orderNumber = `ORD-${crypto.randomUUID()}`;
+        }
+
         const { data: legacyOrder, error: legacyOrderErr } = await supabase.from('orders').insert({
             order_number: orderNumber, company: company as CompanyEnum, invoice_type: invoiceType as InvoiceTypeEnum,
             customer_id: customerId, godown: Godown as GodownEnum, site_address: sanitizeMultilineText(siteAddress, LIMITS.address), remarks: sanitizeMultilineText(remarks, LIMITS.reason) || null, delivery_date: deliveryDate || null,
@@ -594,26 +612,26 @@ export const CreateOrder = () => {
                         {/* Calculations Matrix (Tabular Nums) */}
                         <div className="lg:col-span-7 grid grid-cols-2 md:grid-cols-4 gap-3 lg:pt-5 pt-2">
                           <FL label="Qty" required>
-                             <Input type="number" min="0" step="1" value={item.quantity} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, quantity: sanitizeDecimalInput(e.target.value, 9), lastEdited: 'quantity' } : i))}
+                             <Input type="number" min="1" step="1" value={item.quantity} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, quantity: sanitizeNonNegativeInteger(e.target.value, 9), lastEdited: 'quantity' } : i))}
                                className={cn("h-10 text-right font-mono font-semibold text-base shadow-none border-gray-200 focus:bg-white bg-gray-50 rounded-lg", isOverStock && "border-red-300 bg-red-50 text-red-700")} placeholder="0" />
                           </FL>
                           <FL label="Rate (DP)">
                             <div className="relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-mono text-sm">₹</span>
-                              <Input type="number" min="0" step="0.01" value={item.dp} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, dp: Number(sanitizeDecimalInput(e.target.value)) || 0, lastEdited: 'dp' } : i))}
+                              <Input type="number" min="0" step="0.01" value={item.dp} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, dp: Number(sanitizeNonNegativeDecimal(e.target.value)) || 0, lastEdited: 'dp' } : i))}
                                 className="h-10 pl-7 text-right font-mono bg-gray-50 border-gray-200 shadow-none rounded-lg" />
                             </div>
                           </FL>
                           <FL label={`Disc (max ${maxDiscountPercentage}%)`}>
                             <div className="relative">
-                              <Input type="number" min="0" max={maxDiscountPercentage} step="0.01" value={item.discount} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, discount: clampDiscountInput(sanitizeDecimalInput(e.target.value, 6)), lastEdited: 'discount' } : i))}
+                              <Input type="number" min="0" max={maxDiscountPercentage} step="0.01" value={item.discount} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, discount: clampDiscountInput(sanitizeNonNegativeDecimal(e.target.value, 6)), lastEdited: 'discount' } : i))}
                                 className="h-10 pr-6 text-right font-mono bg-gray-50 border-gray-200 shadow-none rounded-lg" placeholder="0" />
                               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-mono text-sm">%</span>
                             </div>
                           </FL>
                           <FL label="Total Value">
                             <div className="relative h-10 w-full rounded-lg bg-[#e6fffe] border border-[#b3fffc] flex items-center justify-end px-3">
-                               <Input type="number" min="0" step="0.01" value={item.amount} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, amount: sanitizeDecimalInput(e.target.value), lastEdited: 'amount' } : i))}
+                               <Input type="number" min="0" step="0.01" value={item.amount} onChange={(e) => setOrderItems(p => p.map(i => i.id === item.id ? { ...i, amount: sanitizeNonNegativeDecimal(e.target.value), lastEdited: 'amount' } : i))}
                                   className="absolute inset-0 bg-transparent opacity-0 cursor-text" />
                                <span className="text-gray-500 font-mono text-sm mr-1">₹</span>
                                <span className="font-mono font-bold text-[#007571] text-base">{Number(item.amount) ? Number(item.amount).toFixed(2) : "0.00"}</span>
@@ -655,7 +673,7 @@ export const CreateOrder = () => {
                     </div>
                  </div>
                  {deliveryOption === 'select' && (
-                    <FL label="Select Date"><Input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} className="h-10 w-full md:w-64" /></FL>
+                    <FL label="Select Date"><Input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)} min={todayLocalISO()} className="h-10 w-full md:w-64" /></FL>
                  )}
 
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1214,6 +1214,27 @@ export interface Database {
         };
         Returns: string;
       };
+      bill_credit_note_atomic: {
+        Args: {
+          p_order_id: string;
+          p_billed_by?: string | null;
+        };
+        Returns: string;
+      };
+      bill_credit_note_idempotent: {
+        Args: {
+          p_order_id: string;
+          p_billed_by?: string | null;
+          p_idempotency_key?: string | null;
+        };
+        Returns: string;
+      };
+      allocate_order_number: {
+        Args: {
+          p_company: CompanyEnum;
+        };
+        Returns: string;
+      };
       get_company_profiles: {
         Args: Record<PropertyKey, never>;
         Returns: Json;

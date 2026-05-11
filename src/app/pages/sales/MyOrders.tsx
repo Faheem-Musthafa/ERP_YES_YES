@@ -36,7 +36,7 @@ export const MyOrders = () => {
       setOrders(data ?? []);
       setLoading(false);
     })();
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     void loadCompanyProfiles()

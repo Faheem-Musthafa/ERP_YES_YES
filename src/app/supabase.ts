@@ -59,6 +59,15 @@ const timeoutFetch: typeof fetch = async (input, init) => {
 };
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    flowType: 'pkce',
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    // TODO(P3): migrate to httpOnly cookie storage via auth-proxy edge function
+    // so XSS can no longer exfiltrate the session JWT.
+  },
   global: {
     fetch: timeoutFetch,
   },

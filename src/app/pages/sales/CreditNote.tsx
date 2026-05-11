@@ -311,7 +311,23 @@ export const CreditNote = () => {
 
     setSaving(true);
     try {
-      const orderNumber = `CN-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
+      // Server-side sequence allocator (docs/INVOICE_NUMBER_SEQUENCES.sql).
+      // Falls back to a UUID-derived stable identifier if the RPC is not yet
+      // deployed — UUID still avoids the Date.now() race window.
+      let orderNumber: string;
+      try {
+        const { data: allocated, error: allocErr } = await supabase
+          .rpc('allocate_order_number', { p_company: company });
+        if (allocErr) throw allocErr;
+        orderNumber = typeof allocated === 'string' && allocated.length > 0
+          ? allocated
+          : `CN-${crypto.randomUUID()}`;
+      } catch (rpcErr: any) {
+        const rpcMissing = rpcErr?.code === 'PGRST202'
+          || String(rpcErr?.message ?? '').toLowerCase().includes('could not find the function');
+        if (!rpcMissing) throw rpcErr;
+        orderNumber = `CN-${crypto.randomUUID()}`;
+      }
       const remarkParts = selectedBill
         ? [
             `Type: ${creditNoteType}`,

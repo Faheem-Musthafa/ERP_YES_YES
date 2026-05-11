@@ -8,6 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { loadStockHealthSummary } from '@/app/stockHealth';
 import { supabase } from '@/app/supabase';
 import { cloneCompanyProfiles, getPrimaryCompanyName, loadCompanyProfiles } from '@/app/companyProfiles';
+import { todayLocalISO } from '@/app/dates';
 
 interface LayoutProps {
   children: ReactNode;
@@ -57,7 +58,7 @@ export const Layout = ({ children }: LayoutProps) => {
           supabase
             .from('collections')
             .select('id', { count: 'exact', head: true })
-            .or(`status.eq.Overdue,and(status.eq.Pending,due_date.lt.${new Date().toISOString().split('T')[0]})`),
+            .or(`status.eq.Overdue,and(status.eq.Pending,due_date.lt.${todayLocalISO()})`),
           supabase.from('deliveries').select('id', { count: 'exact', head: true }).eq('status', 'Failed'),
         ]);
 

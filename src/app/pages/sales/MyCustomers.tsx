@@ -99,7 +99,7 @@ export const MyCustomers = () => {
                 orderMap.set(o.customer_id, {
                     count: existing.count + 1,
                     revenue: existing.revenue + (o.grand_total || 0),
-                    lastDate: !existing.lastDate || o.created_at > existing.lastDate ? o.created_at : existing.lastDate,
+                    lastDate: !existing.lastDate || Date.parse(o.created_at) > Date.parse(existing.lastDate) ? o.created_at : existing.lastDate,
                 });
             });
 

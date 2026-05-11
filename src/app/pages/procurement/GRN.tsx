@@ -9,7 +9,8 @@ import { supabase } from '@/app/supabase';
 import { DataCard, EmptyState, FormSection, PageHeader, SearchBar, StyledThead, StyledTh, StyledTr, StyledTd, StatusBadge } from '@/app/components/ui/primitives';
 import type { GodownEnum } from '@/app/types/database';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
-import { LIMITS, sanitizeIntegerInput, sanitizeMultilineText, sanitizeText, sanitizeUpperAlnum, validatePositiveAmount, validateRequired } from '@/app/validation';
+import { LIMITS, sanitizeChallanNumber, sanitizeMultilineText, sanitizeNonNegativeInteger, sanitizeText, validatePositiveAmount, validateRequired } from '@/app/validation';
+import { todayLocalISO, validateDateNotInFuture } from '@/app/dates';
 
 interface PendingDelivery {
   id: string;
@@ -37,7 +38,7 @@ export const GRN = () => {
   const [selectedPOId, setSelectedPOId] = useState('');
   const [receivingLocation, setReceivingLocation] = useState('');
   const [GodownOptions, setGodownOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.Godowns);
-  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [receivedDate, setReceivedDate] = useState(todayLocalISO());
   const [challanNumber, setChallanNumber] = useState('');
   const [remarks, setRemarks] = useState('');
   const [receivedQty, setReceivedQty] = useState('');
@@ -56,7 +57,7 @@ export const GRN = () => {
       validateRequired(receivedQty, 'Received quantity');
       requestedQty = Number(receivedQty);
       validatePositiveAmount(requestedQty, 'Received quantity');
-      normalizedChallanNumber = sanitizeUpperAlnum(challanNumber, LIMITS.mediumText);
+      normalizedChallanNumber = sanitizeChallanNumber(challanNumber, LIMITS.mediumText);
       normalizedRemarks = sanitizeMultilineText(remarks, LIMITS.reason);
     } catch (err: any) {
       toast.error(err?.message || 'Please complete GRN details');
@@ -136,7 +137,7 @@ export const GRN = () => {
       }
 
       toast.success(`GRN created successfully! Stock updated at ${receivingLocation}`);
-      setReceivedDate(new Date().toISOString().split('T')[0]);
+      setReceivedDate(todayLocalISO());
       setChallanNumber('');
       setRemarks('');
       setReceivedQty('');
@@ -282,7 +283,7 @@ export const GRN = () => {
 
                 <div>
                   <Label>Received Date</Label>
-                  <Input type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} required />
+                  <Input type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} max={todayLocalISO()} required />
                 </div>
 
                 <div>
@@ -309,17 +310,17 @@ export const GRN = () => {
 
                 <div>
                   <Label>Received Quantity</Label>
-                  <Input type="number" value={receivedQty} onChange={(e) => setReceivedQty(sanitizeIntegerInput(e.target.value))} placeholder="Enter quantity received" min="1" step="1" required />
+                  <Input type="number" value={receivedQty} onChange={(e) => setReceivedQty(sanitizeNonNegativeInteger(e.target.value))} placeholder="Enter quantity received" min="1" step="1" required />
                 </div>
 
                 <div>
                   <Label>Delivery Challan Number</Label>
-                  <Input value={challanNumber} onChange={(e) => setChallanNumber(sanitizeUpperAlnum(e.target.value, LIMITS.mediumText))} maxLength={LIMITS.mediumText} placeholder="Enter challan number" />
+                  <Input value={challanNumber} onChange={(e) => setChallanNumber(sanitizeChallanNumber(e.target.value, LIMITS.mediumText))} maxLength={LIMITS.mediumText} placeholder="Enter challan number" />
                 </div>
 
                 <div>
                   <Label>Remarks</Label>
-                  <Input value={remarks} onChange={(e) => setRemarks(sanitizeText(e.target.value, LIMITS.reason))} maxLength={LIMITS.reason} placeholder="Any additional notes" />
+                  <Input value={remarks} onChange={(e) => setRemarks(sanitizeMultilineText(e.target.value, LIMITS.reason))} maxLength={LIMITS.reason} placeholder="Any additional notes" />
                 </div>
 
                 <Button type="submit" disabled={submitting || !selectedPO} className="w-full bg-[#34b0a7] hover:bg-[#2a9d94] rounded-xl">
