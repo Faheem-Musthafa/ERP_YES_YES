@@ -306,6 +306,10 @@ export const CreateOrder = () => {
       });
 
       const deliveryDate = getDeliveryDate();
+      if (!customerId) {
+        toast.error('Customer is required');
+        return;
+      }
       const { data: createdOrderId, error: createOrderErr } = await supabase.rpc('create_order', {
         p_company: company as CompanyEnum,
         p_invoice_type: invoiceType as InvoiceTypeEnum,
@@ -313,9 +317,9 @@ export const CreateOrder = () => {
         p_godown: Godown as GodownEnum,
         p_site_address: sanitizeMultilineText(siteAddress, LIMITS.address),
         p_items: itemsPayload as unknown as Json,
-        p_remarks: sanitizeMultilineText(remarks, LIMITS.reason) || null,
-        p_delivery_date: deliveryDate || null,
-        p_created_by: user?.id ?? null,
+        p_remarks: sanitizeMultilineText(remarks, LIMITS.reason) || undefined,
+        p_delivery_date: deliveryDate || undefined,
+        p_created_by: user?.id ?? undefined,
       });
       let resolvedOrderId = createdOrderId;
 

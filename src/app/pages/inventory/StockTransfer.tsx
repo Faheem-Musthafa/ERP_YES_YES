@@ -199,8 +199,8 @@ export const StockTransfer = () => {
         p_to_location: toLocation as GodownEnum,
         p_quantity: qty,
         p_company: company,
-        p_reason: normalizedReason || null,
-        p_user_id: user?.id ?? null,
+        p_reason: normalizedReason || undefined,
+        p_user_id: user?.id ?? undefined,
       });
 
       if (transferErr) throw transferErr;

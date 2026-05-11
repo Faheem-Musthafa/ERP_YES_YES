@@ -970,7 +970,7 @@ export const Billing = () => {
   const loadBillingReversalRequests = async () => {
     setLoadingReversals(true);
     try {
-      const { data, error } = await supabase.rpc('get_billing_reversal_requests', { p_status: null });
+      const { data, error } = await supabase.rpc('get_billing_reversal_requests', { p_status: undefined });
       if (error) {
         const missingRpc = error.code === 'PGRST202' || error.message?.toLowerCase().includes('could not find the function');
         if (missingRpc) {
@@ -1063,7 +1063,7 @@ export const Billing = () => {
         const idempotencyKey = `bill-cn:${order.id}`;
         const { data: cnInvoice, error: cnErr } = await supabase.rpc('bill_credit_note_idempotent', {
           p_order_id: order.id,
-          p_billed_by: user?.id ?? null,
+          p_billed_by: user?.id ?? undefined,
           p_idempotency_key: idempotencyKey,
         });
         if (cnErr) {
@@ -1096,7 +1096,7 @@ export const Billing = () => {
         const idempotencyKey = `bill:${order.id}`;
         const { data: idempotentInvoiceNo, error: idempotentErr } = await supabase.rpc('bill_order_idempotent', {
           p_order_id: order.id,
-          p_billed_by: user?.id ?? null,
+          p_billed_by: user?.id ?? undefined,
           p_idempotency_key: idempotencyKey,
         });
 
@@ -1105,7 +1105,7 @@ export const Billing = () => {
           if (!rpcMissing) throw idempotentErr;
 
           const { data: legacyInvoiceNo, error: legacyErr } = await supabase
-            .rpc('bill_order_atomic', { p_order_id: order.id, p_billed_by: user?.id ?? null });
+            .rpc('bill_order_atomic', { p_order_id: order.id, p_billed_by: user?.id ?? undefined });
           if (legacyErr) throw legacyErr;
           billedInvoiceNo = extractInvoiceNumber(legacyInvoiceNo);
         } else {
@@ -1296,7 +1296,7 @@ export const Billing = () => {
       const { data, error } = await supabase.rpc(rpcName, {
         p_request_id: reviewRequest.id,
         p_admin_user_id: user.id,
-        p_admin_note: adminNote.trim() || null,
+        p_admin_note: adminNote.trim() || undefined,
       });
       if (error) throw error;
       if (!data) {

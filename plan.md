@@ -30,7 +30,7 @@ Legend: `[ ]` todo · `[x]` done · `[-]` deferred (reason).
 
 ## P1 — High (data correctness + missing P2 wiring foundations)
 
-- [-] **P1-1** Regenerate `src/app/types/database.ts` — deferred (existing `any`-casts work; full regen waits for next schema cycle).
+- [x] **P1-1** Regenerated `src/app/types/database.ts` from live schema via `mcp__supabase__generate_typescript_types`. Adds all new P2 columns + new tables (audit_trail, delivery_items, purchase_returns, purchase_return_items, states, invoice_sequences). Named-alias appendix preserves `OrderStatusEnum` / `CompanyEnum` / etc. Eight call sites swapped from `?? null` to `?? undefined` to match the regenerated optional-arg shape, plus a required-customer guard in CreateOrder.
 - [-] **P1-2** CreateOrder useEffect joined-string dep — deferred (larger refactor; needs onChange-driven cross-calc).
 - [x] **P1-3** OrderReview useEffect now keyed to `selectedOrder?.id` + `maxDiscountPercentage`; runs after items load. Uses `computeLineAmount` for parity with the rest of the page.
 - [x] **P1-4** MyCustomers orders fetch scoped to `created_by = user.id` for sales role; row `key` swapped from `i` to `c.id`.

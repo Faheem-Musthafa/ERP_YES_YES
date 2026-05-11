@@ -104,9 +104,9 @@ export const GRN = () => {
       const { data: idempotentGrnId, error: idempotentErr } = await supabase.rpc('create_grn_idempotent', {
         p_items: grnItems,
         p_po_id: selectedPOId,
-        p_supplier_id: selectedPO.supplier_id,
-        p_received_by: null,
-        p_remarks: remarksText || null,
+        p_supplier_id: selectedPO.supplier_id ?? undefined,
+        p_received_by: undefined,
+        p_remarks: remarksText || undefined,
         p_idempotency_key: idempotencyKey,
       });
 
@@ -117,9 +117,9 @@ export const GRN = () => {
         const { data: legacyGrnId, error: legacyErr } = await supabase.rpc('create_grn', {
           p_items: grnItems,
           p_po_id: selectedPOId,
-          p_supplier_id: selectedPO.supplier_id,
-          p_received_by: null,
-          p_remarks: remarksText || null,
+          p_supplier_id: selectedPO.supplier_id ?? undefined,
+          p_received_by: undefined,
+          p_remarks: remarksText || undefined,
         });
         if (legacyErr) throw legacyErr;
         grnId = legacyGrnId;

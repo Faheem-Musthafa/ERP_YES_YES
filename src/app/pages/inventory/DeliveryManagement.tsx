@@ -183,12 +183,12 @@ export const DeliveryManagement = () => {
       const agent = !isOtherAgent ? agents.find(a => a.id === form.delivery_agent_id) : null;
       const payload = {
         p_order_id: form.order_id,
-        p_agent_id: !isOtherAgent ? form.delivery_agent_id : null,
-        p_initiated_by: !isOtherInitiator ? form.initiated_by_id : null,
-        p_initiated_by_name: isOtherInitiator ? form.initiated_by_other.trim() : null,
-        p_driver_name: isOtherAgent ? form.driver_other.trim() : (agent?.name ?? null),
-        p_vehicle_number: form.vehicle_number.trim() || null,
-        p_created_by: user?.id ?? null,
+        p_agent_id: !isOtherAgent ? form.delivery_agent_id : undefined,
+        p_initiated_by: !isOtherInitiator ? form.initiated_by_id : undefined,
+        p_initiated_by_name: isOtherInitiator ? form.initiated_by_other.trim() : undefined,
+        p_driver_name: isOtherAgent ? form.driver_other.trim() : (agent?.name ?? undefined),
+        p_vehicle_number: form.vehicle_number.trim() || undefined,
+        p_created_by: user?.id ?? undefined,
       };
 
       const idempotencyKey = `delivery:create:${payload.p_order_id}:${payload.p_agent_id || 'other'}:${payload.p_initiated_by || payload.p_initiated_by_name || 'other'}:${payload.p_driver_name || 'na'}:${payload.p_vehicle_number || 'na'}`;
@@ -226,8 +226,8 @@ export const DeliveryManagement = () => {
       const payload = {
         p_delivery_id: id,
         p_status: status,
-        p_failure_reason: null,
-        p_updated_by: user?.id ?? null,
+        p_failure_reason: undefined,
+        p_updated_by: user?.id ?? undefined,
       };
 
       const idempotencyKey = `delivery:status:${id}:${status}`;
@@ -258,7 +258,7 @@ export const DeliveryManagement = () => {
       p_delivery_id: failTargetId!,
       p_status: 'Failed' as const,
       p_failure_reason: failReason.trim(),
-      p_updated_by: user?.id ?? null,
+      p_updated_by: user?.id ?? undefined,
     };
 
     const idempotencyKey = `delivery:status:${failTargetId}:Failed:${failReason.trim()}`;
