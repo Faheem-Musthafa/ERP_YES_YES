@@ -56,6 +56,12 @@ Legend: `[ ]` todo · `[x]` done · `[-]` deferred (reason).
 
 ---
 
+## Cycle-2 follow-up sweep
+
+- [x] **F-1** CustomerForm post-import `setTimeout(navigate, 1000)` tracked via `navTimerRef` + unmount cleanup.
+- [x] **F-2** GlobalSearch focus `setTimeout(..., 100)` returned from effect for cleanup.
+- Verified: 0 ungated `console.*` left, 0 `toISOString().split` patterns left in real code, 0 npm-audit vulns, 0 always-true policies, 0 anon-callable SECURITY DEFINER, 0 search_path mutable, 0 `parseInt` without radix, no app-side localStorage outside Supabase client.
+
 ## P2 — Bigger redesign (deferred unless fast-track requested)
 
 - [-] **P2-1** State-derived GST classification (remove Invoice Type dropdown, derive from `customers.state_code` vs company state).  Reason: needs UX decision + RPC change.

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { supabase } from '@/app/supabase';
 import { Button } from '@/app/components/ui/button';
@@ -26,6 +26,7 @@ export const CustomerForm = () => {
     const [fetching, setFetching] = useState(isEdit);
     const [uploadOpen, setUploadOpen] = useState(false);
     const [uploadLoading, setUploadLoading] = useState(false);
+    const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         void loadMasterDataSettings()
@@ -33,6 +34,13 @@ export const CustomerForm = () => {
             .catch(() => {
                 // Keep default districts if settings read fails.
             });
+    }, []);
+
+    useEffect(() => () => {
+        if (navTimerRef.current) {
+            clearTimeout(navTimerRef.current);
+            navTimerRef.current = null;
+        }
     }, []);
 
     useEffect(() => {
@@ -302,7 +310,11 @@ export const CustomerForm = () => {
             }).format(totalOpeningBalance);
             toast.success(`Imported ${toInsert.length} customers successfully! Total opening balance: ${balanceLabel}`);
             setUploadOpen(false);
-            setTimeout(() => navigate('/admin/customers'), 1000);
+            if (navTimerRef.current) clearTimeout(navTimerRef.current);
+            navTimerRef.current = setTimeout(() => {
+                navTimerRef.current = null;
+                navigate('/admin/customers');
+            }, 1000);
         } catch (err: any) {
             toast.error(err.message || 'Failed to import CSV');
         } finally {

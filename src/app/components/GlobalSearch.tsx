@@ -57,15 +57,16 @@ export const GlobalSearch = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Focus input when dialog opens
+  // Focus input when dialog opens. Track the timer so a rapid open/close
+  // doesn't leak a focus call on an unmounted ref.
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-      setQuery('');
-      setResults([]);
-      setSelectedIndex(0);
-      setError(null);
-    }
+    if (!isOpen) return;
+    setQuery('');
+    setResults([]);
+    setSelectedIndex(0);
+    setError(null);
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 100);
+    return () => clearTimeout(focusTimer);
   }, [isOpen]);
 
   // Handle Cmd+K or Ctrl+K to open search
