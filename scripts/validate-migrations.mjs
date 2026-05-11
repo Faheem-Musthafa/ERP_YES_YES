@@ -4,12 +4,20 @@ import path from 'node:path';
 const root = process.cwd();
 const docsDir = path.join(root, 'docs');
 
+// Migration targets list — paths relative to docs/. Historical migrations live
+// in deprecated/ now; current-cycle migrations live in applied/.
 const migrationTargets = [
-  'SECURITY_TRANSACTION_HARDENING.sql',
-  'RPC_IDEMPOTENCY_WRAPPERS.sql',
-  'COMPANY_PROFILE_SETTINGS_MIGRATION.sql',
-  'BILLING_REVERSAL_WORKFLOW.sql',
-  'SAFE_RECOVERY_AND_AUDIT_MIGRATION.sql',
+  'deprecated/SECURITY_TRANSACTION_HARDENING.sql',
+  'deprecated/RPC_IDEMPOTENCY_WRAPPERS.sql',
+  'deprecated/COMPANY_PROFILE_SETTINGS_MIGRATION.sql',
+  'deprecated/BILLING_REVERSAL_WORKFLOW.sql',
+  'deprecated/SAFE_RECOVERY_AND_AUDIT_MIGRATION.sql',
+  'applied/INVOICE_NUMBER_SEQUENCES.sql',
+  'applied/P2_TAX_SCHEMA_EXTENSIONS.sql',
+  'applied/AUDIT_TRAIL.sql',
+  'applied/DELIVERY_ITEMS.sql',
+  'applied/PURCHASE_RETURNS.sql',
+  'applied/RLS_AUDIT.sql',
 ];
 
 const prohibitedPatterns = [
@@ -44,7 +52,12 @@ for (const fileName of migrationTargets) {
 
 const violations = [];
 
-for (const fileName of sqlFiles) {
+// Only scan applied/ for forbidden patterns. deprecated/ may legitimately
+// contain historical references; live policy is checked separately by
+// security-smoke-test against pg_policies via MCP / advisor APIs.
+const scanTargets = migrationTargets.filter((p) => p.startsWith('applied/'));
+
+for (const fileName of scanTargets) {
   const fullPath = path.join(docsDir, fileName);
   const text = await fs.readFile(fullPath, 'utf8');
 

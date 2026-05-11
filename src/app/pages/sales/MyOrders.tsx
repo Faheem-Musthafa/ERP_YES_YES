@@ -73,7 +73,7 @@ export const MyOrders = () => {
     <div className="space-y-5">
       <PageHeader
         title="My Orders"
-        subtitle="Track all your submitted orders"
+        subtitle="All orders you have created"
         actions={
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={exportOrders} className="gap-2">

@@ -239,7 +239,7 @@ export const StockTransfer = () => {
     <div className="space-y-5">
       <PageHeader
         title="Stock Transfer"
-        subtitle="Transfer stock between configured locations"
+        subtitle="Move stock between godowns"
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <DataCard className="p-6">

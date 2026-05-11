@@ -88,7 +88,7 @@ export const AccountsDashboard = () => {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="Accounts Overview"
-        subtitle="Manage pending approvals and collections"
+        subtitle="Approvals waiting and payments to collect"
         actions={
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => navigate('/accounts/sales')}>

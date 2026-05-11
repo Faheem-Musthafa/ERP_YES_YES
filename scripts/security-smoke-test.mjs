@@ -10,7 +10,7 @@ const execFileP = (cmd, args, opts = {}) =>
 const root = process.cwd();
 
 const requiredFiles = [
-  'docs/SECURITY_TRANSACTION_HARDENING.sql',
+  'docs/deprecated/SECURITY_TRANSACTION_HARDENING.sql',
   'vercel.json',
   'src/app/supabase.ts',
 ];
@@ -24,19 +24,19 @@ for (const file of requiredFiles) {
   }
 }
 
-const fixAllPath = path.join(root, 'docs/FIX_ALL_TABLES_RLS.sql');
-const fix403Path = path.join(root, 'docs/FIX_403_ERROR.sql');
+const fixAllPath = path.join(root, 'docs/deprecated/FIX_ALL_TABLES_RLS.sql');
+const fix403Path = path.join(root, 'docs/deprecated/FIX_403_ERROR.sql');
 
 const fixAllText = await fs.readFile(fixAllPath, 'utf8');
 const fix403Text = await fs.readFile(fix403Path, 'utf8');
 
 if (!/DEPRECATED SCRIPT - DO NOT RUN/i.test(fixAllText)) {
-  console.error('docs/FIX_ALL_TABLES_RLS.sql must stay deprecated');
+  console.error('docs/deprecated/FIX_ALL_TABLES_RLS.sql must stay deprecated');
   process.exit(1);
 }
 
 if (!/DEPRECATED SCRIPT - DO NOT RUN/i.test(fix403Text)) {
-  console.error('docs/FIX_403_ERROR.sql must stay deprecated');
+  console.error('docs/deprecated/FIX_403_ERROR.sql must stay deprecated');
   process.exit(1);
 }
 
@@ -60,19 +60,22 @@ if (tracked) {
 // Forbid DISABLE ROW LEVEL SECURITY in committed SQL outside docs/deprecated/.
 // Strip SQL line comments (-- …) and block comments (/* … */) before matching
 // so that documentation references in DOWN-migration comments are ignored.
-const docsDir = path.join(root, 'docs');
-const entries = await fs.readdir(docsDir, { withFileTypes: true });
-for (const entry of entries) {
-  if (!entry.isFile() || !entry.name.endsWith('.sql')) continue;
-  const text = await fs.readFile(path.join(docsDir, entry.name), 'utf8');
-  const uncommented = text
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n')
-    .map((line) => line.replace(/--.*$/, ''))
-    .join('\n');
-  if (/DISABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(uncommented)) {
-    console.error(`docs/${entry.name} contains live DISABLE ROW LEVEL SECURITY — move to docs/deprecated/`);
-    process.exit(1);
+const sqlSearchDirs = ['docs', 'docs/applied'];
+for (const dir of sqlSearchDirs) {
+  const dirPath = path.join(root, dir);
+  const entries = await fs.readdir(dirPath, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.sql')) continue;
+    const text = await fs.readFile(path.join(dirPath, entry.name), 'utf8');
+    const uncommented = text
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n')
+      .map((line) => line.replace(/--.*$/, ''))
+      .join('\n');
+    if (/DISABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(uncommented)) {
+      console.error(`${dir}/${entry.name} contains live DISABLE ROW LEVEL SECURITY — move to docs/deprecated/`);
+      process.exit(1);
+    }
   }
 }
 

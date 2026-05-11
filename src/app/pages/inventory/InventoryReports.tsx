@@ -66,7 +66,7 @@ export const InventoryReports = () => {
     <div className="space-y-5">
       <PageHeader
         title="Inventory Reports"
-        subtitle="Inventory analytics and stock adjustment history"
+        subtitle="Stock totals and recent stock changes"
       />
       {loading ? <Spinner /> : error ? (
         <DataCard>

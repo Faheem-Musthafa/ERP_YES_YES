@@ -274,7 +274,7 @@ export const GlobalSearch = ({
       <DialogContent className="p-0 gap-0 [&>button]:hidden max-w-xl">
         <DialogHeader>
           <VisuallyHidden>
-            <DialogTitle>Global Search</DialogTitle>
+            <DialogTitle>Search Anything</DialogTitle>
           </VisuallyHidden>
         </DialogHeader>
         <div className="flex flex-col h-[500px]">

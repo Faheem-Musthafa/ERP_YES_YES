@@ -325,7 +325,7 @@ export const CustomerForm = () => {
                     <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
                         <div className="md:col-span-2 space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Customer Name <span className="text-rose-500">*</span></Label>
-                            <Input value={form.name} onChange={(e) => setForm(f => ({ ...f, name: sanitizeText(e.target.value, LIMITS.longText) }))} placeholder="Full business or legal name" required maxLength={LIMITS.longText} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-semibold" />
+                            <Input value={form.name} onChange={(e) => setForm(f => ({ ...f, name: sanitizeText(e.target.value, LIMITS.longText) }))} placeholder="Company or shop name" required maxLength={LIMITS.longText} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-semibold" />
                         </div>
                         <div className="space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Place <span className="text-rose-500">*</span></Label>
@@ -334,7 +334,7 @@ export const CustomerForm = () => {
                         <div className="space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">District Zone <span className="text-rose-500">*</span></Label>
                             <Select value={form.location ?? ''} onValueChange={(v) => setForm(f => ({ ...f, location: v || null }))}>
-                                <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50"><SelectValue placeholder="Allocate operation sector" /></SelectTrigger>
+                                <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50"><SelectValue placeholder="Pick region or district" /></SelectTrigger>
                                 <SelectContent className="rounded-xl">
                                     {districtOptions.map((district) => (
                                         <SelectItem key={district} value={district}>{district}</SelectItem>
@@ -346,12 +346,12 @@ export const CustomerForm = () => {
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Phone Number <span className="text-rose-500">*</span></Label>
                             <div className="relative">
                                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors"><Phone size={16} /></div>
-                                <Input type="tel" value={form.phone} onChange={(e) => setForm(f => ({ ...f, phone: sanitizePhone(e.target.value) }))} placeholder="Primary contact string" required maxLength={LIMITS.phone} className="pl-11 h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-mono tracking-widest" />
+                                <Input type="tel" value={form.phone} onChange={(e) => setForm(f => ({ ...f, phone: sanitizePhone(e.target.value) }))} placeholder="Phone number" required maxLength={LIMITS.phone} className="pl-11 h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-mono tracking-widest" />
                             </div>
                         </div>
                         <div className="space-y-2 group ">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Alternate Phone No</Label>
-                            <Input type="tel" value={form.second_phone} onChange={(e) => setForm(f => ({ ...f, second_phone: sanitizePhone(e.target.value) }))} placeholder="Alternate contact number" maxLength={LIMITS.phone} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-mono tracking-widest"  />
+                            <Input type="tel" value={form.second_phone} onChange={(e) => setForm(f => ({ ...f, second_phone: sanitizePhone(e.target.value) }))} placeholder="Other phone (optional)" maxLength={LIMITS.phone} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 font-mono tracking-widest"  />
                         </div>
                     </div>
                 </div>
@@ -370,7 +370,7 @@ export const CustomerForm = () => {
                     <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
                         <div className="md:col-span-2 space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Customer Address <span className="text-rose-500">*</span></Label>
-                            <Textarea value={form.address} onChange={(e) => setForm(f => ({ ...f, address: sanitizeMultilineText(e.target.value, LIMITS.address) }))} placeholder="Suite, Building, Street mapping..." rows={3} required maxLength={LIMITS.address} className="resize-none rounded-xl bg-slate-50 dark:bg-slate-800/50 p-4" />
+                            <Textarea value={form.address} onChange={(e) => setForm(f => ({ ...f, address: sanitizeMultilineText(e.target.value, LIMITS.address) }))} placeholder="Full address" rows={3} required maxLength={LIMITS.address} className="resize-none rounded-xl bg-slate-50 dark:bg-slate-800/50 p-4" />
                         </div>
                         <div className="space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Pin / Zip Code</Label>
@@ -402,7 +402,7 @@ export const CustomerForm = () => {
                             <Input value={form.pan_no} onChange={(e) => setForm(f => ({ ...f, pan_no: sanitizeUpperAlnum(e.target.value, LIMITS.pan) }))} placeholder="Enter PAN number" maxLength={LIMITS.pan} className="h-12 rounded-xl bg-white dark:bg-slate-900 uppercase font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
                         </div>
                         <div className="space-y-2 group">
-                            <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">Opening Balance (Credit / Debit)</Label>
+                            <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">Starting Balance (+ owes us / - we owe)</Label>
                             <Input type="number" value={form.opening_balance} onChange={(e) => setForm(f => ({ ...f, opening_balance: parseFloat(e.target.value) || 0 }))} placeholder="0.00" step="0.01" className="h-12 rounded-xl bg-white dark:bg-slate-900 font-mono tracking-widest text-lg shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
                             <p className="text-[11px] text-violet-600/80 dark:text-violet-300/80 font-medium">Use + for outstanding (customer owes us), use - for payable (we owe customer).</p>
                         </div>
@@ -466,7 +466,7 @@ export const CustomerForm = () => {
                                 <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Notes:</span> Company and Brand are accepted for compatibility but not stored in customer master.</p>
                                 <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Phone fields:</span> <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Phone</code> is required and must be 7-15 digits with an optional leading <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">+</code> (e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">9876543210</code>). Rows missing a valid primary phone are skipped. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Second Phone No</code> is optional; invalid values are dropped silently.</p>
                                 <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Tax IDs:</span> <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">GSTIN</code> (15 chars, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">32ABCDE1234F1Z5</code>), <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">PAN No</code> (10 chars, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">ABCDE1234F</code>) and <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">pincode</code> (6 digits) are all optional. Leave the cell blank if unknown — placeholder text like <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">N/A</code> or <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Nil</code> is treated as missing. Invalid values are silently stored as <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">NULL</code>.</p>
-                                <p><span className="font-bold text-slate-700 dark:text-slate-300">Opening Balance:</span> A signed number. Use a <span className="font-bold text-emerald-600 dark:text-emerald-400">positive</span> value when the customer owes us (receivable, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">15000</code>) and a <span className="font-bold text-rose-600 dark:text-rose-400">negative</span> value when we owe the customer (advance / credit note, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">-2500</code>). Blank or non-numeric values default to <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">0</code>. After import a toast shows the total balance loaded.</p>
+                                <p><span className="font-bold text-slate-700 dark:text-slate-300">Starting Balance:</span> Use a <span className="font-bold text-emerald-600 dark:text-emerald-400">positive</span> number when the customer owes us (e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">15000</code>) and a <span className="font-bold text-rose-600 dark:text-rose-400">negative</span> number when we owe the customer (advance paid, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">-2500</code>). Leave blank for zero. A message appears after import showing the total.</p>
                             </div>
                         </div>
                     </div>

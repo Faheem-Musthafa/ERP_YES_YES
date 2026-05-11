@@ -46,7 +46,7 @@ export const PurchaseOrders = () => {
     <div className="space-y-5">
       <PageHeader
         title="Purchase Orders"
-        subtitle="Manage and track purchase orders"
+        subtitle="Track orders placed with suppliers"
         actions={
           <Button
             size="sm"

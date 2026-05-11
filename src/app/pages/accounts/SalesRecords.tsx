@@ -71,7 +71,7 @@ export const SalesRecords = () => {
     <div className="space-y-5">
       <PageHeader
         title="Sales Records"
-        subtitle="All approved, billed, and delivered orders"
+        subtitle="All completed orders"
         actions={
           <Button size="sm" variant="outline" onClick={exportOrders} className="gap-2">
             <Download size={15} />

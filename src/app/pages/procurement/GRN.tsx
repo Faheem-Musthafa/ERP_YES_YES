@@ -136,7 +136,7 @@ export const GRN = () => {
         if (headerUpdateError) throw headerUpdateError;
       }
 
-      toast.success(`GRN created successfully! Stock updated at ${receivingLocation}`);
+      toast.success(`Delivery received. Stock added to ${receivingLocation}.`);
       setReceivedDate(todayLocalISO());
       setChallanNumber('');
       setRemarks('');
@@ -359,7 +359,7 @@ export const GRN = () => {
       </div>
 
       <DataCard className="p-5">
-        <FormSection title="Recent GRNs">
+        <FormSection title="Recent Deliveries Received">
           {recentGRNs.length === 0 ? (
             <EmptyState
               icon={Truck}

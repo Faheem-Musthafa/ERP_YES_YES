@@ -190,7 +190,7 @@ export const StockAdjustment = () => {
     <div className="space-y-5">
       <PageHeader
         title="Stock Adjustment"
-        subtitle="Manually adjust product stock levels"
+        subtitle="Add or remove stock with a reason"
       />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <DataCard className="p-6">

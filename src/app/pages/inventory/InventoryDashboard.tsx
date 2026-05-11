@@ -43,7 +43,7 @@ export const InventoryDashboard = () => {
     <div className="space-y-6 pb-12">
       <PageHeader
         title="Inventory Dashboard"
-        subtitle="Overview of stock levels and inventory health"
+        subtitle="What is in stock and what needs attention"
       />
       {loading ? <Spinner /> : error ? <ErrorState message={error} /> : (
         <>

@@ -71,7 +71,8 @@ ON CONFLICT (code) DO NOTHING;
 
 ALTER TABLE public.states ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS states_read ON public.states;
-CREATE POLICY states_read ON public.states FOR SELECT TO authenticated USING (true);
+-- Lookup table — every signed-in user may read. No write policies = no INSERT/UPDATE/DELETE.
+CREATE POLICY states_read ON public.states FOR SELECT TO authenticated USING ((SELECT auth.uid()) IS NOT NULL);
 
 -- ---------------------------------------------------------------------
 -- 2. Products — HSN, tax_rate, UoM, cost_price

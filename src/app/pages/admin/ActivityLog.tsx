@@ -216,7 +216,7 @@ export const ActivityLog = () => {
         <div className="space-y-5">
             <PageHeader
                 title="Activity Log"
-                subtitle="Recent system activity across all modules"
+                subtitle="See who changed what in the system"
             />
 
             {/* Stats row */}

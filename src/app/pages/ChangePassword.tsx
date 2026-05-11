@@ -84,7 +84,7 @@ export const ChangePassword = () => {
                         <Lock size={22} className="text-primary" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-foreground">Set New Password</h1>
+                        <h1 className="text-2xl font-bold text-foreground">Create New Password</h1>
                         <p className="text-sm text-muted-foreground mt-1">
                             Welcome, <strong>{user?.full_name}</strong>. Update your password to continue using the ERP.
                         </p>
@@ -160,7 +160,7 @@ export const ChangePassword = () => {
                     <div className="border-t border-border pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <p className="text-xs text-muted-foreground">Must include uppercase, lowercase, number, and special character.</p>
                         <Button type="submit" disabled={!canSubmit || saving} className="w-full sm:w-auto min-w-[220px]">
-                            {saving ? 'Saving...' : 'Set New Password & Continue'}
+                            {saving ? 'Saving...' : 'Save New Password'}
                         </Button>
                     </div>
                 </form>

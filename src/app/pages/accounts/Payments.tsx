@@ -237,7 +237,7 @@ export const Payments = () => {
         <div className="space-y-5">
             <PageHeader
                 title="Payments Tracker"
-                subtitle="Invoice-level payment aggregation and outstanding overview"
+                subtitle="See payments and pending amounts for each customer"
                 actions={
                     <Button
                         onClick={exportCSV}

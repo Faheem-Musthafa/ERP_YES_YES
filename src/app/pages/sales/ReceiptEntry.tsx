@@ -213,8 +213,8 @@ export const ReceiptEntry = () => {
               <Building2 size={20} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Transaction Routing</h3>
-              <p className="text-xs text-slate-500">Legal entity and payment medium</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Payment Details</h3>
+              <p className="text-xs text-slate-500">Company and how it was paid</p>
             </div>
           </div>
           <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
@@ -230,10 +230,10 @@ export const ReceiptEntry = () => {
               </Select>
             </div>
             <div className="space-y-2 group">
-              <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Mode of Receipt <span className="text-rose-500">*</span></Label>
+              <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">How was it paid? <span className="text-rose-500">*</span></Label>
               <Select value={modeOfReceipt} onValueChange={(value) => setModeOfReceipt(value as PaymentModeEnum)}>
                 <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-primary/20"><SelectValue placeholder="Select payment channel" /></SelectTrigger>
-                <SelectContent className="rounded-xl"><SelectItem value="Cash">Cash Currency</SelectItem><SelectItem value="Cheque">Bank Cheque</SelectItem><SelectItem value="Bank Transfer">NEFT / RTGS</SelectItem><SelectItem value="UPI">UPI / Digital</SelectItem></SelectContent>
+                <SelectContent className="rounded-xl"><SelectItem value="Cash">Cash</SelectItem><SelectItem value="Cheque">Cheque</SelectItem><SelectItem value="Bank Transfer">Bank Transfer</SelectItem><SelectItem value="UPI">UPI</SelectItem></SelectContent>
               </Select>
             </div>
           </div>
@@ -271,8 +271,8 @@ export const ReceiptEntry = () => {
               <Tag size={20} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Brand Assignment</h3>
-              <p className="text-xs text-slate-500">Internal metrics tagging</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Tag a Brand</h3>
+              <p className="text-xs text-slate-500">Used for sales reports</p>
             </div>
           </div>
           <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
