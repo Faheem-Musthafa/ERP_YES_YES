@@ -142,7 +142,10 @@ export const ReceiptEntry = () => {
         finalCustomerId = newCust.id;
       }
 
-      const receiptNumber = `RCPT-${Date.now()}`;
+      // UUID avoids Date.now() collisions on concurrent submits before a server
+      // allocator is in place. Once `allocate_receipt_number` RPC exists, route
+      // through it with this as the fallback.
+      const receiptNumber = `RCPT-${crypto.randomUUID()}`;
       const finalBrand = brand === 'Other' ? otherBrand.trim() : brand;
       const normalizedAmount = Number(receivedAmount);
       validatePositiveAmount(normalizedAmount, 'Received amount');

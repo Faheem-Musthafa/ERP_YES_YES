@@ -199,20 +199,20 @@ export const GRN = () => {
       });
 
       if (pendingError) {
-        console.error('Failed to fetch pending POs:', pendingError);
+        if (import.meta.env.DEV) console.error('Failed to fetch pending POs:', pendingError);
         toast.error('Failed to load pending deliveries');
       } else {
         setPendingDeliveries((pendingData ?? []) as PendingDelivery[]);
       }
 
       if (grnError) {
-        console.error('Failed to fetch GRNs:', grnError);
+        if (import.meta.env.DEV) console.error('Failed to fetch GRNs:', grnError);
         toast.error('Failed to load recent GRNs');
       } else {
         setRecentGRNs((grnData ?? []) as RecentGrn[]);
       }
     } catch (err) {
-      console.error('Error loading GRN data:', err);
+      if (import.meta.env.DEV) console.error('Error loading GRN data:', err);
       toast.error('Failed to load GRN data');
     }
   };

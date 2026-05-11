@@ -115,6 +115,11 @@ export const CustomerForm = () => {
         setUploadLoading(true);
         try {
             if (!file.name.toLowerCase().endsWith('.csv')) throw new Error('Only CSV files are allowed');
+            // MIME-type check (browsers report '' or 'text/csv' or 'application/vnd.ms-excel').
+            const allowedMime = ['', 'text/csv', 'application/vnd.ms-excel', 'application/csv'];
+            if (file.type && !allowedMime.includes(file.type) && !/csv/i.test(file.type)) {
+                throw new Error('File is not a recognised CSV');
+            }
             if (file.size > LIMITS.csvFileBytes) throw new Error('CSV file is too large. Keep it under 5 MB');
             const parseCSVLine = (line: string) => {
                 const cols: string[] = [];
@@ -148,13 +153,18 @@ export const CustomerForm = () => {
                 return cols;
             };
 
-            const text = await file.text();
+            const text = (await file.text()).replace(/^﻿/, ''); // strip UTF-8 BOM
             const lines = text
                 .replace(/\r\n/g, '\n')
                 .replace(/\r/g, '\n')
                 .split('\n')
                 .filter((line) => line.trim().length > 0);
             if (lines.length < 2) { toast.error('CSV must have at least a header and one row'); return; }
+            const MAX_CSV_ROWS = 5000;
+            if (lines.length - 1 > MAX_CSV_ROWS) {
+                toast.error(`CSV has too many rows. Keep it under ${MAX_CSV_ROWS} rows`);
+                return;
+            }
 
             const normalizeHeader = (header: string) => header.toLowerCase().replace(/[^a-z0-9]/g, '');
             const headers = parseCSVLine(lines[0]).map(h => normalizeHeader(h));
@@ -184,15 +194,28 @@ export const CustomerForm = () => {
                 return;
             }
 
-            const phoneRegex = /^\+?\d{7,15}$/;
-            const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
-            const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-            const pincodeRegex = /^\d{6}$/;
+            // Use the central validators so a regex bump in validation.ts
+            // propagates here. Each try/catch keeps a bad row from killing the
+            // whole import.
+            const safeValidate = (fn: (v: string) => void, value: string) => {
+                try { fn(value); return true; } catch { return false; }
+            };
+            const parseOpeningBalance = (raw: string | undefined): number | null => {
+                if (!raw) return 0;
+                const cleaned = raw.replace(/[^0-9.\-]/g, '');
+                const n = Number(cleaned);
+                if (!Number.isFinite(n)) return null;
+                if (Math.abs(n) > 1_000_000_000) return null;
+                return n;
+            };
+
+            const seenPhones = new Set<string>();
             const parsedRows = lines.slice(1).map(line => {
                 const cols = parseCSVLine(line);
-                const openingBalanceValue = openingBalanceIdx >= 0
-                    ? (parseFloat(cols[openingBalanceIdx] || '0') || 0)
+                const opening = openingBalanceIdx >= 0
+                    ? parseOpeningBalance(cols[openingBalanceIdx])
                     : 0;
+                const openingBalanceValue = opening == null ? 0 : opening;
 
                 const rawPhone = phoneIdx >= 0 ? sanitizePhone(cols[phoneIdx] || '') : '';
                 const rawSecondPhone = secondPhoneIdx >= 0 ? sanitizePhone(cols[secondPhoneIdx] || '') : '';
@@ -200,17 +223,21 @@ export const CustomerForm = () => {
                 const rawPan = panIdx >= 0 ? sanitizeUpperAlnum(cols[panIdx] || '', LIMITS.pan) : '';
                 const rawPincode = pincodeIdx >= 0 ? sanitizeDigits(cols[pincodeIdx] || '', LIMITS.pincode) : '';
 
+                const phoneOk = rawPhone ? safeValidate(validatePhone, rawPhone) : false;
+                const dupPhone = phoneOk && seenPhones.has(rawPhone);
+                if (phoneOk && !dupPhone) seenPhones.add(rawPhone);
+
                 return {
                     brand: brandIdx >= 0 ? cols[brandIdx] || null : null,
                     name: sanitizeText(cols[nameIdx] || '', LIMITS.longText),
-                    phone: rawPhone,
+                    phone: phoneOk && !dupPhone ? rawPhone : '',
                     address: sanitizeMultilineText(cols[addressIdx] || '', LIMITS.address),
                     place: placeIdx >= 0 ? sanitizeText(cols[placeIdx] || '', LIMITS.mediumText) || null : null,
                     location: locationIdx >= 0 ? sanitizeText(cols[locationIdx] || '', LIMITS.mediumText) || null : null,
-                    pincode: pincodeRegex.test(rawPincode) ? rawPincode : null,
-                    gst_pan: gstinRegex.test(rawGstin) ? rawGstin : null,
-                    pan_no: panRegex.test(rawPan) ? rawPan : null,
-                    second_phone: phoneRegex.test(rawSecondPhone) ? rawSecondPhone : null,
+                    pincode: rawPincode && safeValidate(validatePincode, rawPincode) ? rawPincode : null,
+                    gst_pan: rawGstin && safeValidate(validateGSTIN, rawGstin) ? rawGstin : null,
+                    pan_no: rawPan && safeValidate(validatePAN, rawPan) ? rawPan : null,
+                    second_phone: rawSecondPhone && safeValidate(validatePhone, rawSecondPhone) ? rawSecondPhone : null,
                     opening_balance: openingBalanceValue,
                     is_active: true,
                 };
@@ -218,12 +245,12 @@ export const CustomerForm = () => {
 
             const totalRows = parsedRows.length;
             const toInsert = parsedRows
-                .filter((row) => row.name && row.address && phoneRegex.test(row.phone))
+                .filter((row) => row.name && row.address && row.phone)
                 .map(({ brand: _brand, ...customer }) => customer);
 
             const skipped = totalRows - toInsert.length;
             if (toInsert.length === 0) {
-                toast.error('No valid rows to import. Every row needs a name, address, and a 7-15 digit phone number.');
+                toast.error('No valid rows to import. Every row needs a name, address, and a valid Indian mobile number, with no duplicates within the file.');
                 return;
             }
             if (skipped > 0) {

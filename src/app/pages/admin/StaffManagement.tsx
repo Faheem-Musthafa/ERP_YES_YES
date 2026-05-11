@@ -372,7 +372,7 @@ export const StaffManagement = () => {
             setSuccessOpen(true);
             fetchUsers();
         } catch (err: any) {
-            console.error('Staff password reset failed:', err);
+            if (import.meta.env.DEV) console.error('Staff password reset failed:', err);
             toast.error(err.message || 'Failed to reset password');
         } finally { setResetting(false); }
     };

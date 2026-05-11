@@ -24,6 +24,9 @@ Thumbs.db
 .env
 .env.*
 
+# MCP local server config (may carry tokens, never commit)
+.mcp.json
+
 # VSCode
 .vscode/
 

@@ -172,7 +172,7 @@ export const GlobalSearch = ({
             .limit(5);
 
           if (suppliersError) {
-            console.warn('Suppliers search failed:', suppliersError);
+            if (import.meta.env.DEV) console.warn('Suppliers search failed:', suppliersError);
           } else if (suppliers) {
             suppliers.forEach(s => {
               results_list.push({
@@ -186,7 +186,7 @@ export const GlobalSearch = ({
             });
           }
         } catch (err) {
-          console.warn('Suppliers table query failed:', err);
+          if (import.meta.env.DEV) console.warn('Suppliers table query failed:', err);
         }
       }
 
@@ -212,7 +212,7 @@ export const GlobalSearch = ({
 
       setResults(results_list);
     } catch (err) {
-      console.error('Search error:', err);
+      if (import.meta.env.DEV) console.error('Search error:', err);
       setError('Failed to search. Please try again.');
     } finally {
       setLoading(false);

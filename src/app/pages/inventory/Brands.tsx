@@ -110,7 +110,7 @@ export const Brands = () => {
       toast.success('Brand restored');
       await fetchBrands();
     } catch (err) {
-      console.error('Restore brand error:', err);
+      if (import.meta.env.DEV) console.error('Restore brand error:', err);
       toast.error('Failed to restore brand');
     }
   };
@@ -127,7 +127,7 @@ export const Brands = () => {
       setArchiveTarget(null);
       await fetchBrands();
     } catch (error) {
-      console.error('Archive brand error:', error);
+      if (import.meta.env.DEV) console.error('Archive brand error:', error);
       toast.error('Failed to archive brand');
     }
   };
