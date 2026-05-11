@@ -6,6 +6,7 @@ import { Download, FileText, Truck, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/app/supabase';
 import { downloadCSV } from '@/app/utils';
+import { todayLocalISO } from '@/app/dates';
 import {
   DataCard,
   EmptyState,
@@ -192,10 +193,10 @@ export const ProcurementReports = () => {
             </Select>
           </FilterField>
           <FilterField label="From Date">
-            <Input type="date" className="h-10 w-36" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+            <Input type="date" className="h-10 w-36" value={fromDate} max={toDate || todayLocalISO()} onChange={e => setFromDate(e.target.value)} />
           </FilterField>
           <FilterField label="To Date">
-            <Input type="date" className="h-10 w-36" value={toDate} onChange={e => setToDate(e.target.value)} />
+            <Input type="date" className="h-10 w-36" value={toDate} min={fromDate || undefined} max={todayLocalISO()} onChange={e => setToDate(e.target.value)} />
           </FilterField>
         </div>
       </FilterBar>

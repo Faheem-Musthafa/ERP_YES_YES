@@ -11,6 +11,7 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { PaymentModeEnum } from '@/app/types/database';
 import { DEFAULT_RECEIPT_STATUS, RECEIPT_STATUS_OPTIONS_BY_MODE } from '@/app/utils';
+import { LIMITS, sanitizeMultilineText } from '@/app/validation';
 import {
   PageHeader, SearchBar, FilterBar, FilterField, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -292,8 +293,9 @@ export const MyCollection = () => {
             <Label>Reason for Bounce *</Label>
             <Textarea
               value={bounceReason}
-              onChange={e => setBounceReason(e.target.value)}
-              placeholder="e.g. Insufficient funds, Signature mismatch..."
+              onChange={e => setBounceReason(sanitizeMultilineText(e.target.value, LIMITS.reason))}
+              maxLength={LIMITS.reason}
+              placeholder="e.g. No funds, signature mismatch..."
               rows={3}
               className="rounded-xl resize-none"
             />

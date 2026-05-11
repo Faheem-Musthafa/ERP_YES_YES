@@ -117,17 +117,21 @@ export const OrderReview = () => {
     navigate('/accounts/pending-orders', { replace: true });
   };
 
+  // Normalize approvedDP/Discount/Amount whenever a new order is selected.
+  // Was previously useEffect([]) which only ran with empty items at mount.
   useEffect(() => {
+    if (items.length === 0) return;
     setItems((prev) => prev.map((item) => {
       const approvedDP = Math.max(0, item.approvedDP);
-      const approvedDiscount = Math.max(0, Math.min(100, item.approvedDiscount));
-      const approvedAmount = parseFloat((approvedDP * item.quantity * (1 - approvedDiscount / 100)).toFixed(2));
+      const approvedDiscount = Math.max(0, Math.min(maxDiscountPercentage, item.approvedDiscount));
+      const approvedAmount = toNumber(computeLineAmount(approvedDP, item.quantity, approvedDiscount));
       if (approvedDP === item.approvedDP && approvedDiscount === item.approvedDiscount && approvedAmount === item.approvedAmount) {
         return item;
       }
       return { ...item, approvedDP, approvedDiscount, approvedAmount };
     }));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOrder?.id, maxDiscountPercentage]);
 
   const handleApprove = async () => {
     if (!selectedOrder || !user) return;

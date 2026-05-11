@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/app/supabase';
 import { fmt } from '@/app/utils';
+import { parseLocalDate, todayLocalISO, validateDateRange } from '@/app/dates';
 import {
     PageHeader, SearchBar, DataCard, FilterBar, FilterField,
     StyledThead, StyledTh, StyledTr, StyledTd,
@@ -178,14 +179,16 @@ export const ActivityLog = () => {
     const filtered = events.filter(e => {
         if (categoryFilter !== 'all' && e.category !== categoryFilter) return false;
         if (dateFrom) {
-            const from = new Date(dateFrom);
-            from.setHours(0, 0, 0, 0);
-            if (new Date(e.timestamp) < from) return false;
+            const from = parseLocalDate(dateFrom);
+            if (from && new Date(e.timestamp) < from) return false;
         }
         if (dateTo) {
-            const to = new Date(dateTo);
-            to.setHours(23, 59, 59, 999);
-            if (new Date(e.timestamp) > to) return false;
+            const toStart = parseLocalDate(dateTo);
+            if (toStart) {
+                const to = new Date(toStart);
+                to.setDate(to.getDate() + 1);
+                if (new Date(e.timestamp) >= to) return false;
+            }
         }
         if (search) {
             const s = search.toLowerCase();
@@ -257,7 +260,12 @@ export const ActivityLog = () => {
                         <Input
                             type="date"
                             value={dateFrom}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDateFrom(e.target.value)}
+                            max={dateTo || todayLocalISO()}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                const next = e.target.value;
+                                try { validateDateRange(next || null, dateTo || null); setDateFrom(next); }
+                                catch (err: any) { toast.error(err?.message || 'Invalid range'); }
+                            }}
                             className="h-10 text-sm w-36"
                         />
                     </FilterField>
@@ -266,7 +274,13 @@ export const ActivityLog = () => {
                         <Input
                             type="date"
                             value={dateTo}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDateTo(e.target.value)}
+                            min={dateFrom || undefined}
+                            max={todayLocalISO()}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                const next = e.target.value;
+                                try { validateDateRange(dateFrom || null, next || null); setDateTo(next); }
+                                catch (err: any) { toast.error(err?.message || 'Invalid range'); }
+                            }}
                             className="h-10 text-sm w-36"
                         />
                     </FilterField>

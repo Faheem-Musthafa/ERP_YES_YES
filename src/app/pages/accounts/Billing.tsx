@@ -874,7 +874,15 @@ export const Billing = () => {
   const [adminNote, setAdminNote] = useState('');
   const [reviewingAction, setReviewingAction] = useState(false);
   const snapshotRef = useRef<HTMLDivElement | null>(null);
+  const billRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pageSize = 10;
+
+  useEffect(() => () => {
+    if (billRefreshTimerRef.current) {
+      clearTimeout(billRefreshTimerRef.current);
+      billRefreshTimerRef.current = null;
+    }
+  }, []);
 
   const loadInvoiceSettings = async () => {
     const withLegacyFallback = async () => {
@@ -983,9 +991,18 @@ export const Billing = () => {
   };
 
   useEffect(() => {
-    void Promise.all([fetchOrders(), loadInvoiceSettings(), loadBillingReversalRequests()]).catch((error: any) => {
-      toast.error(error?.message ?? 'Failed to load billing screen');
-    });
+    // allSettled so a single failing fetch doesn't drop the other two onto the
+    // floor. Each handler already sets its own state mid-run; we just surface
+    // per-task errors instead of swallowing them via a single .catch.
+    void Promise.allSettled([fetchOrders(), loadInvoiceSettings(), loadBillingReversalRequests()])
+      .then((results) => {
+        const labels = ['orders', 'invoice settings', 'reversal requests'];
+        results.forEach((r, i) => {
+          if (r.status === 'rejected') {
+            toast.error(`Failed to load ${labels[i]}: ${(r.reason as Error)?.message ?? 'unknown error'}`);
+          }
+        });
+      });
   }, []);
 
   const pendingRequestByOrderId = useMemo(() => {
@@ -1001,7 +1018,10 @@ export const Billing = () => {
   const filtered = useMemo(() => {
     const q = normalize(search);
     return orders.filter(order => {
-      const dateValue = order.approved_at?.slice(0, 10) ?? order.created_at.slice(0, 10);
+      // Use the local-date representation (not the UTC slice of an ISO string)
+      // so a late-evening IST timestamp doesn't fall into the wrong day.
+      const sourceDate = order.approved_at ?? order.created_at;
+      const dateValue = sourceDate ? new Date(sourceDate).toLocaleDateString('en-CA') : '';
       const matchSearch = !q ||
         normalize(order.order_number).includes(q) ||
         normalize(order.invoice_number ?? '').includes(q) ||
@@ -1148,7 +1168,9 @@ export const Billing = () => {
 
       // Delay orders refresh slightly to avoid reading a stale pre-commit snapshot
       // that can briefly revert a billed row back to Approved in the UI.
-      window.setTimeout(() => {
+      if (billRefreshTimerRef.current) clearTimeout(billRefreshTimerRef.current);
+      billRefreshTimerRef.current = setTimeout(() => {
+        billRefreshTimerRef.current = null;
         void fetchOrders();
       }, 1200);
     } catch (error: any) {

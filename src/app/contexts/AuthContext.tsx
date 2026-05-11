@@ -99,6 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     const pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
+    let hasResolvedLoading = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       // *** SYNCHRONOUS handler *** — must NOT be async.
@@ -128,8 +129,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUser(null);
           }
 
-          // Only mark loading as done after the initial session check
-          if (event === 'INITIAL_SESSION' && isMounted) {
+          // First event of any kind resolves the initial loading state so a
+          // TOKEN_REFRESHED-with-no-session race doesn't leave us stuck.
+          if (!hasResolvedLoading && isMounted) {
+            hasResolvedLoading = true;
             setLoading(false);
           }
         }, 0);

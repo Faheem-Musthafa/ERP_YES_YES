@@ -4,6 +4,7 @@ import { Input } from '@/app/components/ui/input';
 import { Eye, Download, FileSearch } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { downloadCSV } from '@/app/utils';
+import { todayLocalISO } from '@/app/dates';
 import {
   PageHeader, SearchBar, FilterBar, FilterField, DataCard,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -102,10 +103,10 @@ export const PurchaseHistory = () => {
         />
         <div className="flex flex-wrap items-end gap-3">
           <FilterField label="From Date">
-            <Input type="date" className="h-10 w-40" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            <Input type="date" className="h-10 w-40" value={fromDate} max={toDate || todayLocalISO()} onChange={(e) => setFromDate(e.target.value)} />
           </FilterField>
           <FilterField label="To Date">
-            <Input type="date" className="h-10 w-40" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            <Input type="date" className="h-10 w-40" value={toDate} min={fromDate || undefined} max={todayLocalISO()} onChange={(e) => setToDate(e.target.value)} />
           </FilterField>
         </div>
       </FilterBar>

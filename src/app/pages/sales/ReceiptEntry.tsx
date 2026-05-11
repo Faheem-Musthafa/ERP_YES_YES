@@ -13,8 +13,8 @@ import { FormSection, FormCard, PageHeader } from '@/app/components/ui/primitive
 import { COMPANY_LIST, cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import type { CompanyEnum, PaymentModeEnum } from '@/app/types/database';
 import { DEFAULT_RECEIPT_STATUS } from '@/app/utils';
-import { todayLocalISO, validateDateNotInFuture } from '@/app/dates';
-import { LIMITS, sanitizeDecimalInput, sanitizeMultilineText, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePhone, validatePositiveAmount, validateRequired } from '@/app/validation';
+import { addDaysISO, todayLocalISO, validateDateNotInFuture } from '@/app/dates';
+import { LIMITS, sanitizeChallanNumber, sanitizeMultilineText, sanitizeNonNegativeDecimal, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePhone, validatePositiveAmount, validateRequired } from '@/app/validation';
 
 interface CustomerOption {
   id: string;
@@ -252,7 +252,7 @@ export const ReceiptEntry = () => {
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors">
                   <IndianRupee size={24} />
                 </div>
-                <Input type="number" min="0.01" step="0.01" value={receivedAmount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedAmount(sanitizeDecimalInput(e.target.value))} placeholder="0.00" required className="pl-12 h-16 text-3xl font-bold font-mono bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-inner rounded-2xl focus-visible:ring-teal-500/30" />
+                <Input type="number" min="0.01" step="0.01" value={receivedAmount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedAmount(sanitizeNonNegativeDecimal(e.target.value))} placeholder="0.00" required className="pl-12 h-16 text-3xl font-bold font-mono bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-inner rounded-2xl focus-visible:ring-teal-500/30" />
               </div>
             </div>
             <div className="space-y-3">
@@ -420,11 +420,11 @@ export const ReceiptEntry = () => {
              <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 group">
                   <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Reference ID <span className="text-rose-500">*</span></Label>
-                  <Input value={chequeNumber} onChange={(e) => setChequeNumber(sanitizeUpperAlnum(e.target.value, LIMITS.mediumText))} placeholder="000123" required maxLength={LIMITS.mediumText} className="h-12 rounded-xl bg-slate-50 font-mono text-lg" />
+                  <Input value={chequeNumber} onChange={(e) => setChequeNumber(sanitizeChallanNumber(e.target.value, LIMITS.mediumText))} placeholder="000123" required maxLength={LIMITS.mediumText} className="h-12 rounded-xl bg-slate-50 font-mono text-lg" />
                 </div>
                 <div className="space-y-2 group">
                   <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Instrument Date <span className="text-rose-500">*</span></Label>
-                  <Input type="date" value={chequeDate} onChange={(e) => setChequeDate(e.target.value)} required className="h-12 rounded-xl bg-slate-50 font-medium" />
+                  <Input type="date" value={chequeDate} onChange={(e) => setChequeDate(e.target.value)} min={addDaysISO(todayLocalISO(), -180)} max={addDaysISO(todayLocalISO(), 180)} required className="h-12 rounded-xl bg-slate-50 font-medium" />
                 </div>
              </div>
           </div>

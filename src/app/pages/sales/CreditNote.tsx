@@ -142,19 +142,26 @@ export const CreditNote = () => {
   }, [creditNoteType, isNotGstCreditNote]);
 
   useEffect(() => {
+    // Stale-response guard: if user changes againstOrderId before the previous
+    // fetch resolves, the late response must not clobber the current items.
+    let cancelled = false;
+    const targetOrderId = againstOrderId;
+
     const fetchBillItems = async () => {
       setItemProductId('');
       setPrice('');
 
-      if (!againstOrderId) {
-        setBillItems([]);
+      if (!targetOrderId) {
+        if (!cancelled) setBillItems([]);
         return;
       }
 
       const { data, error } = await supabase
         .from('order_items')
         .select('product_id, amount, products(name, sku, brands(name))')
-        .eq('order_id', againstOrderId);
+        .eq('order_id', targetOrderId);
+
+      if (cancelled) return;
 
       if (error) {
         toast.error(error.message || 'Failed to load bill items');
@@ -174,6 +181,7 @@ export const CreditNote = () => {
     };
 
     void fetchBillItems();
+    return () => { cancelled = true; };
   }, [againstOrderId]);
 
   const selectedItem = useMemo(

@@ -43,12 +43,17 @@ export const Layout = ({ children }: LayoutProps) => {
 
   useEffect(() => {
     let active = true;
+    let inFlight = false;
 
     const fetchNotifications = async () => {
       if (!user?.role) {
         setNotifications([]);
         return;
       }
+      // Skip tick if previous fetch is still running — slow networks would
+      // otherwise pile up overlapping requests every 60s.
+      if (inFlight) return;
+      inFlight = true;
 
       setNotificationsLoading(true);
       try {
@@ -113,6 +118,7 @@ export const Layout = ({ children }: LayoutProps) => {
           setNotifications(next);
         }
       } finally {
+        inFlight = false;
         if (active) {
           setNotificationsLoading(false);
         }

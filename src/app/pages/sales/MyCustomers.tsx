@@ -84,10 +84,15 @@ export const MyCustomers = () => {
 
             if (custErr) throw custErr;
 
-            // Fetch all orders to calculate metrics
-            const { data: orderData, error: ordErr } = await supabase
+            // Sales role: only their own orders should drive per-customer metrics.
+            // Admin / accounts: full scope (RLS handles cross-cutting visibility).
+            let orderQuery = supabase
                 .from('orders')
                 .select('customer_id, grand_total, created_at');
+            if (user?.role === 'sales' && user?.id) {
+                orderQuery = orderQuery.eq('created_by', user.id);
+            }
+            const { data: orderData, error: ordErr } = await orderQuery;
 
             if (ordErr) throw ordErr;
 
@@ -469,9 +474,9 @@ export const MyCustomers = () => {
                                     </tr>
                                 </StyledThead>
                                 <tbody>
-                                    {paginated.map((c, i) => (
+                                    {paginated.map((c) => (
                                         <StyledTr
-                                            key={i}
+                                            key={c.id}
                                             onClick={() => openHistory(c)}
                                             className="cursor-pointer"
                                             title={`Open history for ${c.name}`}

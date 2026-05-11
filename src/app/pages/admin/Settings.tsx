@@ -1040,6 +1040,7 @@ export const AdminSettings = () => {
                   id="Godown-name"
                   value={newGodown}
                   onChange={(e) => setNewGodown(normalizeMasterInput(e.target.value))}
+                  maxLength={LIMITS.mediumText}
                   placeholder="e.g. Main Godown"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddGodown()}
                   className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
@@ -1073,6 +1074,7 @@ export const AdminSettings = () => {
                   id="district-name"
                   value={newDistrict}
                   onChange={(e) => setNewDistrict(normalizeMasterInput(e.target.value))}
+                  maxLength={LIMITS.mediumText}
                   placeholder="e.g. Kottayam"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddDistrict()}
                   className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
@@ -1106,6 +1108,7 @@ export const AdminSettings = () => {
                   id="vehicle-name"
                   value={newVehicle}
                   onChange={(e) => setNewVehicle(normalizeMasterInput(e.target.value))}
+                  maxLength={LIMITS.mediumText}
                   placeholder="e.g. Auto Rickshaw"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddVehicle()}
                   className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
@@ -1139,6 +1142,7 @@ export const AdminSettings = () => {
                   id="edit-master-value"
                   value={editMasterValue}
                   onChange={(e) => setEditMasterValue(normalizeMasterInput(e.target.value))}
+                  maxLength={LIMITS.mediumText}
                   onKeyDown={(e) => e.key === 'Enter' && void handleUpdateMasterItem()}
                   className="h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white"
                   autoFocus

@@ -15,7 +15,7 @@ import { cn } from '@/app/components/ui/utils';
 import { COMPANY_LIST, cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import { DEFAULT_ORDER_FORM_SETTINGS, loadOrderFormSettings } from '@/app/settings';
 import type { CompanyEnum, InvoiceTypeEnum, GodownEnum, Json } from '@/app/types/database';
-import { LIMITS, sanitizeDecimalInput, sanitizeMultilineText, sanitizeNonNegativeDecimal, sanitizeNonNegativeInteger, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePhone, validatePositiveAmount, validateRequired } from '@/app/validation';
+import { LIMITS, sanitizeMultilineText, sanitizeNonNegativeDecimal, sanitizeNonNegativeInteger, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePhone, validatePositiveAmount, validateRequired } from '@/app/validation';
 import { todayLocalISO, addDaysISO } from '@/app/dates';
 
 interface OrderItem {

@@ -17,7 +17,7 @@ import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 import { archiveRecoverableRecord, restoreRecoverableRecord } from '@/app/recovery';
 import { loadSalesTargetSettings } from '@/app/settings';
-import { LIMITS, sanitizeEmail, sanitizeText, validateEmail, validateRequired } from '@/app/validation';
+import { LIMITS, sanitizeEmail, sanitizeNonNegativeInteger, sanitizeText, validateEmail, validateRequired } from '@/app/validation';
 import {
     PageHeader, SearchBar, DataCard,
     StyledThead, StyledTh, StyledTr, StyledTd,
@@ -535,9 +535,10 @@ export const StaffManagement = () => {
                                                             <Input
                                                                 type="number"
                                                                 min="0"
+                                                                max="100000000"
                                                                 value={targetDrafts[u.id] ?? ''}
                                                                 onChange={(event) => {
-                                                                    const value = event.target.value;
+                                                                    const value = sanitizeNonNegativeInteger(event.target.value, 12);
                                                                     setTargetDrafts((prev) => ({ ...prev, [u.id]: value }));
                                                                 }}
                                                                 className="h-8 w-32"

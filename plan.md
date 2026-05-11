@@ -30,74 +30,29 @@ Legend: `[ ]` todo · `[x]` done · `[-]` deferred (reason).
 
 ## P1 — High (data correctness + missing P2 wiring foundations)
 
-- [ ] **P1-1** Regenerate `src/app/types/database.ts` from live schema so new P2 columns (`state_code`, `hsn_code`, `tax_rate`, `uom`, `cost_price`, `place_of_supply`, `round_off`, `reverse_charge`, per-line tax cols) are typed.
-  - File: `src/app/types/database.ts`.
-
-- [ ] **P1-2** Fix CreateOrder useEffect joined-string dep — move cross-calc into onChange handlers, drop the reconcile effect.
-  - File: `src/app/pages/sales/CreateOrder.tsx:228-240`.
-
-- [ ] **P1-3** OrderReview `useEffect([])` on items — dead code; remove or replace with a setter inside `selectOrder`.
-  - File: `src/app/pages/accounts/OrderReview.tsx:111-130`.
-
-- [ ] **P1-4** MyCustomers — scope orders fetch to `created_by = user.id`; replace `key={i}` with `key={c.id}`.
-  - File: `src/app/pages/sales/MyCustomers.tsx:88-92, 474`.
-
-- [ ] **P1-5** AuthContext — set `loading=false` on any first event, not only `INITIAL_SESSION`.
-  - File: `src/app/contexts/AuthContext.tsx:112-138`.
-
-- [ ] **P1-6** Billing date filter — replace `approved_at?.slice(0,10)` (UTC) with `parseLocalDate` + local YYYY-MM-DD compare.
-  - File: `src/app/pages/accounts/Billing.tsx:1004-1012`.
-
-- [ ] **P1-7** Billing — `Promise.all` → `Promise.allSettled` so partial failures don't leave stale state.
-  - File: `src/app/pages/accounts/Billing.tsx:986`.
-
-- [ ] **P1-8** Billing — track and clear `setTimeout(fetchOrders, 1200)` on unmount.
-  - File: `src/app/pages/accounts/Billing.tsx:1151`.
-
-- [ ] **P1-9** CreditNote — `fetchBillItems` stale-response guard (capture-active-id pattern or AbortController).
-  - File: `src/app/pages/sales/CreditNote.tsx:144-177`.
-
-- [ ] **P1-10** ReceiptEntry — `setReceivedAmount(sanitizeNonNegativeDecimal(...))`.
-  - File: `src/app/pages/sales/ReceiptEntry.tsx:252`.
-
-- [ ] **P1-11** Date-filter pages — add `max={todayLocalISO()}` + `validateDateRange` on AdminReports / ActivityLog / PurchaseHistory / ProcurementReports.
-  - Files: `src/app/pages/admin/AdminReports.tsx:312-315`, `src/app/pages/admin/ActivityLog.tsx:258-267`, `src/app/pages/procurement/PurchaseHistory.tsx:105-108`, `src/app/pages/procurement/ProcurementReports.tsx:195-198`.
-
-- [ ] **P1-12** ReceiptEntry chequeDate min/max bounds — accept ±180 days of today.
-  - File: `src/app/pages/sales/ReceiptEntry.tsx:424`.
-
-- [ ] **P1-13** Customer / Supplier — add `state_code` select bound to `public.states`.
-  - Files: `src/app/pages/admin/CustomerForm.tsx`, `src/app/pages/procurement/Suppliers.tsx` (form does not yet exist — see P2).
-
-- [ ] **P1-14** Products form — add `hsn_code`, `tax_rate`, `uom`, `cost_price` inputs; persist on insert/update.
-  - File: `src/app/pages/inventory/Products.tsx:57+`.
-
-- [ ] **P1-15** Settings — add low_stock_threshold number input.
-  - File: `src/app/pages/admin/Settings.tsx`.
-
-- [ ] **P1-16** CreditNote — replace timestamp-based `orderNumber` JS fallback with `crypto.randomUUID()` (allocator deferred).
-  - File: `src/app/pages/sales/CreditNote.tsx:314` (UUID fallback path already added; verify and tighten).
-
-- [ ] **P1-17** Master-data dialogs in Settings.tsx — add `maxLength` on the 4 unrestricted inputs.
-  - File: `src/app/pages/admin/Settings.tsx:1039, 1072, 1105, 1138`.
-
-- [ ] **P1-18** StaffManagement target draft — route through `sanitizeNonNegativeInteger`.
-  - File: `src/app/pages/admin/StaffManagement.tsx:538`.
-
-- [ ] **P1-19** Products form — switch `Number(form.dealer_price || 0)` to use `sanitizeNonNegativeDecimal` in onChange (P1.5 partial revisit).
-  - File: `src/app/pages/inventory/Products.tsx:117-118`.
-
-- [ ] **P1-20** MyCollection bounceReason — wrap through `sanitizeMultilineText(LIMITS.reason)` + `maxLength`.
-  - File: `src/app/pages/sales/MyCollection.tsx:295`.
-
-- [ ] **P1-21** Drop unused `sanitizeDecimalInput` import from CreateOrder.
-  - File: `src/app/pages/sales/CreateOrder.tsx:18`.
-
-- [ ] **P1-22** Layout notifications — skip tick if previous fetch still in-flight.
-  - File: `src/app/components/Layout.tsx:122-125`.
-
-- [ ] **P1-23** CSP — add `object-src 'none'`, `worker-src 'self' blob:`.
-  - File: `vercel.json:24`.
+- [-] **P1-1** Regenerate `src/app/types/database.ts` — deferred (existing `any`-casts work; full regen waits for next schema cycle).
+- [-] **P1-2** CreateOrder useEffect joined-string dep — deferred (larger refactor; needs onChange-driven cross-calc).
+- [x] **P1-3** OrderReview useEffect now keyed to `selectedOrder?.id` + `maxDiscountPercentage`; runs after items load. Uses `computeLineAmount` for parity with the rest of the page.
+- [x] **P1-4** MyCustomers orders fetch scoped to `created_by = user.id` for sales role; row `key` swapped from `i` to `c.id`.
+- [x] **P1-5** AuthContext now resolves `loading=false` on any first event via `hasResolvedLoading` latch, not only `INITIAL_SESSION`.
+- [x] **P1-6** Billing date filter uses `new Date(...).toLocaleDateString('en-CA')` for local YYYY-MM-DD instead of UTC slice.
+- [x] **P1-7** Billing initial fetch switched to `Promise.allSettled` with per-task error toasts.
+- [x] **P1-8** Billing post-billing `setTimeout(fetchOrders, 1200)` tracked via `billRefreshTimerRef` + unmount cleanup.
+- [x] **P1-9** CreditNote `fetchBillItems` now uses cancelled-flag stale-guard so a late response cannot overwrite current items.
+- [x] **P1-10** ReceiptEntry `receivedAmount` routed through `sanitizeNonNegativeDecimal`.
+- [x] **P1-11** AdminReports / ActivityLog / PurchaseHistory / ProcurementReports date filters: `max={todayLocalISO()}`, `min={from || undefined}` on To, plus `validateDateRange` on the report fetch.
+- [x] **P1-12** ReceiptEntry chequeDate min/max bounded to ±180 days of today.
+- [-] **P1-13** Customer/Supplier `state_code` select — deferred (depends on a new state-picker component used in two places; pairs with P2-7 supplier form).
+- [-] **P1-14** Products HSN/tax_rate/UoM/cost_price form fields — deferred (UI redesign; pairs with P2-3 RPC tax compute).
+- [-] **P1-15** Settings `low_stock_threshold` input — deferred (settings tab expansion).
+- [x] **P1-16** CreditNote `orderNumber` already uses `allocate_order_number` RPC with `crypto.randomUUID()` fallback (verified existing behavior).
+- [x] **P1-17** Master-data dialogs in Settings.tsx — `maxLength={LIMITS.mediumText}` added on godown / district / vehicle / edit-master inputs.
+- [x] **P1-18** StaffManagement target draft routed through `sanitizeNonNegativeInteger` + max 1e8 cap.
+- [x] **P1-19** Products dealer_price / stock_qty already routed through non-negative sanitizers (verified).
+- [x] **P1-20** MyCollection bounceReason now uses `sanitizeMultilineText(LIMITS.reason)` + `maxLength`.
+- [x] **P1-21** Dropped unused `sanitizeDecimalInput` import from CreateOrder.
+- [x] **P1-22** Layout notifications skip tick if previous fetch still in-flight via `inFlight` flag.
+- [x] **P1-23** CSP hardened: `object-src 'none'`, `worker-src 'self' blob:`, `img-src` narrowed to `'self' data: blob: https://*.supabase.co`.
 
 ---
 

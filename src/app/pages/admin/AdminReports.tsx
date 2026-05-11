@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { fmt, downloadCSV } from '@/app/utils';
+import { localRangeToUTC, todayLocalISO, validateDateRange } from '@/app/dates';
 import { cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import type { OrderStatusEnum } from '@/app/types/database';
 import {
@@ -106,8 +107,16 @@ export const AdminReports = () => {
                 .order('id', { ascending: false });
 
             if (statusFilter !== 'all') query = query.eq('orders.status', statusFilter as OrderStatusEnum);
-            if (dateFrom) { const from = new Date(dateFrom); from.setHours(0, 0, 0, 0); query = query.gte('orders.created_at', from.toISOString()); }
-            if (dateTo) { const to = new Date(dateTo); to.setHours(23, 59, 59, 999); query = query.lte('orders.created_at', to.toISOString()); }
+            try {
+                validateDateRange(dateFrom || null, dateTo || null);
+            } catch (err: any) {
+                toast.error(err?.message || 'Invalid date range');
+                setLoading(false);
+                return;
+            }
+            const { gte, lt } = localRangeToUTC(dateFrom || null, dateTo || null);
+            if (gte) query = query.gte('orders.created_at', gte);
+            if (lt) query = query.lt('orders.created_at', lt);
 
             const { data, error } = await query;
             if (error) throw error;
@@ -240,7 +249,7 @@ export const AdminReports = () => {
                 item.products?.name ?? '', item.products?.brands?.name ?? '',
                 item.quantity, item.dealer_price, item.discount_pct, item.amount, item.orders?.status ?? '',
             ]),
-            `Sales_Item_Report_${new Date().toISOString().split('T')[0]}.csv`
+            `Sales_Item_Report_${todayLocalISO()}.csv`
         );
     };
 
@@ -248,7 +257,7 @@ export const AdminReports = () => {
         downloadCSV(
             ['Month', 'Total Orders', 'Approved Revenue', 'Billed Revenue', 'Delivered Revenue', 'Total Revenue'],
             revenueData.map(r => [r.month, r.totalOrders, r.approvedRevenue, r.billedRevenue, r.deliveredRevenue, r.totalRevenue]),
-            `Revenue_Summary_${new Date().toISOString().split('T')[0]}.csv`
+            `Revenue_Summary_${todayLocalISO()}.csv`
         );
     };
 
@@ -256,7 +265,7 @@ export const AdminReports = () => {
         downloadCSV(
             ['Salesperson', 'Total Orders', 'Approved', 'Rejected', 'Revenue', 'Avg Order Value'],
             staffData.map(s => [s.name, s.totalOrders, s.approved, s.rejected, s.revenue, s.avgOrderValue]),
-            `Staff_Performance_${new Date().toISOString().split('T')[0]}.csv`
+            `Staff_Performance_${todayLocalISO()}.csv`
         );
     };
 
@@ -264,7 +273,7 @@ export const AdminReports = () => {
         downloadCSV(
             ['Customer', 'Place', 'Total Orders', 'Revenue', 'Last Order'],
             filteredCusts.map(c => [c.name, c.place, c.totalOrders, c.revenue, new Date(c.lastOrderDate).toLocaleDateString()]),
-            `Customer_Report_${new Date().toISOString().split('T')[0]}.csv`
+            `Customer_Report_${todayLocalISO()}.csv`
         );
     };
 
@@ -309,10 +318,10 @@ export const AdminReports = () => {
                                 </Select>
                             </FilterField>
                             <FilterField label="From" className="shrink-0">
-                                <Input type="date" value={dateFrom} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDateFrom(e.target.value)} className="h-10 text-sm w-36" />
+                                <Input type="date" value={dateFrom} max={dateTo || todayLocalISO()} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDateFrom(e.target.value)} className="h-10 text-sm w-36" />
                             </FilterField>
                             <FilterField label="To" className="shrink-0">
-                                <Input type="date" value={dateTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDateTo(e.target.value)} className="h-10 text-sm w-36" />
+                                <Input type="date" value={dateTo} min={dateFrom || undefined} max={todayLocalISO()} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDateTo(e.target.value)} className="h-10 text-sm w-36" />
                             </FilterField>
                         </div>
                     </FilterBar>
