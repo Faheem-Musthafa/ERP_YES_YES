@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { DataCard, EmptyState, FormSection, PageHeader, SearchBar } from '@/app/components/ui/primitives';
 import type { GodownEnum } from '@/app/types/database';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
-import { LIMITS, sanitizeIntegerInput, sanitizeMultilineText, validatePositiveAmount, validateRequired } from '@/app/validation';
+import { LIMITS, sanitizeMultilineText, sanitizeNonNegativeInteger, validatePositiveAmount, validateRequired } from '@/app/validation';
 
 interface ProductWithStock {
   id: string;
@@ -252,7 +252,7 @@ export const StockAdjustment = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Quantity *</Label>
-                  <Input type="number" min="1" step="1" value={quantity} onChange={e => setQuantity(sanitizeIntegerInput(e.target.value))} placeholder="Enter quantity" required />
+                  <Input type="number" min="1" step="1" value={quantity} onChange={e => setQuantity(sanitizeNonNegativeInteger(e.target.value))} placeholder="Enter quantity" required />
                   {selectedProduct && quantity && (
                     <p className="text-xs text-gray-600">
                       New stock at {selectedLocation}: {type === 'Addition' ? currentLocationStock + Number(quantity) : Math.max(0, currentLocationStock - Number(quantity))} units

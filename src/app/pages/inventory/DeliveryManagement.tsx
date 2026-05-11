@@ -15,6 +15,7 @@ import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import { DataCard, EmptyState, PageHeader, SearchBar, Spinner } from '@/app/components/ui/primitives';
+import { LIMITS, sanitizeMultilineText, sanitizeText, sanitizeVehicleNumber } from '@/app/validation';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -485,7 +486,8 @@ export const DeliveryManagement = () => {
               {form.initiated_by_id === '__other__' && (
                 <Input
                   value={form.initiated_by_other}
-                  onChange={e => setForm(f => ({ ...f, initiated_by_other: e.target.value }))}
+                  onChange={e => setForm(f => ({ ...f, initiated_by_other: sanitizeText(e.target.value, LIMITS.mediumText) }))}
+                  maxLength={LIMITS.mediumText}
                   placeholder="Enter initiator name..."
                   className="mt-1.5"
                   autoFocus
@@ -520,7 +522,8 @@ export const DeliveryManagement = () => {
               {form.delivery_agent_id === '__other__' && (
                 <Input
                   value={form.driver_other}
-                  onChange={e => setForm(f => ({ ...f, driver_other: e.target.value }))}
+                  onChange={e => setForm(f => ({ ...f, driver_other: sanitizeText(e.target.value, LIMITS.mediumText) }))}
+                  maxLength={LIMITS.mediumText}
                   placeholder="Enter driver name..."
                   className="mt-1.5"
                   autoFocus
@@ -546,7 +549,8 @@ export const DeliveryManagement = () => {
               </Label>
               <Input
                 value={form.vehicle_number}
-                onChange={e => setForm(f => ({ ...f, vehicle_number: e.target.value.toUpperCase() }))}
+                onChange={e => setForm(f => ({ ...f, vehicle_number: sanitizeVehicleNumber(e.target.value) }))}
+                maxLength={LIMITS.vehicleNumber}
                 placeholder={
                   form.delivery_agent_id && form.delivery_agent_id !== '__other__'
                     ? 'Auto-populated from driver'
@@ -581,7 +585,8 @@ export const DeliveryManagement = () => {
               <Label>Reason for Failure *</Label>
               <Textarea
                 value={failReason}
-                onChange={e => setFailReason(e.target.value)}
+                onChange={e => setFailReason(sanitizeMultilineText(e.target.value, LIMITS.reason))}
+                maxLength={LIMITS.reason}
                 placeholder="e.g. Customer not available, Address not found, Vehicle breakdown..."
                 rows={4}
               />

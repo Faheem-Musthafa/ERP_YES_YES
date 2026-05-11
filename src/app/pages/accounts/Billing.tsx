@@ -28,6 +28,8 @@ import {
 } from '@/app/components/ui/primitives';
 import type { CompanyEnum, Json } from '@/app/types/database';
 import { downloadCSV } from '@/app/utils';
+import { LIMITS, sanitizeMultilineText } from '@/app/validation';
+import { localRangeToUTC, todayLocalISO, validateDateRange } from '@/app/dates';
 import type { jsPDF } from 'jspdf';
 
 type BillableOrder = {
@@ -48,6 +50,7 @@ type BillableOrder = {
   sgst_amount: number;
   igst_amount: number;
   tax_amount: number;
+  round_off?: number | null;
   grand_total: number;
   approved_at: string | null;
   billed_at: string | null;
@@ -426,7 +429,7 @@ const toWordsUnder100 = (num: number) => {
   return `${tens[ten] ?? ''}${unit ? ` ${units[unit]}` : ''}`.trim();
 };
 
-const numberToWordsIndian = (value: number) => {
+const wholeNumberToWordsIndian = (value: number): string => {
   const num = Math.floor(Math.abs(value));
   if (num === 0) return 'Zero';
 
@@ -437,13 +440,27 @@ const numberToWordsIndian = (value: number) => {
   const remainder = num % 100;
   const parts: string[] = [];
 
-  if (crore) parts.push(`${numberToWordsIndian(crore)} Crore`);
-  if (lakh) parts.push(`${numberToWordsIndian(lakh)} Lakh`);
-  if (thousand) parts.push(`${numberToWordsIndian(thousand)} Thousand`);
+  if (crore) parts.push(`${wholeNumberToWordsIndian(crore)} Crore`);
+  if (lakh) parts.push(`${wholeNumberToWordsIndian(lakh)} Lakh`);
+  if (thousand) parts.push(`${wholeNumberToWordsIndian(thousand)} Thousand`);
   if (hundred) parts.push(`${toWordsUnder100(hundred)} Hundred`);
   if (remainder) parts.push(toWordsUnder100(remainder));
 
   return parts.join(' ').trim();
+};
+
+/**
+ * Indian-numeration words including paise. Invoice amounts that include a
+ * fractional component must be spelled out for GST compliance.
+ */
+const numberToWordsIndian = (value: number): string => {
+  const absVal = Math.abs(value);
+  const rupees = Math.floor(absVal);
+  const paise = Math.round((absVal - rupees) * 100);
+  const rupeesWord = wholeNumberToWordsIndian(rupees);
+  if (paise === 0) return rupeesWord;
+  const paiseWord = toWordsUnder100(paise);
+  return `${rupeesWord} and ${paiseWord} Paise`;
 };
 
 const renderInvoicePdf = async (order: BillableOrder, lines: OrderLine[], invoiceNo: string, settings: InvoiceSettings) => {
@@ -704,9 +721,29 @@ const renderInvoicePdf = async (order: BillableOrder, lines: OrderLine[], invoic
     ['Taxable Amount', order.taxable_amount],
   ];
 
-  if (order.cgst_amount > 0) totalsData.push(['CGST (9%)', order.cgst_amount]);
-  if (order.sgst_amount > 0) totalsData.push(['SGST (9%)', order.sgst_amount]);
-  if (order.igst_amount > 0) totalsData.push(['IGST (18%)', order.igst_amount]);
+  // Compute the effective tax rate from the stored amounts so the label
+  // tracks the actual slab (5/12/18/28) rather than hard-coding 9/9/18.
+  // Handles negative values cleanly for Credit Notes (sign comes from amount,
+  // rate is taken from the absolute ratio).
+  const effRate = (tax: number, taxable: number): string => {
+    if (!Number.isFinite(taxable) || taxable === 0) return '';
+    const pct = (Math.abs(tax) / Math.abs(taxable)) * 100;
+    if (!Number.isFinite(pct)) return '';
+    // Normalise to 0/0.5 step.
+    const rounded = Math.round(pct * 2) / 2;
+    return rounded ? `${rounded}%` : '';
+  };
+
+  const cgstRate = effRate(order.cgst_amount ?? 0, order.taxable_amount ?? 0);
+  const sgstRate = effRate(order.sgst_amount ?? 0, order.taxable_amount ?? 0);
+  const igstRate = effRate(order.igst_amount ?? 0, order.taxable_amount ?? 0);
+
+  if (order.cgst_amount !== 0) totalsData.push([`CGST${cgstRate ? ` (${cgstRate})` : ''}`, order.cgst_amount]);
+  if (order.sgst_amount !== 0) totalsData.push([`SGST${sgstRate ? ` (${sgstRate})` : ''}`, order.sgst_amount]);
+  if (order.igst_amount !== 0) totalsData.push([`IGST${igstRate ? ` (${igstRate})` : ''}`, order.igst_amount]);
+  if (typeof order.round_off === 'number' && order.round_off !== 0) {
+    totalsData.push(['Round Off', order.round_off]);
+  }
 
   let totalsY = y + 4;
 
@@ -1339,10 +1376,10 @@ export const Billing = () => {
             </Select>
           </FilterField>
           <FilterField label="From Date">
-            <Input type="date" className="h-10 w-36" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+            <Input type="date" className="h-10 w-36" value={fromDate} max={toDate || todayLocalISO()} onChange={e => setFromDate(e.target.value)} />
           </FilterField>
           <FilterField label="To Date">
-            <Input type="date" className="h-10 w-36" value={toDate} onChange={e => setToDate(e.target.value)} />
+            <Input type="date" className="h-10 w-36" value={toDate} min={fromDate || undefined} max={todayLocalISO()} onChange={e => setToDate(e.target.value)} />
           </FilterField>
         </div>
       </FilterBar>
@@ -1530,7 +1567,8 @@ export const Billing = () => {
               <Textarea
                 id="reversal-reason"
                 value={requestReason}
-                onChange={(e) => setRequestReason(e.target.value)}
+                onChange={(e) => setRequestReason(sanitizeMultilineText(e.target.value, LIMITS.reason))}
+                maxLength={LIMITS.reason}
                 rows={4}
                 placeholder="Explain what was billed by mistake and why reversal is needed"
               />
@@ -1561,7 +1599,8 @@ export const Billing = () => {
               <Textarea
                 id="admin-note"
                 value={adminNote}
-                onChange={(e) => setAdminNote(e.target.value)}
+                onChange={(e) => setAdminNote(sanitizeMultilineText(e.target.value, LIMITS.reason))}
+                maxLength={LIMITS.reason}
                 rows={3}
                 placeholder="Optional review note"
               />
@@ -1573,6 +1612,7 @@ export const Billing = () => {
                 type="password"
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
+                maxLength={LIMITS.password}
                 placeholder="Enter your password"
               />
             </div>

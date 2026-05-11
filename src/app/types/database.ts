@@ -16,7 +16,7 @@ export type InvoiceTypeEnum =
   | 'Delivery Challan In'
   | 'Stock Transfer'
   | 'Credit Note';
-export type OrderStatusEnum = 'Pending' | 'Approved' | 'Rejected' | 'Billed' | 'Delivered';
+export type OrderStatusEnum = 'Pending' | 'Approved' | 'Rejected' | 'Billed' | 'Delivered' | 'Voided';
 export type PaymentModeEnum = 'Cash' | 'Cheque' | 'UPI' | 'Bank Transfer';
 export type CollectionStatusEnum = 'Pending' | 'Collected' | 'Overdue' | 'Voided';
 export type DeliveryStatusEnum = 'Pending' | 'In Transit' | 'Delivered' | 'Failed';

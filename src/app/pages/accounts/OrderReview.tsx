@@ -13,7 +13,9 @@ import {
   StyledThead, StyledTh, StyledTr, StyledTd,
   EmptyState, Spinner, StatusBadge, TablePagination,
 } from '@/app/components/ui/primitives';
-import { sanitizeDecimalInput } from '@/app/validation';
+import { sanitizeNonNegativeDecimal } from '@/app/validation';
+import { DEFAULT_ORDER_FORM_SETTINGS, loadOrderFormSettings } from '@/app/settings';
+import { computeLineAmount, toNumber } from '@/app/money';
 
 interface OrderItem {
   id: string; product_id: string; quantity: number; dealer_price: number;
@@ -32,6 +34,7 @@ export const OrderReview = () => {
   const [submitting, setSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
+  const [maxDiscountPercentage, setMaxDiscountPercentage] = useState(DEFAULT_ORDER_FORM_SETTINGS.maxDiscountPercentage);
   const pageSize = 8;
 
   useEffect(() => { fetchPendingOrders(); }, []);
@@ -39,6 +42,10 @@ export const OrderReview = () => {
   useEffect(() => {
     void loadCompanyProfiles()
       .then(setCompanyProfiles)
+      .catch(() => undefined);
+    // Accounts-side approval must obey the same discount cap as Sales.
+    void loadOrderFormSettings()
+      .then((s) => setMaxDiscountPercentage(s.maxDiscountPercentage))
       .catch(() => undefined);
   }, []);
 
@@ -71,10 +78,12 @@ export const OrderReview = () => {
     setItems(prev => prev.map(i => {
       if (i.id !== id) return i;
       if (field === 'approvedDP' || field === 'approvedDiscount') {
-        const nextValue = field === 'approvedDP' ? Math.max(0, val) : Math.max(0, Math.min(100, val));
+        const nextValue = field === 'approvedDP'
+          ? Math.max(0, val)
+          : Math.max(0, Math.min(maxDiscountPercentage, val));
         const dp = field === 'approvedDP' ? nextValue : i.approvedDP;
         const disc = field === 'approvedDiscount' ? nextValue : i.approvedDiscount;
-        return { ...i, [field]: nextValue, approvedAmount: parseFloat((dp * i.quantity * (1 - disc / 100)).toFixed(2)) };
+        return { ...i, [field]: nextValue, approvedAmount: toNumber(computeLineAmount(dp, i.quantity, disc)) };
       }
       return { ...i, [field]: Math.max(0, val) };
     }));
@@ -306,15 +315,15 @@ export const OrderReview = () => {
                       <StyledTd className="text-xs">{i.productName}</StyledTd>
                       <StyledTd right>
                         <input
-                          type="number" value={i.approvedDP}
-                          onChange={e => updateApprovedField(i.id, 'approvedDP', Number(sanitizeDecimalInput(e.target.value)) || 0)}
+                          type="number" min="0" value={i.approvedDP}
+                          onChange={e => updateApprovedField(i.id, 'approvedDP', Number(sanitizeNonNegativeDecimal(e.target.value)) || 0)}
                           className="w-24 text-right border border-border rounded-lg px-2 py-1 text-xs bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
                         />
                       </StyledTd>
                       <StyledTd right>
                         <input
-                          type="number" min="0" max="100" value={i.approvedDiscount}
-                          onChange={e => updateApprovedField(i.id, 'approvedDiscount', Number(sanitizeDecimalInput(e.target.value, 6)) || 0)}
+                          type="number" min="0" max={maxDiscountPercentage} value={i.approvedDiscount}
+                          onChange={e => updateApprovedField(i.id, 'approvedDiscount', Number(sanitizeNonNegativeDecimal(e.target.value, 6)) || 0)}
                           className="w-16 text-right border border-border rounded-lg px-2 py-1 text-xs bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
                         />
                       </StyledTd>

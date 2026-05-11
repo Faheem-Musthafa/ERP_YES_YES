@@ -12,7 +12,7 @@ import { DataCard, EmptyState, FormSection, PageHeader, SearchBar } from '@/app/
 import type { CompanyEnum, GodownEnum } from '@/app/types/database';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
 import { COMPANY_LIST } from '@/app/companyProfiles';
-import { LIMITS, sanitizeIntegerInput, sanitizeMultilineText, validatePositiveAmount, validateRequired } from '@/app/validation';
+import { LIMITS, sanitizeMultilineText, sanitizeNonNegativeInteger, validatePositiveAmount, validateRequired } from '@/app/validation';
 
 interface ProductWithStock {
   id: string;
@@ -351,7 +351,7 @@ export const StockTransfer = () => {
                     min="1"
                     max={fromStock}
                     value={quantity}
-                    onChange={e => setQuantity(sanitizeIntegerInput(e.target.value))}
+                    onChange={e => setQuantity(sanitizeNonNegativeInteger(e.target.value))}
                     placeholder="Enter quantity"
                     required
                   />

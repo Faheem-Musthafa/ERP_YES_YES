@@ -8,7 +8,7 @@ type SettingsEntryRow = {
   value?: Json | null;
 };
 
-const ORDER_SETTINGS_KEYS = ['default_invoice_type', 'max_discount_percentage', 'Godowns'] as const;
+const ORDER_SETTINGS_KEYS = ['default_invoice_type', 'max_discount_percentage', 'Godowns', 'low_stock_threshold'] as const;
 const MASTER_SETTINGS_KEYS = ['Godowns', 'districts', 'vehicle_types'] as const;
 const SALES_TARGET_SETTINGS_KEYS = ['default_sales_monthly_target', 'sales_monthly_targets_by_user'] as const;
 const MASTER_SETTING_KEY_SET = new Set<string>(MASTER_SETTINGS_KEYS);
@@ -31,6 +31,7 @@ export interface OrderFormSettings {
   defaultInvoiceType: InvoiceTypeEnum;
   maxDiscountPercentage: number;
   Godowns: string[];
+  lowStockThreshold: number;
 }
 
 export interface MasterDataSettings {
@@ -48,6 +49,7 @@ export const DEFAULT_ORDER_FORM_SETTINGS: OrderFormSettings = {
   defaultInvoiceType: 'GST',
   maxDiscountPercentage: 20,
   Godowns: [...DEFAULT_GodownS],
+  lowStockThreshold: 5,
 };
 
 export const DEFAULT_MASTER_DATA_SETTINGS: MasterDataSettings = {
@@ -329,10 +331,19 @@ export const loadOrderFormSettings = async (): Promise<OrderFormSettings> => {
     }
   }
 
+  const lowStockThreshold = Math.max(
+    0,
+    Math.min(
+      1_000_000,
+      Math.floor(readNumber(settings.low_stock_threshold ?? null, DEFAULT_ORDER_FORM_SETTINGS.lowStockThreshold)),
+    ),
+  );
+
   return {
     defaultInvoiceType,
     maxDiscountPercentage,
     Godowns,
+    lowStockThreshold,
   };
 };
 

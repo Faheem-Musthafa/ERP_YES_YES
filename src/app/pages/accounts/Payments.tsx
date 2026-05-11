@@ -273,6 +273,7 @@ export const Payments = () => {
                         <Input
                             type="date"
                             value={dateFrom}
+                            max={dateTo || todayLocalISO()}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDateFrom(e.target.value)}
                             className="h-10 text-sm w-36"
                         />
@@ -281,6 +282,8 @@ export const Payments = () => {
                         <Input
                             type="date"
                             value={dateTo}
+                            min={dateFrom || undefined}
+                            max={todayLocalISO()}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDateTo(e.target.value)}
                             className="h-10 text-sm w-36"
                         />

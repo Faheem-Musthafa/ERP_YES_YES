@@ -15,19 +15,34 @@ export const InventoryReports = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError('');
-    const [{ data: products, error: productsError }, { data: brands, error: brandsError }, { data: adjustments, error: adjustmentsError }] = await Promise.all([
-      supabase.from('products').select('id, stock_qty').eq('is_active', true),
+    // Aggregate from product_stock_locations (live, per-godown) rather than
+    // products.stock_qty which is a stale denormalised column. Keeps these
+    // KPIs consistent with the Products / StockManagement pages.
+    const [
+      { data: products, error: productsError },
+      { data: locations, error: locationsError },
+      { data: brands, error: brandsError },
+      { data: adjustments, error: adjustmentsError },
+    ] = await Promise.all([
+      supabase.from('products').select('id').eq('is_active', true),
+      supabase.from('product_stock_locations').select('product_id, stock_qty'),
       supabase.from('brands').select('id').eq('is_active', true),
       supabase.from('stock_adjustments').select('id, quantity, type, created_at, products(name)').order('created_at', { ascending: false }).limit(10),
     ]);
-    if (productsError || brandsError || adjustmentsError) {
-      setError(productsError?.message || brandsError?.message || adjustmentsError?.message || 'Unable to load inventory reports');
+    if (productsError || brandsError || adjustmentsError || locationsError) {
+      setError(productsError?.message || brandsError?.message || locationsError?.message || adjustmentsError?.message || 'Unable to load inventory reports');
     } else if (products) {
+      // Sum stock per product across all locations.
+      const stockByProduct = new Map<string, number>();
+      for (const row of (locations ?? []) as { product_id: string; stock_qty: number | null }[]) {
+        stockByProduct.set(row.product_id, (stockByProduct.get(row.product_id) ?? 0) + (row.stock_qty ?? 0));
+      }
+      const productQtys = products.map((p) => stockByProduct.get(p.id) ?? 0);
       setStats({
         totalProducts: products.length,
-        totalStock: products.reduce((s, p) => s + p.stock_qty, 0),
-        lowStock: products.filter(p => p.stock_qty > 0 && p.stock_qty <= 5).length,
-        outOfStock: products.filter(p => p.stock_qty === 0).length,
+        totalStock: productQtys.reduce((s, q) => s + q, 0),
+        lowStock: productQtys.filter((q) => q > 0 && q <= 5).length,
+        outOfStock: productQtys.filter((q) => q === 0).length,
         totalBrands: (brands ?? []).length,
         adjustments: (adjustments ?? []).length,
       });

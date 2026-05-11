@@ -11,6 +11,7 @@ import { PageHeader, DataCard, EmptyState, Spinner } from '@/app/components/ui/p
 import { ArrowLeft, FilePlus2 } from 'lucide-react';
 import { COMPANY_LIST, cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import type { CompanyEnum } from '@/app/types/database';
+import { LIMITS, sanitizeMultilineText, sanitizeNonNegativeDecimal, sanitizeText } from '@/app/validation';
 
 type CreditNoteType = 'GST Credit Note' | 'NGST' | 'Not-GST Credit Note';
 type NgstItemType = 'Incentive' | 'Discount' | 'Bonton Coin' | 'Others';
@@ -386,7 +387,10 @@ export const CreditNote = () => {
       });
 
       if (itemErr) {
-        await supabase.from('orders').delete().eq('id', createdOrder.id);
+        // Mark order as Voided rather than hard-deleting so the allocated
+        // CN sequence number stays in place (gaps would violate GSTR-1
+        // sequential numbering rules).
+        await supabase.from('orders').update({ status: 'Voided' }).eq('id', createdOrder.id);
         throw itemErr;
       }
 
@@ -506,7 +510,8 @@ export const CreditNote = () => {
                     {ngstItemType === 'Others' && (
                       <Input
                         value={ngstOtherItem}
-                        onChange={(e) => setNgstOtherItem(e.target.value)}
+                        onChange={(e) => setNgstOtherItem(sanitizeText(e.target.value, LIMITS.shortText))}
+                        maxLength={LIMITS.shortText}
                         placeholder="Enter item type"
                         className="h-10 rounded-xl bg-gray-50 border-gray-200 shadow-none"
                       />
@@ -541,7 +546,7 @@ export const CreditNote = () => {
                   min="0"
                   step="0.01"
                   value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  onChange={(e) => setPrice(sanitizeNonNegativeDecimal(e.target.value))}
                   placeholder="0.00"
                   className="h-10 rounded-xl bg-gray-50 border-gray-200 shadow-none"
                 />
@@ -575,7 +580,8 @@ export const CreditNote = () => {
               <label className="text-xs font-semibold text-gray-500">Remark *</label>
               <Textarea
                 value={remark}
-                onChange={(e) => setRemark(e.target.value)}
+                onChange={(e) => setRemark(sanitizeMultilineText(e.target.value, LIMITS.reason))}
+                maxLength={LIMITS.reason}
                 placeholder="Enter reason or context for this credit note"
                 className="min-h-[88px] rounded-xl bg-gray-50 border-gray-200 shadow-none"
               />

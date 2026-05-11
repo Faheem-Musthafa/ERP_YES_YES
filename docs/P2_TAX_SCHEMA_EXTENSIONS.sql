@@ -123,6 +123,22 @@ CREATE INDEX IF NOT EXISTS order_items_order_product_idx
     ON public.order_items (order_id, product_id);
 
 -- ---------------------------------------------------------------------
+-- 5b. Add 'Voided' to order_status_enum so failed Credit Note creation can
+-- mark the parent order voided instead of hard-deleting the row (which
+-- would burn an allocated sequence number).
+-- ---------------------------------------------------------------------
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_enum
+        WHERE enumlabel = 'Voided'
+          AND enumtypid = 'order_status_enum'::regtype
+    ) THEN
+        ALTER TYPE order_status_enum ADD VALUE 'Voided';
+    END IF;
+END $$;
+
+-- ---------------------------------------------------------------------
 -- 6. Backfill — derive sensible defaults for existing rows.
 -- ---------------------------------------------------------------------
 -- 6a. Order item tax_rate ← 18 (matches the legacy hard-coded "CGST 9 / SGST 9" PDF).
