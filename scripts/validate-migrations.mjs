@@ -5,7 +5,7 @@ const root = process.cwd();
 const docsDir = path.join(root, 'docs');
 
 // Migration targets list — paths relative to docs/. Historical migrations live
-// in deprecated/ now; current-cycle migrations live in applied/.
+// in deprecated/ now; currently-applied migrations live in applied/.
 const migrationTargets = [
   'deprecated/SECURITY_TRANSACTION_HARDENING.sql',
   'deprecated/RPC_IDEMPOTENCY_WRAPPERS.sql',
@@ -13,10 +13,6 @@ const migrationTargets = [
   'deprecated/BILLING_REVERSAL_WORKFLOW.sql',
   'deprecated/SAFE_RECOVERY_AND_AUDIT_MIGRATION.sql',
   'applied/INVOICE_NUMBER_SEQUENCES.sql',
-  'applied/P2_TAX_SCHEMA_EXTENSIONS.sql',
-  'applied/AUDIT_TRAIL.sql',
-  'applied/DELIVERY_ITEMS.sql',
-  'applied/PURCHASE_RETURNS.sql',
   'applied/RLS_AUDIT.sql',
 ];
 

@@ -25,18 +25,23 @@ docs/
 Documentation a developer or admin actually reads day-to-day.
 
 ### `applied/`
-SQL migrations applied to the live Supabase project on **2026-05-11/12**:
+SQL migrations currently in effect on the live Supabase project:
 
 | File | Purpose |
 |---|---|
-| `INVOICE_NUMBER_SEQUENCES.sql` | Race-safe invoice/CN/order number allocator + bill_credit_note RPCs |
-| `P2_TAX_SCHEMA_EXTENSIONS.sql` | states master, HSN/tax_rate/UoM/cost_price, state_code, place_of_supply, per-line tax columns |
-| `AUDIT_TRAIL.sql` | Generic before/after audit triggers on master tables |
-| `DELIVERY_ITEMS.sql` | Partial-dispatch table with cumulative cap trigger |
-| `PURCHASE_RETURNS.sql` | Debit-note flow to suppliers + RPC |
-| `RLS_AUDIT.sql` | Role helpers + table policy template (reference; live policies were inlined into the per-table remediation migration) |
+| `INVOICE_NUMBER_SEQUENCES.sql` | Race-safe invoice / Credit Note / order number allocator. Drives `allocate_invoice_sequence`, `allocate_order_number`, `bill_credit_note_atomic`, `bill_credit_note_idempotent` (the latter has its auth/role check moved above the cache lookup). |
+| `RLS_AUDIT.sql` | Role helper template (`is_role`, `is_active_user`, `current_user_role`) plus the role-gated policy pattern. Live policies were inlined into the per-table remediation migration. |
 
 These files document the change. The authoritative ordered record is the Supabase `supabase_migrations.schema_migrations` table (visible via `mcp__supabase__list_migrations`).
+
+Rolled back (moved to `deprecated/` on 2026-05-12):
+
+- `P2_TAX_SCHEMA_EXTENSIONS.sql` — states master, HSN/tax_rate/UoM/cost_price, state_code, place_of_supply, per-line tax. `orders.round_off` kept; everything else dropped.
+- `AUDIT_TRAIL.sql` — table + triggers dropped.
+- `DELIVERY_ITEMS.sql` — table + triggers dropped.
+- `PURCHASE_RETURNS.sql` — tables + RPCs dropped.
+
+The `Voided` value on `order_status_enum` and the `is_active_user()` helper remain live (in use by code / future RLS).
 
 ### `reference/`
 Historical schema snapshots. Do not run.

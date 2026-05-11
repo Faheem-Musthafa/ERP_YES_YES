@@ -163,7 +163,7 @@ export const StockAdjustment = () => {
         p_quantity: qty,
         p_type: type,
         p_reason: normalizedReason,
-        p_user_id: user?.id ?? undefined,
+        p_user_id: user?.id ?? null,
       });
 
       if (adjustmentErr) throw adjustmentErr;

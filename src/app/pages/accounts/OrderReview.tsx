@@ -210,7 +210,7 @@ export const OrderReview = () => {
       const { data: ok, error } = await supabase.rpc('reject_order', {
         p_order_id: selectedOrder.id,
         p_rejected_by: user.id,
-        p_reason: undefined,
+        p_reason: null,
       });
       if (error) {
         const rpcMissing = error.code === 'PGRST202' || error.message?.toLowerCase().includes('could not find the function');

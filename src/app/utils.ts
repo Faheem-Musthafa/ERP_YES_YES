@@ -10,15 +10,11 @@ import { formatMoney, formatMoneyCompact } from '@/app/money';
 /**
  * Default Indian-locale currency formatter. Shows paise (2 decimals) — this
  * is the right default for billing / receipts / customer-facing values.
- * Dashboards that want compact integers should call `fmtDashboard`.
  */
 export const fmt = (n: number) => formatMoney(n);
 
 /** Compact currency string — uses K/L abbreviations for large amounts. */
 export const fmtK = (n: number) => formatMoneyCompact(n);
-
-/** Integer-rupee formatter for dashboard tiles where paise are noise. */
-export const fmtDashboard = (n: number) => formatMoney(n, { paise: false });
 
 // ── Order status → Tailwind badge classes ─────────────────────────────────
 

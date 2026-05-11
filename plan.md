@@ -30,7 +30,7 @@ Legend: `[ ]` todo · `[x]` done · `[-]` deferred (reason).
 
 ## P1 — High (data correctness + missing P2 wiring foundations)
 
-- [x] **P1-1** Regenerated `src/app/types/database.ts` from live schema via `mcp__supabase__generate_typescript_types`. Adds all new P2 columns + new tables (audit_trail, delivery_items, purchase_returns, purchase_return_items, states, invoice_sequences). Named-alias appendix preserves `OrderStatusEnum` / `CompanyEnum` / etc. Eight call sites swapped from `?? null` to `?? undefined` to match the regenerated optional-arg shape, plus a required-customer guard in CreateOrder.
+- [-] **P1-1** Regenerate `src/app/types/database.ts` — deferred (existing `any`-casts work; full regen waits for next schema cycle).
 - [-] **P1-2** CreateOrder useEffect joined-string dep — deferred (larger refactor; needs onChange-driven cross-calc).
 - [x] **P1-3** OrderReview useEffect now keyed to `selectedOrder?.id` + `maxDiscountPercentage`; runs after items load. Uses `computeLineAmount` for parity with the rest of the page.
 - [x] **P1-4** MyCustomers orders fetch scoped to `created_by = user.id` for sales role; row `key` swapped from `i` to `c.id`.
@@ -64,22 +64,39 @@ Legend: `[ ]` todo · `[x]` done · `[-]` deferred (reason).
 - [x] **F-4** CreateOrder legacy-fallback hard-delete on item-insert failure replaced with `status='Voided'` so the order sequence number is not burned (matches CreditNote behaviour).
 - Verified: 0 ungated `console.*` left, 0 `toISOString().split` patterns left in real code, 0 npm-audit vulns, 0 always-true policies, 0 anon-callable SECURITY DEFINER, 0 search_path mutable, 0 `parseInt` without radix, no app-side localStorage outside Supabase client.
 
-## P2 — Bigger redesign (deferred unless fast-track requested)
+## Rollback — removed unused P2 features
 
-- [-] **P2-1** State-derived GST classification (remove Invoice Type dropdown, derive from `customers.state_code` vs company state).  Reason: needs UX decision + RPC change.
-- [-] **P2-2** New `create_credit_note_idempotent` RPC with per-line tax mirror + Sales Return stock-in.  Reason: large RPC + UI redesign.
-- [-] **P2-3** Extend `create_order` RPC to compute and persist per-line CGST/SGST/IGST.  Reason: RPC rewrite.
-- [-] **P2-4** Extend `approve_order_atomic` to recompute tax on price edits.  Reason: RPC rewrite.
-- [-] **P2-5** GRN per-line received-qty UI (replace proportional distribution).  Reason: page redesign.
-- [-] **P2-6** PurchaseReturns frontend page + route + sidebar entry.  Reason: new page.
-- [-] **P2-7** Suppliers create / edit form.  Reason: new page.
-- [-] **P2-8** PurchaseOrders create form.  Reason: new page.
-- [-] **P2-9** Move temporary-password generation from StaffManagement to `invite-user` edge function.  Reason: cross-repo (edge function lives in Supabase functions repo).
-- [-] **P2-10** Migrate Supabase JWT storage off localStorage to httpOnly cookies.  Reason: needs auth-proxy edge function.
-- [-] **P2-11** Sidebar — add procurement nav group.  Reason: UX decision.
-- [-] **P2-12** Round-off computation on invoice finalization.  Reason: depends on P2-3 tax compute.
-- [-] **P2-13** `audit_trail` PII redaction (`pan_no`, `gst_pan`).  Reason: needs business sign-off.
-- [-] **P2-14** Replace `createCreditNoteInvoiceNumber` fallback in Billing.tsx with hard fail once P2-2 RPC ships.  Reason: depends on P2-2.
+Per user direction, rolled back DB infra + dead code that had no UI consumer.
+
+Kept (in active use):
+- `invoice_sequences` + `allocate_invoice_sequence` + `allocate_order_number` + `bill_credit_note_atomic` + `bill_credit_note_idempotent` (used by CreateOrder, CreditNote, Billing).
+- `orders.round_off` column (read by Billing PDF totals).
+- `Voided` enum value on `order_status_enum` (used by CreateOrder + CreditNote rollback paths).
+- `is_active_user()` helper (security utility for future RLS).
+
+Dropped from live DB:
+- `audit_trail` table + `audit_trail_capture()` + 7 triggers.
+- `delivery_items` table + `enforce_delivery_items_cap()` + `recalc_order_item_delivered_qty()` + triggers.
+- `purchase_returns` + `purchase_return_items` tables + `create_purchase_return_idempotent()` + `allocate_purchase_return_number()`.
+- `states` table + FK indexes.
+- Columns on `products`: `hsn_code`, `tax_rate`, `uom`, `cost_price`.
+- Columns on `customers` / `suppliers`: `state_code`.
+- Columns on `orders`: `place_of_supply`, `reverse_charge` (kept `round_off`).
+- Columns on `order_items`: `tax_rate`, `taxable_amount`, `cgst_amount`, `sgst_amount`, `igst_amount`, `hsn_code`, `uom`, `received_qty`, `delivered_qty`, `returned_qty`.
+
+Source files moved `docs/applied/ → docs/deprecated/`: `AUDIT_TRAIL.sql`, `DELIVERY_ITEMS.sql`, `PURCHASE_RETURNS.sql`, `P2_TAX_SCHEMA_EXTENSIONS.sql`.
+
+Code dropped from `src/`:
+- `src/app/hooks/useAbortableEffect.ts` (never imported).
+- `validation.ts`: `validateIFSC`, `validateGSTSlab`, `validateMoneyAmount`, `validatePhoneLoose` (never called).
+- `utils.ts`: `fmtDashboard` (never imported).
+
+## P2 — Removed from plan
+
+All P2 items struck from the plan since the supporting DB infra has been
+rolled back. If/when the business decides to ship per-line GST tax,
+purchase returns, partial deliveries, etc., the relevant SQL files are
+preserved in `docs/deprecated/` for re-application.
 
 ---
 
