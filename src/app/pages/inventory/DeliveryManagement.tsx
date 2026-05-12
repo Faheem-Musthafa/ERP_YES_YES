@@ -69,6 +69,7 @@ interface OrderOption {
   id: string;
   order_number: string;
   invoice_number: string | null;
+  billed_at: string | null;
   customers: { name: string } | null;
 }
 
@@ -223,9 +224,10 @@ export const DeliveryManagement = () => {
           .order('created_at', { ascending: false }),
         supabase
           .from('orders')
-          .select('id, order_number, invoice_number, customers(name)')
+          .select('id, order_number, invoice_number, billed_at, customers(name)')
           .eq('status', 'Billed')
-          .neq('invoice_type', 'Credit Note'),
+          .neq('invoice_type', 'Credit Note')
+          .order('billed_at', { ascending: false }),
         supabase.from('users').select('id, full_name, role').eq('is_active', true).order('full_name'),
       ]);
 
@@ -401,6 +403,20 @@ export const DeliveryManagement = () => {
 
   const activeAgents = agents.filter(a => a.is_active);
 
+  // Billed orders that don't have an active (non-Failed) delivery yet.
+  const activeDeliveryOrderIds = new Set(
+    deliveries
+      .filter(d => d.status !== 'Failed')
+      .map(d => d.orders?.id)
+      .filter((id): id is string => Boolean(id))
+  );
+  const awaitingOrders = orders.filter(o => !activeDeliveryOrderIds.has(o.id));
+
+  const startDeliveryForOrder = (orderId: string) => {
+    setForm({ order_id: orderId, initiated_by_id: '', initiated_by_other: '', delivery_agent_id: '', driver_other: '', vehicle_number: '' });
+    setOpen(true);
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -424,6 +440,44 @@ export const DeliveryManagement = () => {
           </>
         )}
       />
+
+      {awaitingOrders.length > 0 && (
+        <DataCard className="overflow-hidden border-amber-200">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-amber-100 bg-amber-50/60">
+            <PackageOpen size={16} className="text-amber-600" />
+            <h3 className="text-sm font-semibold text-amber-900">Billed orders awaiting delivery</h3>
+            <Badge variant="outline" className="ml-auto bg-white text-amber-700 border-amber-200">{awaitingOrders.length}</Badge>
+          </div>
+          <div className="divide-y divide-amber-100">
+            {awaitingOrders.map(o => (
+              <div key={o.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50/40 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-sm flex-wrap">
+                    <span className="font-mono text-xs bg-white px-2 py-0.5 rounded border border-amber-200 text-amber-700">
+                      {o.invoice_number ?? '—'}
+                    </span>
+                    <span className="text-gray-700 font-medium">{o.order_number}</span>
+                    <span className="text-gray-400">·</span>
+                    <span className="text-xs text-gray-600 truncate">{o.customers?.name ?? '—'}</span>
+                  </div>
+                  {o.billed_at && (
+                    <div className="text-[11px] text-gray-500 mt-0.5">
+                      Billed {new Date(o.billed_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => startDeliveryForOrder(o.id)}
+                  className="bg-[#34b0a7] hover:bg-[#2a9d94] rounded-lg text-xs h-8 shrink-0"
+                >
+                  <Truck size={13} className="mr-1.5" />Create Delivery
+                </Button>
+              </div>
+            ))}
+          </div>
+        </DataCard>
+      )}
 
       <SearchBar
         placeholder="Search by delivery no, invoice no, customer or driver..."
@@ -544,7 +598,9 @@ export const DeliveryManagement = () => {
               <Select value={form.order_id} onValueChange={v => setForm(f => ({ ...f, order_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select billed invoice" /></SelectTrigger>
                 <SelectContent>
-                  {orders.map(o => (
+                  {awaitingOrders.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-gray-500">No billed orders awaiting delivery</div>
+                  ) : awaitingOrders.map(o => (
                     <SelectItem key={o.id} value={o.id}>
                       {o.invoice_number ? `${o.invoice_number} (${o.order_number})` : o.order_number} — {o.customers?.name}
                     </SelectItem>
