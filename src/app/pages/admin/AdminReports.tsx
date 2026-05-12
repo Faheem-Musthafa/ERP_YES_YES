@@ -9,6 +9,7 @@ import {
     PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd,
     StatusBadge, SearchBar, Spinner, EmptyState, FilterBar, FilterField, TablePagination
 } from '@/app/components/ui/primitives';
+import { CustomerNameLink } from '@/app/components/CustomerNameLink';
 import { Button } from '@/app/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Download, FileText, TrendingUp, Users, ShoppingCart } from 'lucide-react';
@@ -47,6 +48,7 @@ interface StaffRow {
 }
 
 interface CustomerRow {
+    id: string;
     name: string;
     place: string;
     totalOrders: number;
@@ -103,7 +105,7 @@ export const AdminReports = () => {
                 .from('order_items')
                 .select(`id, quantity, dealer_price, discount_pct, amount,
                     products (name, sku, brands(name)),
-                    orders!inner (order_number, status, company, created_at, customers (name))`)
+                    orders!inner (order_number, status, company, created_at, customer_id, customers (name))`)
                 .order('id', { ascending: false });
 
             if (statusFilter !== 'all') query = query.eq('orders.status', statusFilter as OrderStatusEnum);
@@ -203,7 +205,7 @@ export const AdminReports = () => {
                 const cid = o.customer_id;
                 if (!cid) return;
                 const cust = o.customers as { name: string; place: string } | null;
-                if (!custs[cid]) custs[cid] = { name: cust?.name ?? '—', place: cust?.place ?? '—', totalOrders: 0, revenue: 0, lastOrderDate: o.created_at };
+                if (!custs[cid]) custs[cid] = { id: cid, name: cust?.name ?? '—', place: cust?.place ?? '—', totalOrders: 0, revenue: 0, lastOrderDate: o.created_at };
                 custs[cid].totalOrders += 1;
                 custs[cid].revenue += o.grand_total ?? 0;
                 if (o.created_at > custs[cid].lastOrderDate) custs[cid].lastOrderDate = o.created_at;
@@ -352,7 +354,11 @@ export const AdminReports = () => {
                                                 <StyledTr key={item.id}>
                                                     <StyledTd mono className="text-xs text-muted-foreground whitespace-nowrap">{new Date(item.orders?.created_at ?? '').toLocaleDateString()}</StyledTd>
                                                     <StyledTd className="font-semibold text-primary whitespace-nowrap">{item.orders?.order_number}</StyledTd>
-                                                    <StyledTd className="font-medium truncate max-w-[150px]">{item.orders?.customers?.name ?? '—'}</StyledTd>
+                                                    <StyledTd className="font-medium truncate max-w-[150px]">
+                                                        {item.orders?.customers?.name
+                                                            ? <CustomerNameLink customerId={(item.orders as any)?.customer_id ?? null}>{item.orders?.customers?.name}</CustomerNameLink>
+                                                            : '—'}
+                                                    </StyledTd>
                                                     <StyledTd className="text-foreground font-medium truncate max-w-[200px]">{item.products?.name ?? '—'}</StyledTd>
                                                     <StyledTd className="text-muted-foreground text-xs uppercase tracking-wider">{item.products?.brands?.name ?? '—'}</StyledTd>
                                                     <StyledTd right mono className="font-bold">{item.quantity}</StyledTd>
@@ -433,7 +439,7 @@ export const AdminReports = () => {
                                                 <StyledTh>Salesperson</StyledTh>
                                                 <StyledTh right>Total Orders</StyledTh>
                                                 <StyledTh right>Approved</StyledTh>
-                                                <StyledTh right>Rejected</StyledTh>
+                                                <StyledTh right>rejected</StyledTh>
                                                 <StyledTh right>Revenue (₹)</StyledTh>
                                                 <StyledTh right>Avg Order (₹)</StyledTh>
                                             </tr>
@@ -486,9 +492,11 @@ export const AdminReports = () => {
                                         </StyledThead>
                                         <tbody>
                                             {paginatedCusts.map((c, i) => (
-                                                <StyledTr key={c.name + i}>
+                                                <StyledTr key={c.id + i}>
                                                     <StyledTd mono className="text-muted-foreground">{(cPage - 1) * pageSize + i + 1}</StyledTd>
-                                                    <StyledTd className="font-semibold">{c.name}</StyledTd>
+                                                    <StyledTd className="font-semibold">
+                                                        <CustomerNameLink customerId={c.id}>{c.name}</CustomerNameLink>
+                                                    </StyledTd>
                                                     <StyledTd className="text-muted-foreground">{c.place}</StyledTd>
                                                     <StyledTd right mono>{c.totalOrders}</StyledTd>
                                                     <StyledTd right mono className="font-bold text-foreground">{fmt(c.revenue)}</StyledTd>

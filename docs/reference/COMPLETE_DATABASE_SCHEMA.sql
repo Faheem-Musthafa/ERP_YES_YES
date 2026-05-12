@@ -43,7 +43,7 @@ END $$;
 
 -- Order status
 DO $$ BEGIN
-    CREATE TYPE order_status_enum AS ENUM ('Pending', 'Approved', 'Rejected', 'Billed', 'Delivered');
+    CREATE TYPE order_status_enum AS ENUM ('Pending', 'Approved', 'Advance', 'Billed', 'Delivered');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -1007,16 +1007,16 @@ $$ LANGUAGE plpgsql;
 -- Reject Order
 CREATE OR REPLACE FUNCTION reject_order(
     p_order_id UUID,
-    p_rejected_by UUID,
+    p_Advance_by UUID,
     p_reason TEXT DEFAULT NULL
 )
 RETURNS BOOLEAN AS $$
 BEGIN
     UPDATE orders
-    SET status = 'Rejected',
-        approved_by = p_rejected_by,
+    SET status = 'Advance',
+        approved_by = p_Advance_by,
         approved_at = NOW(),
-        remarks = COALESCE(remarks || ' | Rejected: ', 'Rejected: ') || COALESCE(p_reason, 'No reason provided')
+        remarks = COALESCE(remarks || ' | Advance: ', 'Advance: ') || COALESCE(p_reason, 'No reason provided')
     WHERE id = p_order_id AND status = 'Pending';
     
     RETURN FOUND;

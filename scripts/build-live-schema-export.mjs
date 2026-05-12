@@ -67,7 +67,7 @@ const enumDdls = [
   "DO $$ BEGIN CREATE TYPE public.delivery_status_enum AS ENUM ('Pending', 'In Transit', 'Delivered', 'Failed'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
   "DO $$ BEGIN CREATE TYPE public.grn_status_enum AS ENUM ('Pending', 'Verified', 'Completed'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
   "DO $$ BEGIN CREATE TYPE public.invoice_type_enum AS ENUM ('GST', 'NGST', 'IGST', 'Delivery Challan Out', 'Delivery Challan In', 'Stock Transfer', 'Credit Note'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
-  "DO $$ BEGIN CREATE TYPE public.order_status_enum AS ENUM ('Pending', 'Approved', 'Rejected', 'Billed', 'Delivered'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
+  "DO $$ BEGIN CREATE TYPE public.order_status_enum AS ENUM ('Pending', 'Approved', 'Advance', 'Billed', 'Delivered'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
   "DO $$ BEGIN CREATE TYPE public.payment_mode_enum AS ENUM ('Cash', 'Cheque', 'UPI', 'Bank Transfer'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
   "DO $$ BEGIN CREATE TYPE public.po_status_enum AS ENUM ('Draft', 'Pending', 'Approved', 'Received', 'Cancelled'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
   "DO $$ BEGIN CREATE TYPE public.stock_adjustment_type_enum AS ENUM ('Addition', 'Subtraction'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;",

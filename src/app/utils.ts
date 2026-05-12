@@ -21,7 +21,7 @@ export const fmtK = (n: number) => formatMoneyCompact(n);
 export const STATUS_COLOR: Record<string, string> = {
     Pending: 'bg-yellow-100 text-yellow-700',
     Approved: 'bg-green-100 text-green-700',
-    Rejected: 'bg-red-100 text-red-700',
+    Advance: 'bg-red-100 text-red-700',
     Billed: 'bg-teal-100 text-teal-700',
     Delivered: 'bg-purple-100 text-purple-700',
 };

@@ -104,7 +104,7 @@ The ERP uses 19 tables organized into categories:
 | `user_role` | admin, sales, accounts, inventory, procurement |
 | `company_enum` | LLP, YES YES, Zekon |
 | `invoice_type_enum` | GST, NGST, IGST, Delivery Challan Out/In, Stock Transfer, Credit Note |
-| `order_status_enum` | Pending, Approved, Rejected, Billed, Delivered |
+| `order_status_enum` | Pending, Approved, Advance, Billed, Delivered |
 | `payment_mode_enum` | Cash, Cheque, UPI, Bank Transfer |
 | `delivery_status_enum` | Pending, In Transit, Delivered, Failed |
 | `Godown_enum` | KOTTAKKAL , Chenakkal |
@@ -127,7 +127,7 @@ The ERP uses 19 tables organized into categories:
 #### 2. Order Workflow
 ```
 Pending → Approved → Billed → Delivered
-                  ↘ Rejected
+                  ↘ Advance
 ```
 
 #### 3. GST Support

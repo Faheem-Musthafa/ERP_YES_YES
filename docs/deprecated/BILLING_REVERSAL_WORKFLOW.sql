@@ -19,12 +19,12 @@ CREATE TABLE IF NOT EXISTS public.billing_reversal_requests (
   company company_enum NOT NULL,
   request_reason TEXT NOT NULL,
   admin_review_note TEXT,
-  status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected')),
+  status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Advance')),
   requested_by UUID NOT NULL REFERENCES public.users(id),
   approved_by UUID REFERENCES public.users(id),
-  rejected_by UUID REFERENCES public.users(id),
+  Advance_by UUID REFERENCES public.users(id),
   approved_at TIMESTAMPTZ,
-  rejected_at TIMESTAMPTZ,
+  Advance_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -63,9 +63,9 @@ WITH CHECK (
   AND requested_by = auth.uid()
   AND status = 'Pending'
   AND approved_by IS NULL
-  AND rejected_by IS NULL
+  AND Advance_by IS NULL
   AND approved_at IS NULL
-  AND rejected_at IS NULL
+  AND Advance_at IS NULL
 );
 
 CREATE POLICY billing_reversal_requests_update_admin_only
@@ -297,8 +297,8 @@ BEGIN
       admin_review_note = NULLIF(TRIM(p_admin_note), ''),
       approved_by = v_actor,
       approved_at = NOW(),
-      rejected_by = NULL,
-      rejected_at = NULL,
+      Advance_by = NULL,
+      Advance_at = NULL,
       updated_at = NOW()
   WHERE id = p_request_id;
 
@@ -330,10 +330,10 @@ BEGIN
   END IF;
 
   UPDATE public.billing_reversal_requests
-  SET status = 'Rejected',
+  SET status = 'Advance',
       admin_review_note = NULLIF(TRIM(p_admin_note), ''),
-      rejected_by = v_actor,
-      rejected_at = NOW(),
+      Advance_by = v_actor,
+      Advance_at = NOW(),
       approved_by = NULL,
       approved_at = NULL,
       updated_at = NOW()
@@ -377,7 +377,7 @@ BEGIN
         'requested_by', r.requested_by,
         'requested_by_name', req.full_name,
         'approved_by_name', appr.full_name,
-        'rejected_by_name', rej.full_name,
+        'Advance_by_name', rej.full_name,
         'customer_name', c.name,
         'created_at', r.created_at,
         'updated_at', r.updated_at
@@ -392,7 +392,7 @@ BEGIN
   LEFT JOIN public.customers c ON c.id = o.customer_id
   LEFT JOIN public.users req ON req.id = r.requested_by
   LEFT JOIN public.users appr ON appr.id = r.approved_by
-  LEFT JOIN public.users rej ON rej.id = r.rejected_by
+  LEFT JOIN public.users rej ON rej.id = r.Advance_by
   WHERE p_status IS NULL OR r.status = p_status;
 
   RETURN v_rows;

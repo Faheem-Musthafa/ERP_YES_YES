@@ -153,8 +153,8 @@ BEGIN
       admin_review_note = NULLIF(TRIM(p_admin_note), ''),
       approved_by = v_actor,
       approved_at = NOW(),
-      rejected_by = NULL,
-      rejected_at = NULL,
+      Advance_by = NULL,
+      Advance_at = NULL,
       updated_at = NOW()
   WHERE id = p_request_id;
 

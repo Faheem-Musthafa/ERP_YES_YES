@@ -24,6 +24,8 @@ export type StockAdjustmentTypeEnum = 'Addition' | 'Subtraction';
 export type SupplierStatusEnum = 'Active' | 'Inactive';
 export type PoStatusEnum = 'Draft' | 'Pending' | 'Approved' | 'Received' | 'Cancelled';
 export type GrnStatusEnum = 'Pending' | 'Verified' | 'Completed';
+export type ReceiptAllocationKindEnum = 'order' | 'opening_invoice' | 'opening_delivery_challan' | 'advance';
+export type BackOrderStatusEnum = 'Pending' | 'Released' | 'Cancelled';
 export type DistrictEnum = string;
 export type VehicleTypeEnum = string;
 export type GodownEnum = string;
@@ -182,6 +184,8 @@ export interface Database {
           pincode: string | null;
           gst_pan: string | null;
           pan_no: string | null;
+          opening_invoice: number;
+          opening_delivery_challan: number;
           opening_balance: number;
           assigned_to: string | null;
           is_active: boolean;
@@ -203,7 +207,8 @@ export interface Database {
           pincode?: string | null;
           gst_pan?: string | null;
           pan_no?: string | null;
-          opening_balance?: number;
+          opening_invoice?: number;
+          opening_delivery_challan?: number;
           assigned_to?: string | null;
           is_active?: boolean;
           deleted_at?: string | null;
@@ -222,7 +227,8 @@ export interface Database {
           pincode?: string | null;
           gst_pan?: string | null;
           pan_no?: string | null;
-          opening_balance?: number;
+          opening_invoice?: number;
+          opening_delivery_challan?: number;
           assigned_to?: string | null;
           is_active?: boolean;
           deleted_at?: string | null;
@@ -469,6 +475,145 @@ export interface Database {
             columns: ['recorded_by'];
             isOneToOne: false;
             referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ]
+      >;
+      delivery_items: TableDef<
+        {
+          id: string;
+          delivery_id: string;
+          order_item_id: string;
+          product_id: string;
+          ordered_qty: number;
+          delivered_qty: number;
+          created_at: string;
+        },
+        {
+          delivery_id: string;
+          order_item_id: string;
+          product_id: string;
+          ordered_qty: number;
+          delivered_qty: number;
+        },
+        Partial<{
+          delivery_id: string;
+          order_item_id: string;
+          product_id: string;
+          ordered_qty: number;
+          delivered_qty: number;
+        }>,
+        [
+          {
+            foreignKeyName: 'delivery_items_delivery_id_fkey';
+            columns: ['delivery_id'];
+            isOneToOne: false;
+            referencedRelation: 'deliveries';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'delivery_items_order_item_id_fkey';
+            columns: ['order_item_id'];
+            isOneToOne: false;
+            referencedRelation: 'order_items';
+            referencedColumns: ['id'];
+          }
+        ]
+      >;
+      back_orders: TableDef<
+        {
+          id: string;
+          order_id: string;
+          order_item_id: string | null;
+          product_id: string;
+          pending_qty: number;
+          dealer_price: number;
+          discount_pct: number;
+          status: BackOrderStatusEnum;
+          released_order_id: string | null;
+          released_at: string | null;
+          released_by: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          order_id: string;
+          order_item_id?: string | null;
+          product_id: string;
+          pending_qty: number;
+          dealer_price?: number;
+          discount_pct?: number;
+          status?: BackOrderStatusEnum;
+          released_order_id?: string | null;
+          released_at?: string | null;
+          released_by?: string | null;
+          created_by?: string | null;
+        },
+        Partial<{
+          order_id: string;
+          order_item_id?: string | null;
+          product_id: string;
+          pending_qty: number;
+          dealer_price?: number;
+          discount_pct?: number;
+          status?: BackOrderStatusEnum;
+          released_order_id?: string | null;
+          released_at?: string | null;
+          released_by?: string | null;
+          created_by?: string | null;
+        }>,
+        [
+          {
+            foreignKeyName: 'back_orders_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'back_orders_product_id_fkey';
+            columns: ['product_id'];
+            isOneToOne: false;
+            referencedRelation: 'products';
+            referencedColumns: ['id'];
+          }
+        ]
+      >;
+      receipt_allocations: TableDef<
+        {
+          id: string;
+          receipt_id: string;
+          kind: ReceiptAllocationKindEnum;
+          target_order_id: string | null;
+          amount: number;
+          created_at: string;
+        },
+        {
+          receipt_id: string;
+          kind: ReceiptAllocationKindEnum;
+          target_order_id?: string | null;
+          amount: number;
+        },
+        Partial<{
+          receipt_id: string;
+          kind: ReceiptAllocationKindEnum;
+          target_order_id?: string | null;
+          amount: number;
+        }>,
+        [
+          {
+            foreignKeyName: 'receipt_allocations_receipt_id_fkey';
+            columns: ['receipt_id'];
+            isOneToOne: false;
+            referencedRelation: 'receipts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'receipt_allocations_target_order_id_fkey';
+            columns: ['target_order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
             referencedColumns: ['id'];
           }
         ]
@@ -1434,6 +1579,40 @@ export interface Database {
         };
         Returns: Json;
       };
+      approve_order_with_backorders: {
+        Args: {
+          p_order_id: string;
+          p_approved_by: string;
+          p_items: Json;
+        };
+        Returns: Json;
+      };
+      record_delivery_fulfillment: {
+        Args: {
+          p_delivery_id: string;
+          p_items: Json;
+          p_updated_by: string;
+        };
+        Returns: Json;
+      };
+      release_back_orders: {
+        Args: {
+          p_back_order_ids: string[];
+          p_released_by: string;
+          p_items: Json;
+          p_remarks?: string | null;
+        };
+        Returns: Json;
+      };
+      create_receipt_with_allocations: {
+        Args: {
+          payload: Json;
+        };
+        Returns: {
+          receipt_id: string;
+          receipt_number: string;
+        }[];
+      };
     };
     Enums: {
       collection_status_enum: CollectionStatusEnum;
@@ -1443,6 +1622,8 @@ export interface Database {
       invoice_type_enum: InvoiceTypeEnum;
       order_status_enum: OrderStatusEnum;
       payment_mode_enum: PaymentModeEnum;
+      receipt_allocation_kind_enum: ReceiptAllocationKindEnum;
+      back_order_status_enum: BackOrderStatusEnum;
       po_status_enum: PoStatusEnum;
       stock_adjustment_type_enum: StockAdjustmentTypeEnum;
       supplier_status_enum: SupplierStatusEnum;

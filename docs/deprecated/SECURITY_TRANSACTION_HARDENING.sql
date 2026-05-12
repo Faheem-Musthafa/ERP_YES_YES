@@ -399,7 +399,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION reject_order(
   p_order_id uuid,
-  p_rejected_by uuid,
+  p_Advance_by uuid,
   p_reason text DEFAULT NULL
 )
 RETURNS boolean
@@ -411,20 +411,20 @@ BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required';
   END IF;
-  IF p_rejected_by <> auth.uid() THEN
-    RAISE EXCEPTION 'rejected_by must match authenticated user';
+  IF p_Advance_by <> auth.uid() THEN
+    RAISE EXCEPTION 'Advance_by must match authenticated user';
   END IF;
   IF NOT has_role(ARRAY['accounts', 'admin']::user_role[]) THEN
     RAISE EXCEPTION 'Insufficient role to reject order';
   END IF;
 
   UPDATE orders
-  SET status = 'Rejected',
-      approved_by = p_rejected_by,
+  SET status = 'Advance',
+      approved_by = p_Advance_by,
       approved_at = NOW(),
       remarks = CASE
         WHEN COALESCE(TRIM(p_reason), '') = '' THEN remarks
-        ELSE COALESCE(remarks || ' | ', '') || 'Rejected: ' || TRIM(p_reason)
+        ELSE COALESCE(remarks || ' | ', '') || 'Advance: ' || TRIM(p_reason)
       END,
       updated_at = NOW()
   WHERE id = p_order_id

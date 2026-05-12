@@ -1,27 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
-import { Textarea } from '@/app/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Info, Check, AlertTriangle, IndianRupee, Tag, User, ReceiptText, Building2, Calendar, FileText, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Info, Check, AlertTriangle, IndianRupee, Tag, User, ReceiptText, Building2, Calendar, FileText, ChevronRight, Trash2 } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
-import { FormSection, FormCard, PageHeader } from '@/app/components/ui/primitives';
 import { COMPANY_LIST, cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
-import type { CompanyEnum, PaymentModeEnum } from '@/app/types/database';
+import type { CompanyEnum, PaymentModeEnum, ReceiptAllocationKindEnum } from '@/app/types/database';
 import { DEFAULT_RECEIPT_STATUS } from '@/app/utils';
 import { addDaysISO, todayLocalISO, validateDateNotInFuture } from '@/app/dates';
-import { LIMITS, sanitizeChallanNumber, sanitizeMultilineText, sanitizeNonNegativeDecimal, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePhone, validatePositiveAmount, validateRequired } from '@/app/validation';
+import { LIMITS, sanitizeChallanNumber, sanitizeNonNegativeDecimal, sanitizeText, sanitizeUpperAlnum, validatePositiveAmount } from '@/app/validation';
 
 interface CustomerOption {
   id: string;
   name: string;
   phone: string;
-  address: string;
-  gst_pan: string | null;
+  opening_invoice: number | null;
+  opening_delivery_challan: number | null;
 }
 
 interface OrderOption {
@@ -31,8 +29,25 @@ interface OrderOption {
   grand_total: number;
   created_at: string;
   customer_id: string | null;
-  customers: { name: string } | null;
 }
+
+interface SettleableTarget {
+  key: string;
+  kind: ReceiptAllocationKindEnum;
+  target_order_id: string | null;
+  label: string;
+  sublabel: string;
+  outstanding: number;
+}
+
+interface AllocationLine {
+  uid: string;
+  kind: ReceiptAllocationKindEnum;
+  target_order_id: string | null;
+  amount: string;
+}
+
+const formatCurrency = (n: number) => `₹ ${Math.abs(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 export const ReceiptEntry = () => {
   const navigate = useNavigate();
@@ -40,53 +55,46 @@ export const ReceiptEntry = () => {
 
   const [brands, setBrands] = useState<string[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const [approvedOrders, setApprovedOrders] = useState<OrderOption[]>([]);
   const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
 
   const [company, setCompany] = useState<CompanyEnum | ''>('');
   const [modeOfReceipt, setModeOfReceipt] = useState<PaymentModeEnum | ''>('');
   const [brand, setBrand] = useState('');
   const [otherBrand, setOtherBrand] = useState('');
-  const [customerType, setCustomerType] = useState('existing');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerAddress, setCustomerAddress] = useState('');
-  const [customerGst, setCustomerGst] = useState('');
-  const [phoneAutoFilled, setPhoneAutoFilled] = useState(false);
-  const [addressAutoFilled, setAddressAutoFilled] = useState(false);
-  const [gstAutoFilled, setGstAutoFilled] = useState(false);
   const [receivedAmount, setReceivedAmount] = useState('');
   const [receivedDate, setReceivedDate] = useState(todayLocalISO());
-  const [onAccountOf, setOnAccountOf] = useState<'Invoice' | 'Advance' | ''>('');
-  const [selectedOrderId, setSelectedOrderId] = useState('');
   const [chequeNumber, setChequeNumber] = useState('');
   const [chequeDate, setChequeDate] = useState('');
   const [loading, setLoading] = useState(false);
-  const invoiceCustomerId = customerType === 'existing' ? selectedCustomerId : '';
-  const customerFilteredOrders = approvedOrders.filter(o => !invoiceCustomerId || o.customer_id === invoiceCustomerId);
+
+  const [customerOrders, setCustomerOrders] = useState<OrderOption[]>([]);
+  const [paidPerOrder, setPaidPerOrder] = useState<Record<string, number>>({});
+  const [paidOpeningInvoice, setPaidOpeningInvoice] = useState(0);
+  const [paidOpeningDc, setPaidOpeningDc] = useState(0);
+  const [targetsLoading, setTargetsLoading] = useState(false);
+
+  const [allocations, setAllocations] = useState<AllocationLine[]>([]);
+
+  const selectedCustomer = customers.find((c) => c.id === selectedCustomerId) || null;
 
   useEffect(() => {
     (async () => {
       try {
-        const [{ data: custData, error: custError }, { data: ordData, error: ordError }, { data: brandData, error: brandError }, profiles] = await Promise.all([
-          supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
+        const [{ data: custData, error: custError }, { data: brandData, error: brandError }, profiles] = await Promise.all([
           supabase
-            .from('orders')
-            .select('id, order_number, invoice_number, grand_total, created_at, customer_id, customers(name)')
-            .eq('status', 'Billed')
-            .neq('invoice_type', 'Credit Note')
-            .order('created_at', { ascending: false }),
+            .from('customers')
+            .select('id, name, phone, opening_invoice, opening_delivery_challan')
+            .eq('is_active', true)
+            .order('name'),
           supabase.from('brands').select('name').eq('is_active', true).order('name'),
           loadCompanyProfiles().catch(() => null),
         ]);
 
         if (custError) throw custError;
-        if (ordError) throw ordError;
         if (brandError) throw brandError;
 
         if (custData) setCustomers(custData as CustomerOption[]);
-        if (ordData) setApprovedOrders(ordData as OrderOption[]);
         if (brandData) setBrands([...brandData.map((b: { name: string }) => b.name), 'Other']);
         if (profiles) setCompanyProfiles(profiles);
       } catch (err: any) {
@@ -95,64 +103,252 @@ export const ReceiptEntry = () => {
     })();
   }, []);
 
-  const handleCustomerSelect = (custId: string) => {
-    setSelectedCustomerId(custId);
-    const c = customers.find(x => x.id === custId);
-    if (c) {
-      setCustomerPhone(c.phone); setCustomerAddress(c.address); setPhoneAutoFilled(true); setAddressAutoFilled(true);
-      if (c.gst_pan) { setCustomerGst(c.gst_pan); setGstAutoFilled(true); } else { setCustomerGst(''); setGstAutoFilled(false); }
+  // Load billable invoices + prior-paid totals for the selected customer.
+  useEffect(() => {
+    if (!selectedCustomerId) {
+      setCustomerOrders([]);
+      setPaidPerOrder({});
+      setPaidOpeningInvoice(0);
+      setPaidOpeningDc(0);
+      setAllocations([]);
+      return;
     }
+    let cancelled = false;
+    (async () => {
+      setTargetsLoading(true);
+      try {
+        const { data: ordData, error: ordError } = await supabase
+          .from('orders')
+          .select('id, order_number, invoice_number, grand_total, created_at, customer_id')
+          .eq('customer_id', selectedCustomerId)
+          .eq('status', 'Billed')
+          .neq('invoice_type', 'Credit Note')
+          .order('created_at', { ascending: false });
+        if (ordError) throw ordError;
+        const orders = (ordData ?? []) as OrderOption[];
+        if (cancelled) return;
+        setCustomerOrders(orders);
+
+        const orderIds = orders.map((o) => o.id);
+        // Allocations against these orders (new flow).
+        const { data: allocData, error: allocError } = orderIds.length
+          ? await supabase
+              .from('receipt_allocations')
+              .select('target_order_id, amount')
+              .in('target_order_id', orderIds)
+          : { data: [] as Array<{ target_order_id: string | null; amount: number }>, error: null };
+        if (allocError) throw allocError;
+        // Legacy single-row receipts (no allocations rows).
+        const { data: legacyReceipts, error: legacyErr } = orderIds.length
+          ? await supabase
+              .from('receipts')
+              .select('id, order_id, amount')
+              .in('order_id', orderIds)
+          : { data: [] as Array<{ id: string; order_id: string | null; amount: number }>, error: null };
+        if (legacyErr) throw legacyErr;
+        const legacyReceiptIds = (legacyReceipts ?? []).map((r) => r.id);
+        const { data: receiptsWithAlloc, error: rwaErr } = legacyReceiptIds.length
+          ? await supabase
+              .from('receipt_allocations')
+              .select('receipt_id')
+              .in('receipt_id', legacyReceiptIds)
+          : { data: [] as Array<{ receipt_id: string }>, error: null };
+        if (rwaErr) throw rwaErr;
+        const allocReceiptSet = new Set((receiptsWithAlloc ?? []).map((r) => r.receipt_id));
+
+        const orderPaid: Record<string, number> = {};
+        for (const a of allocData ?? []) {
+          if (!a.target_order_id) continue;
+          orderPaid[a.target_order_id] = (orderPaid[a.target_order_id] ?? 0) + Number(a.amount);
+        }
+        for (const r of legacyReceipts ?? []) {
+          if (!r.order_id || allocReceiptSet.has(r.id)) continue;
+          orderPaid[r.order_id] = (orderPaid[r.order_id] ?? 0) + Number(r.amount);
+        }
+        if (cancelled) return;
+        setPaidPerOrder(orderPaid);
+
+        // Opening-balance allocations already applied (they decrement the OB row,
+        // so customer.opening_* already reflects remaining; paidOpening is just
+        // for display in the audit trail).
+        setPaidOpeningInvoice(0);
+        setPaidOpeningDc(0);
+        setAllocations([]);
+      } catch (err: any) {
+        if (!cancelled) toast.error(err.message || 'Failed to load customer outstanding records');
+      } finally {
+        if (!cancelled) setTargetsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCustomerId]);
+
+  const settleableTargets = useMemo<SettleableTarget[]>(() => {
+    const list: SettleableTarget[] = [];
+    if (selectedCustomer) {
+      const obInv = (selectedCustomer.opening_invoice ?? 0) - paidOpeningInvoice;
+      const obDc = (selectedCustomer.opening_delivery_challan ?? 0) - paidOpeningDc;
+      if (obInv > 0.009) {
+        list.push({
+          key: 'opening_invoice',
+          kind: 'opening_invoice',
+          target_order_id: null,
+          label: 'Opening Balance — Invoice',
+          sublabel: 'Carried forward',
+          outstanding: obInv,
+        });
+      }
+      if (obDc > 0.009) {
+        list.push({
+          key: 'opening_delivery_challan',
+          kind: 'opening_delivery_challan',
+          target_order_id: null,
+          label: 'Opening Balance — Delivery Challan',
+          sublabel: 'Carried forward',
+          outstanding: obDc,
+        });
+      }
+    }
+    for (const o of customerOrders) {
+      const remaining = Number(o.grand_total) - (paidPerOrder[o.id] ?? 0);
+      if (remaining > 0.009) {
+        list.push({
+          key: `order:${o.id}`,
+          kind: 'order',
+          target_order_id: o.id,
+          label: o.invoice_number || o.order_number,
+          sublabel: `Bill ${new Date(o.created_at).toLocaleDateString('en-IN')}`,
+          outstanding: remaining,
+        });
+      }
+    }
+    return list;
+  }, [selectedCustomer, customerOrders, paidPerOrder, paidOpeningInvoice, paidOpeningDc]);
+
+  const targetByKey = useMemo(() => {
+    const m = new Map<string, SettleableTarget>();
+    for (const t of settleableTargets) m.set(t.key, t);
+    return m;
+  }, [settleableTargets]);
+
+  const allocationKey = (line: AllocationLine) =>
+    line.kind === 'order' ? `order:${line.target_order_id}` : line.kind;
+
+  // 'advance' is excluded from usedKeys so the user can keep adding to it via the
+  // "Park as Advance" button rather than blocking re-selection.
+  const usedKeys = useMemo(
+    () => new Set(allocations.filter((l) => l.kind !== 'advance').map(allocationKey)),
+    [allocations],
+  );
+
+  const allocatedSum = useMemo(
+    () => allocations.reduce((acc, l) => acc + (parseFloat(l.amount) || 0), 0),
+    [allocations],
+  );
+  const receivedNum = parseFloat(receivedAmount) || 0;
+  const unallocated = receivedNum - allocatedSum;
+  const unallocatedAbs = Math.abs(unallocated);
+  const isBalanced = receivedNum > 0 && unallocatedAbs < 0.01;
+
+  const addAllocation = (key: string) => {
+    const target = targetByKey.get(key);
+    if (!target) return;
+    const remainingToAllocate = Math.max(0, unallocated);
+    const fill = Math.min(target.outstanding, remainingToAllocate);
+    setAllocations((prev) => [
+      ...prev,
+      {
+        uid: crypto.randomUUID(),
+        kind: target.kind,
+        target_order_id: target.target_order_id,
+        amount: fill > 0 ? fill.toFixed(2) : '',
+      },
+    ]);
   };
 
-  const handleCustomerTypeChange = (t: string) => {
-    setCustomerType(t); setSelectedCustomerId(''); setCustomerName(''); setCustomerPhone(''); setCustomerAddress(''); setCustomerGst('');
-    setPhoneAutoFilled(false); setAddressAutoFilled(false); setGstAutoFilled(false);
+  const parkRemainingAsAdvance = () => {
+    const remainder = unallocated;
+    if (remainder <= 0.009) return;
+    setAllocations((prev) => {
+      const existing = prev.find((l) => l.kind === 'advance');
+      if (existing) {
+        const merged = (parseFloat(existing.amount) || 0) + remainder;
+        return prev.map((l) => (l.uid === existing.uid ? { ...l, amount: merged.toFixed(2) } : l));
+      }
+      return [
+        ...prev,
+        { uid: crypto.randomUUID(), kind: 'advance', target_order_id: null, amount: remainder.toFixed(2) },
+      ];
+    });
+  };
+
+  const updateAllocationAmount = (uid: string, amount: string) => {
+    setAllocations((prev) =>
+      prev.map((l) => (l.uid === uid ? { ...l, amount: sanitizeNonNegativeDecimal(amount) } : l)),
+    );
+  };
+
+  const removeAllocation = (uid: string) => {
+    setAllocations((prev) => prev.filter((l) => l.uid !== uid));
+  };
+
+  const handleCustomerSelect = (custId: string) => {
+    setSelectedCustomerId(custId);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (customerType === 'existing' && !selectedCustomerId) { toast.error('Please select a customer'); return; }
-    if (customerType === 'new' && (!customerName || !customerPhone)) { toast.error('Please fill new customer details'); return; }
+    if (!selectedCustomerId) { toast.error('Please select a customer'); return; }
     if (!company) { toast.error('Please select a company'); return; }
     if (!modeOfReceipt) { toast.error('Please select mode of receipt'); return; }
     if (!brand || (brand === 'Other' && !otherBrand.trim())) { toast.error('Please select a brand'); return; }
-    if (!onAccountOf) { toast.error('Please select On Account Of'); return; }
-    if (onAccountOf === 'Invoice' && !invoiceCustomerId) { toast.error('Please select a customer first'); return; }
-    if (onAccountOf === 'Invoice' && !selectedOrderId) { toast.error('Please select an invoice'); return; }
     if (!receivedAmount || !receivedDate) { toast.error('Please enter amount and date'); return; }
     try { validateDateNotInFuture(receivedDate, 'Received date'); } catch (err: any) { toast.error(err.message); return; }
     if (modeOfReceipt === 'Cheque' && (!chequeNumber.trim() || !chequeDate)) { toast.error('Please complete cheque details'); return; }
 
+    const normalizedAmount = Number(receivedAmount);
+    try { validatePositiveAmount(normalizedAmount, 'Received amount'); } catch (err: any) { toast.error(err.message); return; }
+
+    if (allocations.length === 0) { toast.error('Add at least one allocation against an invoice or opening balance'); return; }
+
+    // Per-line + per-target validation
+    for (const line of allocations) {
+      const amt = parseFloat(line.amount);
+      if (!Number.isFinite(amt) || amt <= 0) { toast.error('Every allocation needs an amount greater than zero'); return; }
+      if (line.kind === 'advance') continue; // Advance has no target/outstanding cap.
+      const key = allocationKey(line);
+      const target = targetByKey.get(key);
+      if (!target) { toast.error('Allocation references a target that is no longer outstanding'); return; }
+      if (amt > target.outstanding + 0.01) {
+        toast.error(`Allocation against "${target.label}" exceeds remaining ${formatCurrency(target.outstanding)}`);
+        return;
+      }
+    }
+
+    if (!isBalanced) {
+      toast.error(`Receipt cannot be saved with ${formatCurrency(unallocatedAbs)} ${unallocated > 0 ? 'unallocated' : 'over-allocated'}. Allocate the full amount before saving.`);
+      return;
+    }
+
     setLoading(true);
     try {
-      let finalCustomerId = selectedCustomerId;
-      if (customerType === 'new') {
-        const normalizedCustomerName = sanitizeText(customerName, LIMITS.longText);
-        const normalizedCustomerPhone = sanitizePhone(customerPhone);
-        const normalizedCustomerAddress = sanitizeMultilineText(customerAddress, LIMITS.address);
-        const normalizedCustomerGst = sanitizeUpperAlnum(customerGst, LIMITS.gstin) || null;
-        validateRequired(normalizedCustomerName, 'Customer name');
-        validateRequired(normalizedCustomerPhone, 'Customer phone');
-        validatePhone(normalizedCustomerPhone);
-        if (normalizedCustomerGst) validateGSTIN(normalizedCustomerGst);
-        const { data: newCust, error: errC } = await supabase.from('customers').insert({
-          name: normalizedCustomerName, phone: normalizedCustomerPhone, address: normalizedCustomerAddress, gst_pan: normalizedCustomerGst, is_active: true
-        }).select('id').single();
-        if (errC) throw errC;
-        finalCustomerId = newCust.id;
-      }
-
       // UUID avoids Date.now() collisions on concurrent submits before a server
-      // allocator is in place. Once `allocate_receipt_number` RPC exists, route
-      // through it with this as the fallback.
+      // allocator is in place.
       const receiptNumber = `RCPT-${crypto.randomUUID()}`;
       const finalBrand = brand === 'Other' ? otherBrand.trim() : brand;
-      const normalizedAmount = Number(receivedAmount);
-      validatePositiveAmount(normalizedAmount, 'Received amount');
-      const { error } = await supabase.from('receipts').insert({
+      const onAccountOf = allocations.length === 1 && allocations[0].kind === 'order'
+        ? 'Invoice'
+        : allocations.length === 1 && allocations[0].kind === 'advance'
+          ? 'Advance'
+          : allocations.length === 1
+            ? 'Opening Balance'
+            : 'Mixed';
+
+      const payload = {
         receipt_number: receiptNumber,
-        order_id: onAccountOf === 'Invoice' ? selectedOrderId : null,
-        customer_id: finalCustomerId,
+        customer_id: selectedCustomerId,
         amount: normalizedAmount,
         payment_mode: modeOfReceipt,
         payment_status: DEFAULT_RECEIPT_STATUS,
@@ -163,24 +359,23 @@ export const ReceiptEntry = () => {
         cheque_date: chequeDate || null,
         on_account_of: onAccountOf,
         recorded_by: user?.id ?? null,
-      });
+        allocations: allocations.map((l) => ({
+          kind: l.kind,
+          target_order_id: l.target_order_id,
+          amount: parseFloat(l.amount),
+        })),
+      };
+
+      const { error } = await supabase.rpc('create_receipt_with_allocations', { payload });
       if (error) throw error;
       toast.success(`Receipt ${receiptNumber} saved!`);
       navigate('/sales/my-collection');
     } catch (err: any) { toast.error(err.message || 'Failed to save receipt'); } finally { setLoading(false); }
   };
 
-  const Pill = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
-    <button type="button" onClick={onClick}
-      className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all flex items-center gap-1 ${active ? 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20' : 'border-border text-muted-foreground hover:bg-muted/50'}`}>
-      {active && <Check size={12} />}
-      {children}
-    </button>
-  );
-
   const hasUnsavedInput = Boolean(
-    company || modeOfReceipt || brand || otherBrand || selectedCustomerId || customerName || customerPhone ||
-    customerAddress || customerGst || receivedAmount || receivedDate || onAccountOf || selectedOrderId || chequeNumber || chequeDate
+    company || modeOfReceipt || brand || otherBrand || selectedCustomerId
+    || receivedAmount || allocations.length > 0 || chequeNumber || chequeDate,
   );
 
   const handleCancel = () => {
@@ -188,6 +383,8 @@ export const ReceiptEntry = () => {
       navigate(-1);
     }
   };
+
+  const remainingTargets = settleableTargets.filter((t) => !usedKeys.has(t.key));
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500 max-w-4xl mx-auto">
@@ -202,13 +399,13 @@ export const ReceiptEntry = () => {
             Receipt Entry
           </h1>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-            Record customer payment allocations securely against invoices or as advances.
+            Record customer payment allocations against billed invoices and opening balances.
           </p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8 relative">
-        
+
         {/* Section 1: Entity & Mode */}
         <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/50 dark:bg-slate-900/40 backdrop-blur-md shadow-sm overflow-hidden transition-all hover:border-slate-300/80 dark:hover:border-slate-700">
           <div className="px-6 py-5 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-3">
@@ -297,115 +494,171 @@ export const ReceiptEntry = () => {
 
         {/* Section 4: Customer Details */}
         <div className="rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-white/50 dark:bg-slate-900/40 backdrop-blur-md shadow-sm overflow-hidden transition-all hover:border-slate-300/80 dark:hover:border-slate-700">
-          <div className="px-6 py-5 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl">
-                <User size={20} />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Customer Profile</h3>
-                <p className="text-xs text-slate-500">Target identity for ledger entry</p>
-              </div>
+          <div className="px-6 py-5 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl">
+              <User size={20} />
             </div>
-            <div className="flex p-1 bg-slate-200/50 dark:bg-slate-800 rounded-xl">
-              <button type="button" onClick={() => handleCustomerTypeChange('existing')} className={`flex-1 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${customerType === 'existing' ? 'bg-white dark:bg-slate-700 text-primary scale-100 ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 scale-95'}`}>Existing</button>
-              <button type="button" onClick={() => handleCustomerTypeChange('new')} className={`flex-1 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${customerType === 'new' ? 'bg-white dark:bg-slate-700 text-primary scale-100 ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 scale-95'}`}>New Customer</button>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Customer Profile</h3>
+              <p className="text-xs text-slate-500">Target identity for ledger entry</p>
             </div>
           </div>
-          
           <div className="p-6 md:p-8 animate-in fade-in duration-300">
-            {customerType === 'existing' ? (
-              <div className="space-y-3 group max-w-xl">
-                <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Lookup Directory <span className="text-rose-500">*</span></Label>
-                <div className="relative">
-                  <Select value={selectedCustomerId} onValueChange={handleCustomerSelect}>
-                    <SelectTrigger className="h-14 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border-slate-200 dark:border-slate-700 text-base"><SelectValue placeholder="Search by name or phone..." /></SelectTrigger>
-                    <SelectContent className="rounded-2xl max-h-[300px]">{customers.map(c => <SelectItem key={c.id} value={c.id} className="py-3 font-medium">{c.name} <span className="text-slate-400 text-xs ml-2 font-mono">({c.phone})</span></SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-                <div className="space-y-2 md:col-span-2 group">
-                  <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Legal Name <span className="text-rose-500">*</span></Label>
-                  <Input value={customerName} onChange={(e) => setCustomerName(sanitizeText(e.target.value, LIMITS.longText))} placeholder="Full business or personal name" required maxLength={LIMITS.longText} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50" />
-                </div>
-                <div className="space-y-2 group">
-                  <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Contact Number <span className="text-rose-500">*</span></Label>
-                  <div className="relative">
-                    <Input type="tel" value={customerPhone} onChange={(e) => { setCustomerPhone(sanitizePhone(e.target.value)); setPhoneAutoFilled(false); }} placeholder="Primary phone" required maxLength={LIMITS.phone} className={`h-12 rounded-xl ${phoneAutoFilled ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 dark:bg-slate-800/50'}`} />
-                    {phoneAutoFilled && <Info size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary" />}
-                  </div>
-                </div>
-                <div className="space-y-2 group">
-                  <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Tax ID (GST/PAN)</Label>
-                  <div className="relative">
-                    <Input value={customerGst} onChange={(e) => { setCustomerGst(sanitizeUpperAlnum(e.target.value, LIMITS.gstin)); setGstAutoFilled(false); }} placeholder="Optional tax reference" maxLength={LIMITS.gstin} className={`h-12 rounded-xl ${gstAutoFilled ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 dark:bg-slate-800/50'}`} />
-                    {gstAutoFilled && <Info size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-primary" />}
-                  </div>
-                </div>
-                <div className="space-y-2 md:col-span-2 group">
-                  <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Billing/Shipping Address <span className="text-rose-500">*</span></Label>
-                  <Textarea value={customerAddress} onChange={(e) => { setCustomerAddress(sanitizeMultilineText(e.target.value, LIMITS.address)); setAddressAutoFilled(false); }} placeholder="Complete regional address..." rows={3} required maxLength={LIMITS.address} className={`resize-none rounded-xl ${addressAutoFilled ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 dark:bg-slate-800/50'}`} />
-                </div>
-              </div>
-            )}
+            <div className="space-y-3 group max-w-xl">
+              <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Lookup Directory <span className="text-rose-500">*</span></Label>
+              <Select value={selectedCustomerId} onValueChange={handleCustomerSelect}>
+                <SelectTrigger className="h-14 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border-slate-200 dark:border-slate-700 text-base"><SelectValue placeholder="Search by name or phone..." /></SelectTrigger>
+                <SelectContent className="rounded-2xl max-h-[300px]">{customers.map(c => <SelectItem key={c.id} value={c.id} className="py-3 font-medium">{c.name} <span className="text-slate-400 text-xs ml-2 font-mono">({c.phone})</span></SelectItem>)}</SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
-        {/* Section 5: Target Allocation */}
+        {/* Section 5: Allocations */}
         <div className="rounded-3xl border border-rose-200/50 dark:border-rose-900/30 bg-gradient-to-tr from-rose-50/20 to-orange-50/10 dark:from-rose-950/10 dark:to-orange-950/10 backdrop-blur-md shadow-sm overflow-hidden">
-          <div className="px-6 py-5 border-b border-rose-200/40 dark:border-rose-800/40 bg-white/40 dark:bg-slate-900/40 flex items-center gap-3">
-            <div className="p-2 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 rounded-xl">
-              <FileText size={20} />
+          <div className="px-6 py-5 border-b border-rose-200/40 dark:border-rose-800/40 bg-white/40 dark:bg-slate-900/40 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 rounded-xl">
+                <FileText size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Against Billed Invoice</h3>
+                <p className="text-xs text-slate-500">Settle the received amount across invoices and opening balances</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Fund Allocation</h3>
-              <p className="text-xs text-slate-500">Settle against a billed invoice or hold the amount as advance</p>
+            <div className={`text-xs font-mono font-semibold px-3 py-1.5 rounded-lg ${isBalanced ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400'}`}>
+              {isBalanced ? <span className="flex items-center gap-1"><Check size={12} /> Balanced</span> : `${formatCurrency(unallocatedAbs)} ${unallocated > 0 ? 'unallocated' : 'over'}`}
             </div>
           </div>
-          
-          <div className="p-6 md:p-8 space-y-6">
-            <div className="space-y-2 max-w-sm group">
-              <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-rose-600">Allocation Type <span className="text-rose-500">*</span></Label>
-                <Select value={onAccountOf} onValueChange={v => { setOnAccountOf(v as 'Invoice' | 'Advance'); setSelectedOrderId(''); }}>
-                  <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900"><SelectValue placeholder="Declare intent" /></SelectTrigger>
-                  <SelectContent className="rounded-xl"><SelectItem value="Invoice">Against Billed Invoice</SelectItem><SelectItem value="Advance">Credit as Advance Hold</SelectItem></SelectContent>
-                </Select>
-              </div>
 
-            {onAccountOf === 'Invoice' && invoiceCustomerId && (
-              <div className="space-y-2 group animate-in fade-in slide-in-from-bottom-2">
-                <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-rose-600">Select Billed Invoice <span className="text-rose-500">*</span></Label>
-                <Select value={selectedOrderId} onValueChange={setSelectedOrderId}>
-                  <SelectTrigger className="h-auto py-3 rounded-xl bg-white dark:bg-slate-900 shadow-inner border-slate-200 dark:border-slate-700">
-                    <SelectValue placeholder="Choose billed invoice..." />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl max-h-[300px]">
-                    {customerFilteredOrders.map(o => (
-                      <SelectItem key={o.id} value={o.id} className="py-2.5">
-                        <div className="flex flex-col gap-1 w-full text-left">
-                          <span className="font-bold text-foreground text-sm uppercase tracking-wide">{o.invoice_number ?? o.order_number}</span>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground w-full">
-                           <span className="truncate max-w-[150px] font-medium">{o.customers?.name}</span>
-                            <span className="shrink-0 opacity-40">•</span>
-                            <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/30 px-1.5 rounded">₹{o.grand_total?.toLocaleString('en-IN')}</span>
-                            <span className="shrink-0 opacity-40">•</span>
-                            <span className="font-mono">{new Date(o.created_at).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                    {customerFilteredOrders.length === 0 && <SelectItem value="none" disabled>No billed invoices linked to this customer</SelectItem>}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            
-            {onAccountOf === 'Invoice' && !invoiceCustomerId && (
+          <div className="p-6 md:p-8 space-y-5">
+            {!selectedCustomerId && (
               <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 dark:bg-amber-950/20 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber-500 flex items-center gap-3">
                 <Info size={18} />
-                Map a Customer Identity first to query outstanding records.
+                Select a customer first to load their outstanding invoices and opening balances.
+              </div>
+            )}
+
+            {selectedCustomerId && targetsLoading && (
+              <div className="text-sm text-muted-foreground flex items-center gap-2">
+                <div className="h-4 w-4 border-2 border-rose-200 border-t-rose-500 rounded-full animate-spin" /> Loading outstanding records…
+              </div>
+            )}
+
+            {selectedCustomerId && !targetsLoading && settleableTargets.length === 0 && allocations.length === 0 && (
+              <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 dark:bg-emerald-950/20 px-4 py-3 text-sm font-medium text-emerald-700 dark:text-emerald-500 flex items-center gap-3">
+                <Check size={18} />
+                Customer has no outstanding invoices or opening balance. Nothing to allocate against.
+              </div>
+            )}
+
+            {selectedCustomerId && allocations.length > 0 && (
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50/80 dark:bg-slate-900/60 text-xs uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="text-left px-4 py-3 font-semibold">Invoice / Opening Balance</th>
+                      <th className="text-right px-4 py-3 font-semibold">Outstanding</th>
+                      <th className="text-right px-4 py-3 font-semibold">Allocate</th>
+                      <th className="px-2 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/70">
+                    {allocations.map((line) => {
+                      const isAdvance = line.kind === 'advance';
+                      const target = isAdvance ? null : targetByKey.get(allocationKey(line));
+                      const outstanding = target?.outstanding ?? 0;
+                      const amt = parseFloat(line.amount) || 0;
+                      const overAllocatedLine = !isAdvance && amt > outstanding + 0.01;
+                      const label = isAdvance ? 'Advance Hold' : (target?.label ?? 'Unknown');
+                      const sublabel = isAdvance ? 'Unallocated credit on customer account' : (target?.sublabel ?? '');
+                      return (
+                        <tr key={line.uid} className={`${isAdvance ? 'bg-amber-50/40 dark:bg-amber-950/20' : 'bg-white/60 dark:bg-slate-900/40'}`}>
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-foreground flex items-center gap-2">
+                              {label}
+                              {isAdvance && <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 font-bold">Advance</span>}
+                            </div>
+                            <div className="text-xs text-muted-foreground">{sublabel}</div>
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-muted-foreground">{isAdvance ? '—' : formatCurrency(outstanding)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={line.amount}
+                              onChange={(e) => updateAllocationAmount(line.uid, e.target.value)}
+                              className={`h-10 w-32 ml-auto rounded-lg font-mono text-right ${overAllocatedLine ? 'border-rose-400 focus-visible:ring-rose-400/30' : ''}`}
+                              placeholder="0.00"
+                            />
+                          </td>
+                          <td className="px-2 py-3 text-right">
+                            <button type="button" onClick={() => removeAllocation(line.uid)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors" title="Remove allocation">
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {selectedCustomerId && !targetsLoading && (remainingTargets.length > 0 || unallocated > 0.009) && (
+              <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-end">
+                {remainingTargets.length > 0 && (
+                  <div className="space-y-2 flex-1">
+                    <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold">Add allocation</Label>
+                    <Select value="" onValueChange={(v) => v && addAllocation(v)}>
+                      <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                        <SelectValue placeholder="Pick an invoice or opening balance to settle…" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl max-h-[300px]">
+                        {remainingTargets.map((t) => (
+                          <SelectItem key={t.key} value={t.key} className="py-2.5">
+                            <div className="flex flex-col gap-0.5 w-full text-left">
+                              <span className="font-bold text-foreground text-sm uppercase tracking-wide">{t.label}</span>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground w-full">
+                                <span>{t.sublabel}</span>
+                                <span className="opacity-40">•</span>
+                                <span className="font-mono text-rose-600 dark:text-rose-400 font-bold bg-rose-50 dark:bg-rose-950/30 px-1.5 rounded">{formatCurrency(t.outstanding)}</span>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {unallocated > 0.009 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={parkRemainingAsAdvance}
+                    className="h-12 px-5 rounded-xl border-amber-300 bg-amber-50/60 hover:bg-amber-100/70 dark:bg-amber-950/30 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-bold gap-2 shrink-0"
+                  >
+                    Park {formatCurrency(unallocated)} as Advance
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {selectedCustomerId && allocations.length > 0 && (
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div className="rounded-xl bg-white/60 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/60 p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Received</div>
+                  <div className="font-mono font-bold text-base mt-1">{formatCurrency(receivedNum)}</div>
+                </div>
+                <div className="rounded-xl bg-white/60 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/60 p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Allocated</div>
+                  <div className="font-mono font-bold text-base mt-1">{formatCurrency(allocatedSum)}</div>
+                </div>
+                <div className={`rounded-xl border p-3 ${isBalanced ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/40' : 'bg-rose-50/60 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/40'}`}>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Unallocated</div>
+                  <div className={`font-mono font-bold text-base mt-1 ${isBalanced ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>{formatCurrency(unallocatedAbs)}</div>
+                </div>
               </div>
             )}
           </div>
@@ -432,16 +685,16 @@ export const ReceiptEntry = () => {
 
         <div className="rounded-2xl border border-amber-200/60 bg-amber-50/50 dark:bg-amber-950/20 px-4 py-3 text-xs text-amber-700 dark:text-amber-500 flex items-start gap-3 w-max max-w-full">
           <AlertTriangle size={16} className="mt-0.5 shrink-0 opacity-80" />
-          <span className="font-medium leading-relaxed">Cross-check selected invoice and nominal values. Receipt finalization permanently impacts customer ledger balance.</span>
+          <span className="font-medium leading-relaxed">Receipt finalization permanently impacts customer ledger. Allocations against opening balances will reduce the customer's carried-forward balance.</span>
         </div>
 
         <div className="sticky bottom-4 z-30 bg-background/90 backdrop-blur-xl shadow-2xl rounded-[1.5rem] border border-slate-200/80 dark:border-slate-700 p-4 w-full flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between transform transition-all hover:bg-background/95 mt-8">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-2 flex-1 min-w-0">Fields dotted directly with <span className="text-rose-500">*</span> are mandatory.</p>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-2 flex-1 min-w-0">Receipt cannot be saved until the received amount is fully allocated.</p>
           <div className="flex gap-3 w-full sm:w-auto shrink-0">
             <Button type="button" variant="outline" onClick={handleCancel} className="flex-1 sm:flex-none h-12 px-6 rounded-xl border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold transition-all">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading} className="flex-1 sm:flex-none h-12 px-8 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold tracking-wide shadow-lg hover:shadow-primary/25 transition-all outline-none text-sm whitespace-nowrap">
+            <Button type="submit" disabled={loading || !isBalanced || allocations.length === 0} className="flex-1 sm:flex-none h-12 px-8 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold tracking-wide shadow-lg hover:shadow-primary/25 transition-all outline-none text-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
               {loading ? (
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Committing...

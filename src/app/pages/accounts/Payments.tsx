@@ -205,7 +205,7 @@ export const Payments = () => {
         if (status === 'Outstanding') return 'Pending';
         // Advance / refundable balance — customer has overpaid. Distinct
         // from Settled so it shouldn't reuse the green Approved variant.
-        if (status === 'Advance') return 'Rejected';
+        if (status === 'Advance') return 'Advance';
         return 'Completed';
     };
 

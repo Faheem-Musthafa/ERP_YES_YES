@@ -26,6 +26,7 @@ import {
   StyledTr,
   TablePagination,
 } from '@/app/components/ui/primitives';
+import { CustomerNameLink } from '@/app/components/CustomerNameLink';
 import type { CompanyEnum, Json } from '@/app/types/database';
 import { downloadCSV } from '@/app/utils';
 import { LIMITS, sanitizeMultilineText } from '@/app/validation';
@@ -55,6 +56,7 @@ type BillableOrder = {
   approved_at: string | null;
   billed_at: string | null;
   created_at: string;
+  customer_id: string | null;
   customers: {
     name: string;
     gst_pan: string | null;
@@ -940,7 +942,7 @@ export const Billing = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('orders')
-      .select('id, order_number, status, company, invoice_type, invoice_number, godown, site_address, remarks, delivery_date, subtotal, total_discount, taxable_amount, cgst_amount, sgst_amount, igst_amount, tax_amount, grand_total, approved_at, billed_at, created_at, customers(name, gst_pan, phone, address, place)')
+      .select('id, order_number, status, company, invoice_type, invoice_number, godown, site_address, remarks, delivery_date, subtotal, total_discount, taxable_amount, cgst_amount, sgst_amount, igst_amount, tax_amount, grand_total, approved_at, billed_at, created_at, customer_id, customers(name, gst_pan, phone, address, place)')
       .in('status', ['Approved', 'Billed'])
       .order('approved_at', { ascending: false });
     if (error) {
@@ -1305,7 +1307,7 @@ export const Billing = () => {
 
       toast.success(action === 'approve'
         ? 'Billing reversal approved successfully'
-        : 'Billing reversal request rejected');
+        : 'Billing reversal request Advance');
       setReviewDialogOpen(false);
       setReviewRequest(null);
       setAdminPassword('');
@@ -1430,7 +1432,11 @@ export const Billing = () => {
                     <StyledTr key={order.id}>
                       <StyledTd mono className="font-semibold text-primary">{order.order_number}</StyledTd>
                       <StyledTd mono className="text-muted-foreground">{order.invoice_number ?? 'Not generated'}</StyledTd>
-                      <StyledTd>{order.customers?.name ?? '—'}</StyledTd>
+                      <StyledTd>
+                        {order.customers?.name
+                          ? <CustomerNameLink customerId={order.customer_id}>{order.customers.name}</CustomerNameLink>
+                          : '—'}
+                      </StyledTd>
                       <StyledTd>{order.invoice_type}</StyledTd>
                       <StyledTd><StatusBadge status={order.status} /></StyledTd>
                       <StyledTd right mono className="font-semibold">₹{order.grand_total.toLocaleString('en-IN')}</StyledTd>

@@ -9,13 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/app/components/ui/dialog';
 import {
   Plus, Truck, MapPin, AlertCircle, Settings2,
-  UserCheck, Car, Pencil, PowerOff, Power,
+  UserCheck, Car, Pencil, PowerOff, Power, PackageOpen, CheckCircle,
 } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
 import { DataCard, EmptyState, PageHeader, SearchBar, Spinner } from '@/app/components/ui/primitives';
+import { CustomerNameLink } from '@/app/components/CustomerNameLink';
 import { LIMITS, sanitizeMultilineText, sanitizeText, sanitizeVehicleNumber } from '@/app/validation';
+import type { Json } from '@/app/types/database';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +104,84 @@ export const DeliveryManagement = () => {
   const [failReason, setFailReason] = useState('');
   const [failSaving, setFailSaving] = useState(false);
 
+  // Per-line delivery fulfillment dialog
+  interface FulfillLine { order_item_id: string; product_id: string; product_name: string; ordered_qty: number; delivered_qty: number; }
+  const [fulfillOpen, setFulfillOpen] = useState(false);
+  const [fulfillTargetId, setFulfillTargetId] = useState<string | null>(null);
+  const [fulfillLines, setFulfillLines] = useState<FulfillLine[]>([]);
+  const [fulfillSaving, setFulfillSaving] = useState(false);
+  const [fulfillLoading, setFulfillLoading] = useState(false);
+
+  const openFulfillModal = async (deliveryId: string) => {
+    const delivery = deliveries.find((d) => d.id === deliveryId);
+    if (!delivery?.orders?.id) {
+      toast.error('Delivery missing source order');
+      return;
+    }
+    setFulfillTargetId(deliveryId);
+    setFulfillOpen(true);
+    setFulfillLoading(true);
+    setFulfillLines([]);
+    const { data, error } = await supabase
+      .from('order_items')
+      .select('id, product_id, quantity, products(name)')
+      .eq('order_id', delivery.orders.id);
+    setFulfillLoading(false);
+    if (error) {
+      toast.error(error.message || 'Failed to load order items');
+      setFulfillOpen(false);
+      return;
+    }
+    setFulfillLines((data ?? []).map((row: any) => ({
+      order_item_id: row.id,
+      product_id: row.product_id,
+      product_name: row.products?.name ?? 'Unknown product',
+      ordered_qty: row.quantity,
+      delivered_qty: row.quantity,
+    })));
+  };
+
+  const closeFulfillModal = () => {
+    setFulfillOpen(false);
+    setFulfillTargetId(null);
+    setFulfillLines([]);
+  };
+
+  const handleFulfillSubmit = async () => {
+    if (!fulfillTargetId || !user) return;
+    if (fulfillLines.some((l) => l.delivered_qty < 0 || l.delivered_qty > l.ordered_qty)) {
+      toast.error('Delivered qty must be between 0 and ordered qty for each line');
+      return;
+    }
+    setFulfillSaving(true);
+    try {
+      const payload = fulfillLines.map((l) => ({
+        order_item_id: l.order_item_id,
+        delivered_qty: l.delivered_qty,
+      }));
+      const { data, error } = await supabase.rpc('record_delivery_fulfillment', {
+        p_delivery_id: fulfillTargetId,
+        p_items: payload as unknown as Json,
+        p_updated_by: user.id,
+      });
+      if (error) throw error;
+      const result = data as { back_orders?: Array<{ qty: number }> } | null;
+      const backOrderCount = result?.back_orders?.length ?? 0;
+      const backOrderQty = result?.back_orders?.reduce((s, b) => s + (b.qty ?? 0), 0) ?? 0;
+      if (backOrderCount > 0) {
+        toast.success(`Delivered. ${backOrderCount} back-order line${backOrderCount === 1 ? '' : 's'} created (${backOrderQty} units).`);
+      } else {
+        toast.success('Delivered & stock updated!');
+      }
+      closeFulfillModal();
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to record fulfillment');
+    } finally {
+      setFulfillSaving(false);
+    }
+  };
+
   // ── Derived: auto-fill vehicle number when agent selected
   const handleAgentSelect = (agentId: string) => {
     if (agentId === '__other__') {
@@ -136,7 +216,7 @@ export const DeliveryManagement = () => {
             id, delivery_number, status, driver_name, vehicle_number,
             initiated_by, initiated_by_name, delivery_agent_id,
             dispatched_at, delivered_at, failure_reason,
-            orders(id, order_number, invoice_number, site_address, customers(name, address)),
+            orders(id, order_number, invoice_number, site_address, customer_id, customers(name, address)),
             delivery_agents(id, name, vehicle_number),
             initiator:users!initiated_by(id, full_name)
           `)
@@ -222,6 +302,12 @@ export const DeliveryManagement = () => {
       return;
     }
 
+    if (status === 'Delivered') {
+      // Route through per-line fulfillment modal so partial deliveries generate back-orders.
+      await openFulfillModal(id);
+      return;
+    }
+
     try {
       const payload = {
         p_delivery_id: id,
@@ -244,7 +330,7 @@ export const DeliveryManagement = () => {
         if (legacyErr) throw legacyErr;
       }
 
-      toast.success(status === 'Delivered' ? 'Delivered & stock updated!' : 'Status updated');
+      toast.success('Status updated');
       fetchData();
     } catch (error: any) {
       toast.error(error.message || 'Failed to update status');
@@ -376,7 +462,11 @@ export const DeliveryManagement = () => {
                     <tr key={d.id} className="hover:bg-gray-50/70 transition-colors">
                       <td className="px-4 py-3 font-semibold text-[#34b0a7] whitespace-nowrap">{d.delivery_number}</td>
                       <td className="px-4 py-3 font-mono text-xs text-gray-700">{d.orders?.invoice_number || '—'}</td>
-                      <td className="px-4 py-3 text-gray-700 font-medium">{d.orders?.customers?.name ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-700 font-medium">
+                        {d.orders?.customers?.name
+                          ? <CustomerNameLink customerId={(d.orders as any)?.customer_id ?? null}>{d.orders?.customers?.name}</CustomerNameLink>
+                          : '—'}
+                      </td>
                       <td className="px-4 py-3 max-w-[180px]">
                         {deliveryAddr ? (
                           <span className="flex items-start gap-1 text-xs text-gray-600">
@@ -600,6 +690,91 @@ export const DeliveryManagement = () => {
               disabled={failSaving}
             >
               {failSaving ? 'Saving...' : 'Confirm & Mark Failed'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={fulfillOpen} onOpenChange={(open) => { if (!open) closeFulfillModal(); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle size={18} className="text-emerald-600" /> Mark Delivered — Per-line Fulfillment
+            </DialogTitle>
+          </DialogHeader>
+
+          {fulfillLoading ? (
+            <div className="py-6 text-center text-sm text-muted-foreground">Loading order lines…</div>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                Enter the actual quantity delivered for each product. Anything short of the ordered quantity is automatically moved to the Back-Orders queue.
+              </p>
+              <div className="overflow-x-auto rounded-xl border border-border/60">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-semibold">Product</th>
+                      <th className="text-right px-3 py-2 font-semibold">Ordered</th>
+                      <th className="text-right px-3 py-2 font-semibold">Delivered</th>
+                      <th className="text-right px-3 py-2 font-semibold">Short</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {fulfillLines.map((line, idx) => {
+                      const short = line.ordered_qty - line.delivered_qty;
+                      return (
+                        <tr key={line.order_item_id} className={short > 0 ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''}>
+                          <td className="px-3 py-2 font-medium">{line.product_name}</td>
+                          <td className="px-3 py-2 text-right font-mono text-muted-foreground">{line.ordered_qty}</td>
+                          <td className="px-3 py-2 text-right">
+                            <Input
+                              type="number"
+                              min={0}
+                              max={line.ordered_qty}
+                              value={line.delivered_qty}
+                              onChange={(e) => {
+                                const v = Math.max(0, Math.min(line.ordered_qty, Math.floor(Number(e.target.value) || 0)));
+                                setFulfillLines((prev) => prev.map((l, i) => i === idx ? { ...l, delivered_qty: v } : l));
+                              }}
+                              className="h-9 w-24 ml-auto rounded-lg font-mono text-right"
+                            />
+                          </td>
+                          <td className={`px-3 py-2 text-right font-mono font-semibold ${short > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                            {short > 0 ? short : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {(() => {
+                const totalShort = fulfillLines.reduce((s, l) => s + (l.ordered_qty - l.delivered_qty), 0);
+                if (totalShort === 0) {
+                  return (
+                    <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 dark:bg-emerald-950/20 px-3 py-2 text-xs font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+                      <CheckCircle size={14} /> Full delivery. No back-orders will be created.
+                    </div>
+                  );
+                }
+                return (
+                  <div className="rounded-lg border border-amber-200/70 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2 text-xs font-medium text-amber-800 dark:text-amber-400 flex items-center gap-2">
+                    <PackageOpen size={14} /> {totalShort} unit{totalShort === 1 ? '' : 's'} will move to the back-order queue.
+                  </div>
+                );
+              })()}
+            </>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeFulfillModal} disabled={fulfillSaving}>Cancel</Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+              onClick={handleFulfillSubmit}
+              disabled={fulfillSaving || fulfillLoading || fulfillLines.length === 0}
+            >
+              <CheckCircle size={14} /> {fulfillSaving ? 'Saving…' : 'Confirm Delivery'}
             </Button>
           </DialogFooter>
         </DialogContent>

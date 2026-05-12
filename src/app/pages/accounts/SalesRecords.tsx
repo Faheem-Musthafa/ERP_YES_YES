@@ -10,6 +10,7 @@ import {
   StyledThead, StyledTh, StyledTr, StyledTd,
   EmptyState, Spinner, StatusBadge, TablePagination,
 } from '@/app/components/ui/primitives';
+import { CustomerNameLink } from '@/app/components/CustomerNameLink';
 
 export const SalesRecords = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -25,7 +26,7 @@ export const SalesRecords = () => {
       setLoading(true);
       const { data } = await supabase
         .from('orders')
-        .select('id, order_number, status, company, invoice_type, grand_total, approved_at, created_at, customers(name)')
+        .select('id, order_number, status, company, invoice_type, grand_total, approved_at, created_at, customer_id, customers(name)')
         .in('status', ['Approved', 'Billed', 'Delivered'])
         .order('approved_at', { ascending: false });
       setOrders(data ?? []);
@@ -125,7 +126,11 @@ export const SalesRecords = () => {
                     {paginated.map(o => (
                       <StyledTr key={o.id}>
                         <StyledTd mono className="text-primary font-semibold">{o.order_number}</StyledTd>
-                        <StyledTd className="text-foreground">{o.customers?.name ?? '—'}</StyledTd>
+                        <StyledTd className="text-foreground">
+                          {o.customers?.name
+                            ? <CustomerNameLink customerId={o.customer_id}>{o.customers.name}</CustomerNameLink>
+                            : '—'}
+                        </StyledTd>
                         <StyledTd className="text-muted-foreground">{getCompanyDisplayName(o.company, companyProfiles)}</StyledTd>
                         <StyledTd className="text-muted-foreground">{o.invoice_type}</StyledTd>
                         <StyledTd><StatusBadge status={o.status} /></StyledTd>

@@ -27,7 +27,7 @@ DO $$ BEGIN CREATE TYPE public.company_enum AS ENUM ('LLP', 'YES YES', 'Zekon');
 DO $$ BEGIN CREATE TYPE public.delivery_status_enum AS ENUM ('Pending', 'In Transit', 'Delivered', 'Failed'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE public.grn_status_enum AS ENUM ('Pending', 'Verified', 'Completed'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE public.invoice_type_enum AS ENUM ('GST', 'NGST', 'IGST', 'Delivery Challan Out', 'Delivery Challan In', 'Stock Transfer', 'Credit Note'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN CREATE TYPE public.order_status_enum AS ENUM ('Pending', 'Approved', 'Rejected', 'Billed', 'Delivered'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE public.order_status_enum AS ENUM ('Pending', 'Approved', 'Advance', 'Billed', 'Delivered'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE public.payment_mode_enum AS ENUM ('Cash', 'Cheque', 'UPI', 'Bank Transfer'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE public.po_status_enum AS ENUM ('Draft', 'Pending', 'Approved', 'Received', 'Cancelled'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE public.stock_adjustment_type_enum AS ENUM ('Addition', 'Subtraction'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -52,9 +52,9 @@ CREATE TABLE IF NOT EXISTS public.billing_reversal_requests (
   status text DEFAULT 'Pending'::text NOT NULL,
   requested_by uuid NOT NULL,
   approved_by uuid,
-  rejected_by uuid,
+  Advance_by uuid,
   approved_at timestamp with time zone,
-  rejected_at timestamp with time zone,
+  Advance_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now() NOT NULL,
   updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -359,9 +359,9 @@ CREATE TABLE IF NOT EXISTS public.users (
 ALTER TABLE public.billing_reversal_requests ADD CONSTRAINT billing_reversal_requests_pkey PRIMARY KEY (id);
 ALTER TABLE public.billing_reversal_requests ADD CONSTRAINT billing_reversal_requests_order_id_fkey FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE;
 ALTER TABLE public.billing_reversal_requests ADD CONSTRAINT billing_reversal_requests_approved_by_fkey FOREIGN KEY (approved_by) REFERENCES users(id);
-ALTER TABLE public.billing_reversal_requests ADD CONSTRAINT billing_reversal_requests_status_check CHECK (status = ANY (ARRAY['Pending'::text, 'Approved'::text, 'Rejected'::text]));
+ALTER TABLE public.billing_reversal_requests ADD CONSTRAINT billing_reversal_requests_status_check CHECK (status = ANY (ARRAY['Pending'::text, 'Approved'::text, 'Advance'::text]));
 ALTER TABLE public.billing_reversal_requests ADD CONSTRAINT billing_reversal_requests_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES users(id);
-ALTER TABLE public.billing_reversal_requests ADD CONSTRAINT billing_reversal_requests_rejected_by_fkey FOREIGN KEY (rejected_by) REFERENCES users(id);
+ALTER TABLE public.billing_reversal_requests ADD CONSTRAINT billing_reversal_requests_Advance_by_fkey FOREIGN KEY (Advance_by) REFERENCES users(id);
 ALTER TABLE public.brands ADD CONSTRAINT brands_name_key UNIQUE (name);
 ALTER TABLE public.brands ADD CONSTRAINT brands_pkey PRIMARY KEY (id);
 ALTER TABLE public.collections ADD CONSTRAINT collections_order_id_fkey FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE;
@@ -594,8 +594,8 @@ BEGIN
       admin_review_note = NULLIF(TRIM(p_admin_note), ''),
       approved_by = v_actor,
       approved_at = NOW(),
-      rejected_by = NULL,
-      rejected_at = NULL,
+      Advance_by = NULL,
+      Advance_at = NULL,
       updated_at = NOW()
   WHERE id = p_request_id;
 
@@ -1631,7 +1631,7 @@ BEGIN
         'requested_by', r.requested_by,
         'requested_by_name', req.full_name,
         'approved_by_name', appr.full_name,
-        'rejected_by_name', rej.full_name,
+        'Advance_by_name', rej.full_name,
         'customer_name', c.name,
         'created_at', r.created_at,
         'updated_at', r.updated_at
@@ -1646,7 +1646,7 @@ BEGIN
   LEFT JOIN public.customers c ON c.id = o.customer_id
   LEFT JOIN public.users req ON req.id = r.requested_by
   LEFT JOIN public.users appr ON appr.id = r.approved_by
-  LEFT JOIN public.users rej ON rej.id = r.rejected_by
+  LEFT JOIN public.users rej ON rej.id = r.Advance_by
   WHERE p_status IS NULL OR r.status = p_status;
 
   RETURN v_rows;
@@ -1968,10 +1968,10 @@ BEGIN
   END IF;
 
   UPDATE public.billing_reversal_requests
-  SET status = 'Rejected',
+  SET status = 'Advance',
       admin_review_note = NULLIF(TRIM(p_admin_note), ''),
-      rejected_by = v_actor,
-      rejected_at = NOW(),
+      Advance_by = v_actor,
+      Advance_at = NOW(),
       approved_by = NULL,
       approved_at = NULL,
       updated_at = NOW()
@@ -1981,7 +1981,7 @@ BEGIN
   RETURN FOUND;
 END;
 $function$
-CREATE OR REPLACE FUNCTION public.reject_order(p_order_id uuid, p_rejected_by uuid, p_reason text DEFAULT NULL::text)
+CREATE OR REPLACE FUNCTION public.reject_order(p_order_id uuid, p_Advance_by uuid, p_reason text DEFAULT NULL::text)
  RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
@@ -1991,20 +1991,20 @@ BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Authentication required';
   END IF;
-  IF p_rejected_by <> auth.uid() THEN
-    RAISE EXCEPTION 'rejected_by must match authenticated user';
+  IF p_Advance_by <> auth.uid() THEN
+    RAISE EXCEPTION 'Advance_by must match authenticated user';
   END IF;
   IF NOT has_role(ARRAY['accounts', 'admin']::user_role[]) THEN
     RAISE EXCEPTION 'Insufficient role to reject order';
   END IF;
 
   UPDATE orders
-  SET status = 'Rejected',
-      approved_by = p_rejected_by,
+  SET status = 'Advance',
+      approved_by = p_Advance_by,
       approved_at = NOW(),
       remarks = CASE
         WHEN COALESCE(TRIM(p_reason), '') = '' THEN remarks
-        ELSE COALESCE(remarks || ' | ', '') || 'Rejected: ' || TRIM(p_reason)
+        ELSE COALESCE(remarks || ' | ', '') || 'Advance: ' || TRIM(p_reason)
       END,
       updated_at = NOW()
   WHERE id = p_order_id
@@ -2639,7 +2639,7 @@ ALTER TABLE public."users" ENABLE ROW LEVEL SECURITY;
 
 -- Policies
 DROP POLICY IF EXISTS "billing_reversal_requests_insert_accounts_admin" ON public."billing_reversal_requests";
-CREATE POLICY "billing_reversal_requests_insert_accounts_admin" ON public."billing_reversal_requests" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((has_role(ARRAY['accounts'::user_role, 'admin'::user_role]) AND (requested_by = auth.uid()) AND (status = 'Pending'::text) AND (approved_by IS NULL) AND (rejected_by IS NULL) AND (approved_at IS NULL) AND (rejected_at IS NULL)));
+CREATE POLICY "billing_reversal_requests_insert_accounts_admin" ON public."billing_reversal_requests" AS PERMISSIVE FOR INSERT TO "authenticated" WITH CHECK ((has_role(ARRAY['accounts'::user_role, 'admin'::user_role]) AND (requested_by = auth.uid()) AND (status = 'Pending'::text) AND (approved_by IS NULL) AND (Advance_by IS NULL) AND (approved_at IS NULL) AND (Advance_at IS NULL)));
 DROP POLICY IF EXISTS "billing_reversal_requests_select_accounts_admin" ON public."billing_reversal_requests";
 CREATE POLICY "billing_reversal_requests_select_accounts_admin" ON public."billing_reversal_requests" AS PERMISSIVE FOR SELECT TO "authenticated" USING (has_role(ARRAY['accounts'::user_role, 'admin'::user_role]));
 DROP POLICY IF EXISTS "billing_reversal_requests_update_admin_only" ON public."billing_reversal_requests";

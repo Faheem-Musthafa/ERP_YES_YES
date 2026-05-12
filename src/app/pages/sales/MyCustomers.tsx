@@ -24,6 +24,8 @@ interface CustomerData {
     phone: string;
     location: string | null;
     place: string | null;
+    openingInvoice: number;
+    openingDeliveryChallan: number;
     openingBalance: number;
     totalOrders: number;
     totalRevenue: number;
@@ -79,7 +81,7 @@ export const MyCustomers = () => {
             // Fetch active customers
             const { data: custData, error: custErr } = await supabase
                 .from('customers')
-                .select('id, name, phone, location, place, opening_balance, is_active')
+                .select('id, name, phone, location, place, opening_invoice, opening_delivery_challan, opening_balance, is_active')
                 .eq('is_active', true);
 
             if (custErr) throw custErr;
@@ -117,6 +119,8 @@ export const MyCustomers = () => {
                     phone: c.phone,
                     location: c.location,
                     place: c.place,
+                    openingInvoice: c.opening_invoice ?? 0,
+                    openingDeliveryChallan: c.opening_delivery_challan ?? 0,
                     openingBalance: c.opening_balance ?? 0,
                     totalOrders: orderInfo.count,
                     totalRevenue: orderInfo.revenue,
@@ -580,24 +584,25 @@ export const MyCustomers = () => {
                                 {/* Summary Cards */}
                                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                                     {(() => {
-                                        const ob = selectedCustomer?.openingBalance ?? 0;
-                                        const isCredit = ob < 0;
-                                        const isDebit = ob > 0;
-                                        const tone = isDebit
+                                        const invoiceOb = selectedCustomer?.openingInvoice ?? 0;
+                                        const dcOb = selectedCustomer?.openingDeliveryChallan ?? 0;
+                                        const totalOb = invoiceOb + dcOb;
+                                        const toneFor = (amount: number) => amount > 0
                                             ? 'text-rose-600 dark:text-rose-400'
-                                            : isCredit
+                                            : amount < 0
                                                 ? 'text-emerald-600 dark:text-emerald-400'
                                                 : 'text-muted-foreground';
-                                        const iconTone = isDebit
+                                        const iconTone = totalOb > 0
                                             ? 'bg-rose-500/10 text-rose-500 group-hover:bg-rose-500/20'
-                                            : isCredit
+                                            : totalOb < 0
                                                 ? 'bg-emerald-500/10 text-emerald-500 group-hover:bg-emerald-500/20'
                                                 : 'bg-slate-500/10 text-slate-500 group-hover:bg-slate-500/20';
-                                        const sublabel = isDebit
+                                        const sublabel = totalOb > 0
                                             ? 'Customer owes us'
-                                            : isCredit
+                                            : totalOb < 0
                                                 ? 'Advance held'
                                                 : 'Settled';
+                                        const formatAmount = (n: number) => `₹ ${Math.abs(n).toLocaleString('en-IN')}`;
                                         return (
                                             <div className="p-4 rounded-xl bg-card border border-border/50 shadow-sm flex flex-col justify-between group hover:border-primary/20 transition-colors">
                                                 <div className="flex items-center justify-between">
@@ -605,10 +610,22 @@ export const MyCustomers = () => {
                                                     <div className={`p-2 rounded-md transition-colors ${iconTone}`}><IndianRupee size={16} /></div>
                                                 </div>
                                                 <div className="mt-3 flex flex-col">
-                                                    <span className={`text-2xl font-bold font-mono ${tone}`}>
-                                                        ₹ {Math.abs(ob).toLocaleString('en-IN')}
+                                                    <span className={`text-2xl font-bold font-mono ${toneFor(totalOb)}`}>
+                                                        {formatAmount(totalOb)}
                                                     </span>
                                                     <span className="text-[11px] uppercase tracking-wider text-muted-foreground/80 font-semibold mt-1">{sublabel}</span>
+                                                </div>
+                                                <div className="mt-3 pt-3 border-t border-border/40 font-mono text-[11px] leading-relaxed text-muted-foreground">
+                                                    <div className="flex items-center">
+                                                        <span className="text-muted-foreground/60 select-none mr-1">├─</span>
+                                                        <span className="flex-1">Invoice</span>
+                                                        <span className={`font-semibold ${toneFor(invoiceOb)}`}>{formatAmount(invoiceOb)}</span>
+                                                    </div>
+                                                    <div className="flex items-center">
+                                                        <span className="text-muted-foreground/60 select-none mr-1">└─</span>
+                                                        <span className="flex-1">Delivery Challan</span>
+                                                        <span className={`font-semibold ${toneFor(dcOb)}`}>{formatAmount(dcOb)}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         );

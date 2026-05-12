@@ -7,7 +7,7 @@ import {
   BarChart3, FileText, LogOut, DollarSign, FileCheck, Boxes,
   Plus, Receipt, Wallet, ClipboardCheck, Truck, Car,
   UserCircle, ChevronRight, ChevronDown, X, PanelLeftClose, PanelLeftOpen,
-  Activity, Settings,
+  Activity, Settings, PackageOpen,
 } from 'lucide-react';
 
 interface NavItem { label: string; path: string; icon: React.ReactNode; }
@@ -39,7 +39,8 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
       items: [
         { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={16} /> },
         { label: 'All Orders', path: '/admin/sales', icon: <ShoppingCart size={16} /> },
-        { label: 'Back Order', path: '/accounts/pending-orders', icon: <FileCheck size={16} /> },
+        { label: 'Pending Orders', path: '/accounts/pending-orders', icon: <FileCheck size={16} /> },
+        { label: 'Back Orders', path: '/accounts/back-orders', icon: <PackageOpen size={16} /> },
         { label: 'Billing', path: '/accounts/billing', icon: <Receipt size={16} /> },
         { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={16} /> },
         { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={16} /> },
@@ -73,6 +74,7 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
       items: [
         { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={16} /> },
         { label: 'My Orders', path: '/sales/my-orders', icon: <ShoppingCart size={16} /> },
+        { label: 'Back Orders', path: '/sales/back-orders', icon: <PackageOpen size={16} /> },
       ],
     },
     {
@@ -99,6 +101,7 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
       title: 'Approvals',
       items: [
         { label: 'Pending Orders', path: '/accounts/pending-orders', icon: <FileCheck size={16} /> },
+        { label: 'Back Orders', path: '/accounts/back-orders', icon: <PackageOpen size={16} /> },
         { label: 'Billing', path: '/accounts/billing', icon: <Receipt size={16} /> },
         { label: 'Sales Records', path: '/accounts/sales', icon: <TrendingUp size={16} /> },
       ],

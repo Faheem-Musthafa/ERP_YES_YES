@@ -14,6 +14,7 @@ import {
   StyledThead, StyledTh, StyledTr, StyledTd,
   EmptyState, Spinner, StatusBadge, TablePagination, ErrorState,
 } from '@/app/components/ui/primitives';
+import { CustomerNameLink } from '@/app/components/CustomerNameLink';
 import { DEFAULT_RECEIPT_STATUS, RECEIPT_STATUS_OPTIONS_BY_MODE } from '@/app/utils';
 import { LIMITS, sanitizeMultilineText, validateRequired } from '@/app/validation';
 
@@ -26,9 +27,11 @@ interface ReceiptRow {
   bounce_reason: string | null;
   received_date: string | null;
   created_at: string;
+  customer_id: string | null;
   customers: { name: string } | null;
   orders: {
     id: string;
+    customer_id: string | null;
     order_number: string;
     invoice_number: string | null;
     status: string;
@@ -74,7 +77,7 @@ export const CollectionStatus = () => {
     setError('');
     const { data, error: fetchError } = await supabase
       .from('receipts')
-      .select('id, receipt_number, amount, payment_mode, payment_status, bounce_reason, company, brand, on_account_of, received_date, created_at, customers(name), orders(id, order_number, invoice_number, status, customers(name))')
+      .select('id, receipt_number, amount, payment_mode, payment_status, bounce_reason, company, brand, on_account_of, received_date, created_at, customer_id, customers(name), orders(id, customer_id, order_number, invoice_number, status, customers(name))')
       .or('payment_status.is.null,payment_status.neq.Voided')
       .order('created_at', { ascending: false });
     if (fetchError) setError(fetchError.message);
@@ -215,7 +218,14 @@ export const CollectionStatus = () => {
                     <StyledTr key={r.id}>
                       <StyledTd className="font-semibold text-primary">{r.receipt_number}</StyledTd>
                       <StyledTd className="font-medium text-foreground">{invoiceNo}</StyledTd>
-                      <StyledTd className="text-muted-foreground">{r.orders?.customers?.name ?? r.customers?.name ?? '—'}</StyledTd>
+                      <StyledTd className="text-muted-foreground">
+                        {(() => {
+                          const name = r.orders?.customers?.name ?? r.customers?.name ?? null;
+                          const cid = r.orders?.customer_id ?? r.customer_id ?? null;
+                          if (!name) return '—';
+                          return <CustomerNameLink customerId={cid}>{name}</CustomerNameLink>;
+                        })()}
+                      </StyledTd>
                       <StyledTd center>
                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${MODE_COLORS[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>
                           {r.payment_mode}

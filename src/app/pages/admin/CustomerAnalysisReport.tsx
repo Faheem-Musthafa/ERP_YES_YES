@@ -9,6 +9,7 @@ import {
     PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd,
     SearchBar, Spinner, EmptyState, TablePagination, FilterBar, FilterField, StatusBadge
 } from '@/app/components/ui/primitives';
+import { CustomerNameLink } from '@/app/components/CustomerNameLink';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -340,7 +341,9 @@ export const CustomerAnalysisReport = () => {
                                         <div className="absolute inset-0 bg-white/40 dark:bg-black/20 mix-blend-overlay"></div>
                                     </div>
                                     <div className="truncate">
-                                        <p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{customer.name}</p>
+                                        <p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">
+                                            <CustomerNameLink customerId={customer.id}>{customer.name}</CustomerNameLink>
+                                        </p>
                                         <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500 flex items-center gap-1">
                                             {customer.location ?? 'Unmapped'} <span className="opacity-40">•</span> {customer.totalOrders} TXNs
                                         </p>
@@ -507,7 +510,9 @@ export const CustomerAnalysisReport = () => {
                                                         {c.name.substring(0, 2).toUpperCase()}
                                                     </div>
                                                     <div>
-                                                        <p className="font-bold text-slate-900 dark:text-slate-100">{c.name}</p>
+                                                        <p className="font-bold text-slate-900 dark:text-slate-100">
+                                                            <CustomerNameLink customerId={c.id}>{c.name}</CustomerNameLink>
+                                                        </p>
                                                         <p className="text-[11px] font-medium text-slate-500 mt-0.5">{c.totalOrders} TXNs logged</p>
                                                     </div>
                                                 </div>

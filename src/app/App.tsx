@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from '@/app/contexts/AuthContext';
 import { Layout } from '@/app/components/Layout';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { Toaster } from '@/app/components/ui/sonner';
+import { CustomerDialogProvider } from '@/app/components/CustomerDialogProvider';
 
 // ── Eagerly loaded (tiny, always needed) ──────────────────────────────────
 import { Login } from '@/app/pages/Login';
@@ -33,6 +34,7 @@ const MyCustomers = lazy(() => import('@/app/pages/sales/MyCustomers').then(m =>
 const ReceiptEntry = lazy(() => import('@/app/pages/sales/ReceiptEntry').then(m => ({ default: m.ReceiptEntry })));
 const MyCollection = lazy(() => import('@/app/pages/sales/MyCollection').then(m => ({ default: m.MyCollection })));
 const CollectionStatus = lazy(() => import('@/app/pages/sales/CollectionStatus').then(m => ({ default: m.CollectionStatus })));
+const BackOrders = lazy(() => import('@/app/pages/sales/BackOrders').then(m => ({ default: m.BackOrders })));
 
 // Accounts
 const AccountsDashboard = lazy(() => import('@/app/pages/accounts/Dashboard').then(m => ({ default: m.AccountsDashboard })));
@@ -144,6 +146,8 @@ const AppRoutes = () => {
         <Route path="/sales/receipt" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><ReceiptEntry /></ProtectedRoute>} />
         <Route path="/sales/my-collection" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><MyCollection /></ProtectedRoute>} />
         <Route path="/sales/collection-status" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><CollectionStatus /></ProtectedRoute>} />
+        <Route path="/sales/back-orders" element={<ProtectedRoute allowedRoles={['sales', 'admin', 'accounts']}><BackOrders /></ProtectedRoute>} />
+        <Route path="/accounts/back-orders" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><BackOrders /></ProtectedRoute>} />
 
         {/* Accounts Routes */}
         <Route path="/accounts" element={<ProtectedRoute allowedRoles={['accounts']}><AccountsDashboard /></ProtectedRoute>} />
@@ -187,7 +191,9 @@ export default function App() {
     <ErrorBoundary>
       <AuthProvider>
         <BrowserRouter>
-          <AppRoutes />
+          <CustomerDialogProvider>
+            <AppRoutes />
+          </CustomerDialogProvider>
           <Toaster />
         </BrowserRouter>
       </AuthProvider>

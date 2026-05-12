@@ -19,7 +19,7 @@ export const CustomerForm = () => {
     const isEdit = Boolean(id);
 
     const [form, setForm] = useState({
-        name: '', place: '', address: '', phone: '', second_phone: '', pincode: '', gst_pan: '', pan_no: '', location: null as string | null, opening_balance: 0,
+        name: '', place: '', address: '', phone: '', second_phone: '', pincode: '', gst_pan: '', pan_no: '', location: null as string | null, opening_invoice: 0, opening_delivery_challan: 0,
     });
     const [districtOptions, setDistrictOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.districts);
     const [loading, setLoading] = useState(false);
@@ -48,14 +48,16 @@ export const CustomerForm = () => {
         (async () => {
             const { data, error } = await supabase
                 .from('customers')
-                .select('name, place, address, phone, second_phone, pincode, gst_pan, pan_no, location, opening_balance')
+                .select('name, place, address, phone, second_phone, pincode, gst_pan, pan_no, location, opening_invoice, opening_delivery_challan')
                 .eq('id', id)
                 .single();
             if (error) { toast.error('Failed to load customer'); navigate('/admin/customers'); return; }
             setForm({
                 name: data.name ?? '', place: data.place ?? '', address: data.address ?? '',
                 phone: data.phone ?? '', second_phone: data.second_phone ?? '', pincode: data.pincode ?? '', gst_pan: data.gst_pan ?? '', pan_no: data.pan_no ?? '',
-                location: data.location ?? null, opening_balance: data.opening_balance ?? 0,
+                location: data.location ?? null,
+                opening_invoice: data.opening_invoice ?? 0,
+                opening_delivery_challan: data.opening_delivery_challan ?? 0,
             });
             setFetching(false);
         })();
@@ -78,7 +80,8 @@ export const CustomerForm = () => {
                 gst_pan: sanitizeUpperAlnum(form.gst_pan, LIMITS.gstin) || null,
                 pan_no: sanitizeUpperAlnum(form.pan_no, LIMITS.pan) || null,
                 location: (form.location || null) as any,
-                opening_balance: parseFloat(form.opening_balance?.toString() || '0') || 0,
+                opening_invoice: parseFloat(form.opening_invoice?.toString() || '0') || 0,
+                opening_delivery_challan: parseFloat(form.opening_delivery_challan?.toString() || '0') || 0,
             };
             validateRequired(payload.name, 'Customer name');
             validateRequired(payload.phone, 'Phone number');
@@ -88,7 +91,8 @@ export const CustomerForm = () => {
             if (payload.pincode) validatePincode(payload.pincode);
             if (payload.gst_pan) validateGSTIN(payload.gst_pan);
             if (payload.pan_no) validatePAN(payload.pan_no);
-            if (!Number.isFinite(payload.opening_balance)) throw new Error('Opening balance must be a valid number');
+            if (!Number.isFinite(payload.opening_invoice)) throw new Error('Invoice opening balance must be a valid number');
+            if (!Number.isFinite(payload.opening_delivery_challan)) throw new Error('Delivery challan opening balance must be a valid number');
             if (isEdit) {
                 if (!id) throw new Error('Customer ID is missing');
                 const { error } = await supabase.from('customers').update(payload).eq('id', id);
@@ -188,7 +192,9 @@ export const CustomerForm = () => {
             const gstIdx = findIndex('gstin', 'gstpan', 'gst', 'gstno', 'gstnumber');
             const panIdx = findIndex('panno', 'pan', 'pannumber');
             const addressIdx = findIndex('address');
-            const openingBalanceIdx = findIndex('openingbalance', 'opening', 'openingamount');
+            const openingInvoiceIdx = findIndex('invoice', 'openinginvoice', 'invoiceopening', 'invoicebalance');
+            const openingDcIdx = findIndex('deliverychallan', 'dc', 'openingdeliverychallan', 'openingdc', 'deliverychallanbalance', 'dcbalance');
+            const legacyOpeningIdx = findIndex('openingbalance', 'opening', 'openingamount');
             const phoneIdx = findIndex('phone', 'phonenumber', 'mobile', 'mobilenumber');
             const secondPhoneIdx = findIndex('secondphone', 'secondaryphone', 'phone2', 'alternatenumber', 'alternatephone');
 
@@ -197,8 +203,9 @@ export const CustomerForm = () => {
                 return;
             }
 
-            if (companyIdx === -1 || brandIdx === -1 || placeIdx === -1 || locationIdx === -1 || pincodeIdx === -1 || gstIdx === -1 || openingBalanceIdx === -1) {
-                toast.error('Expected CSV format: Company, Brand, Customer Name, Place, District, pincode, GSTIN, Address, Opening Balance');
+            const hasOpeningColumn = openingInvoiceIdx !== -1 || openingDcIdx !== -1 || legacyOpeningIdx !== -1;
+            if (companyIdx === -1 || brandIdx === -1 || placeIdx === -1 || locationIdx === -1 || pincodeIdx === -1 || gstIdx === -1 || !hasOpeningColumn) {
+                toast.error('Expected CSV format: Company, Brand, Customer Name, Place, District, pincode, GSTIN, Address, Invoice, Delivery Challan');
                 return;
             }
 
@@ -220,10 +227,21 @@ export const CustomerForm = () => {
             const seenPhones = new Set<string>();
             const parsedRows = lines.slice(1).map(line => {
                 const cols = parseCSVLine(line);
-                const opening = openingBalanceIdx >= 0
-                    ? parseOpeningBalance(cols[openingBalanceIdx])
-                    : 0;
-                const openingBalanceValue = opening == null ? 0 : opening;
+                const invoiceParsed = openingInvoiceIdx >= 0
+                    ? parseOpeningBalance(cols[openingInvoiceIdx])
+                    : null;
+                const dcParsed = openingDcIdx >= 0
+                    ? parseOpeningBalance(cols[openingDcIdx])
+                    : null;
+                const legacyParsed = legacyOpeningIdx >= 0
+                    ? parseOpeningBalance(cols[legacyOpeningIdx])
+                    : null;
+
+                // Priority: explicit invoice/DC columns; otherwise legacy "Opening Balance" maps to invoice.
+                const openingInvoiceValue = invoiceParsed != null
+                    ? invoiceParsed
+                    : (legacyParsed != null && openingInvoiceIdx === -1 ? legacyParsed : 0);
+                const openingDcValue = dcParsed != null ? dcParsed : 0;
 
                 const rawPhone = phoneIdx >= 0 ? sanitizePhone(cols[phoneIdx] || '') : '';
                 const rawSecondPhone = secondPhoneIdx >= 0 ? sanitizePhone(cols[secondPhoneIdx] || '') : '';
@@ -246,7 +264,8 @@ export const CustomerForm = () => {
                     gst_pan: rawGstin && safeValidate(validateGSTIN, rawGstin) ? rawGstin : null,
                     pan_no: rawPan && safeValidate(validatePAN, rawPan) ? rawPan : null,
                     second_phone: rawSecondPhone && safeValidate(validatePhone, rawSecondPhone) ? rawSecondPhone : null,
-                    opening_balance: openingBalanceValue,
+                    opening_invoice: openingInvoiceValue,
+                    opening_delivery_challan: openingDcValue,
                     is_active: true,
                 };
             });
@@ -302,7 +321,10 @@ export const CustomerForm = () => {
             const { error } = await supabase.from('customers').insert(toInsert);
             if (error) throw error;
 
-            const totalOpeningBalance = toInsert.reduce((sum, row) => sum + (row.opening_balance || 0), 0);
+            const totalOpeningBalance = toInsert.reduce(
+                (sum, row) => sum + (row.opening_invoice || 0) + (row.opening_delivery_challan || 0),
+                0,
+            );
             const balanceLabel = new Intl.NumberFormat('en-IN', {
                 style: 'currency',
                 currency: 'INR',
@@ -440,10 +462,40 @@ export const CustomerForm = () => {
                             <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">PAN No</Label>
                             <Input value={form.pan_no} onChange={(e) => setForm(f => ({ ...f, pan_no: sanitizeUpperAlnum(e.target.value, LIMITS.pan) }))} placeholder="Enter PAN number" maxLength={LIMITS.pan} className="h-12 rounded-xl bg-white dark:bg-slate-900 uppercase font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
                         </div>
-                        <div className="space-y-2 group">
-                            <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">Starting Balance (+ owes us / - we owe)</Label>
-                            <Input type="number" value={form.opening_balance} onChange={(e) => setForm(f => ({ ...f, opening_balance: parseFloat(e.target.value) || 0 }))} placeholder="0.00" step="0.01" className="h-12 rounded-xl bg-white dark:bg-slate-900 font-mono tracking-widest text-lg shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
-                            <p className="text-[11px] text-violet-600/80 dark:text-violet-300/80 font-medium">Use + for outstanding (customer owes us), use - for payable (we owe customer).</p>
+                        <div className="md:col-span-2 rounded-2xl border border-violet-200/60 dark:border-violet-800/50 bg-white/50 dark:bg-slate-900/40 p-5 md:p-6 space-y-4">
+                            <div className="flex items-baseline justify-between gap-4 pb-3 border-b border-violet-200/40 dark:border-violet-800/40">
+                                <div>
+                                    <Label className="text-xs uppercase tracking-wider text-violet-700 dark:text-violet-400 font-bold">Opening Balance</Label>
+                                    <p className="text-[11px] text-violet-600/80 dark:text-violet-300/80 font-medium mt-1">Breakdown by document type. Use + for customer owes us, - for we owe customer.</p>
+                                </div>
+                                {(() => {
+                                    const total = (parseFloat(form.opening_invoice?.toString() || '0') || 0) + (parseFloat(form.opening_delivery_challan?.toString() || '0') || 0);
+                                    const tone = total > 0
+                                        ? 'text-rose-600 dark:text-rose-400'
+                                        : total < 0
+                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                            : 'text-slate-500 dark:text-slate-400';
+                                    return (
+                                        <span className={`font-mono font-bold text-lg ${tone}`}>₹ {Math.abs(total).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                                    );
+                                })()}
+                            </div>
+                            <div className="space-y-3 font-mono">
+                                <div className="flex items-start gap-2">
+                                    <span className="text-violet-400/70 dark:text-violet-600/70 select-none pt-3 text-lg leading-none">├─</span>
+                                    <div className="flex-1 space-y-1.5">
+                                        <Label className="text-[11px] uppercase tracking-wider text-violet-700/80 dark:text-violet-400/80 font-bold">Invoice</Label>
+                                        <Input type="number" value={form.opening_invoice} onChange={(e) => setForm(f => ({ ...f, opening_invoice: parseFloat(e.target.value) || 0 }))} placeholder="0.00" step="0.01" className="h-11 rounded-xl bg-white dark:bg-slate-900 font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <span className="text-violet-400/70 dark:text-violet-600/70 select-none pt-3 text-lg leading-none">└─</span>
+                                    <div className="flex-1 space-y-1.5">
+                                        <Label className="text-[11px] uppercase tracking-wider text-violet-700/80 dark:text-violet-400/80 font-bold">Delivery Challan</Label>
+                                        <Input type="number" value={form.opening_delivery_challan} onChange={(e) => setForm(f => ({ ...f, opening_delivery_challan: parseFloat(e.target.value) || 0 }))} placeholder="0.00" step="0.01" className="h-11 rounded-xl bg-white dark:bg-slate-900 font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -501,11 +553,11 @@ export const CustomerForm = () => {
                                 />
                             </div>
                             <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 text-xs text-slate-500 font-medium leading-relaxed">
-                                <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Expected columns:</span> Company, Brand, Customer Name, Place, District, pincode, GSTIN, PAN No, Address, Opening Balance</p>
+                                <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Expected columns:</span> Company, Brand, Customer Name, Place, District, pincode, GSTIN, PAN No, Address, Invoice, Delivery Challan (legacy <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Opening Balance</code> column still accepted and maps to Invoice).</p>
                                 <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Notes:</span> Company and Brand are accepted for compatibility but not stored in customer master.</p>
                                 <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Phone fields:</span> <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Phone</code> is required and must be 7-15 digits with an optional leading <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">+</code> (e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">9876543210</code>). Rows missing a valid primary phone are skipped. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Second Phone No</code> is optional; invalid values are dropped silently.</p>
                                 <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Tax IDs:</span> <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">GSTIN</code> (15 chars, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">32ABCDE1234F1Z5</code>), <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">PAN No</code> (10 chars, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">ABCDE1234F</code>) and <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">pincode</code> (6 digits) are all optional. Leave the cell blank if unknown — placeholder text like <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">N/A</code> or <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Nil</code> is treated as missing. Invalid values are silently stored as <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">NULL</code>.</p>
-                                <p><span className="font-bold text-slate-700 dark:text-slate-300">Starting Balance:</span> Use a <span className="font-bold text-emerald-600 dark:text-emerald-400">positive</span> number when the customer owes us (e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">15000</code>) and a <span className="font-bold text-rose-600 dark:text-rose-400">negative</span> number when we owe the customer (advance paid, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">-2500</code>). Leave blank for zero. A message appears after import showing the total.</p>
+                                <p><span className="font-bold text-slate-700 dark:text-slate-300">Invoice / Delivery Challan:</span> Use a <span className="font-bold text-emerald-600 dark:text-emerald-400">positive</span> number when the customer owes us (e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">15000</code>) and a <span className="font-bold text-rose-600 dark:text-rose-400">negative</span> number when we owe the customer (advance paid, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">-2500</code>). Each row's two columns are stored separately; their sum is the opening balance. Leave blank for zero.</p>
                             </div>
                         </div>
                     </div>

@@ -274,7 +274,7 @@
   /* Status badges */
   .badge-pending   { @apply bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800/50; }
   .badge-approved  { @apply bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800/50; }
-  .badge-rejected  { @apply bg-red-50 text-red-700 border border-red-200/80 dark:bg-red-950/50 dark:text-red-400 dark:border-red-800/50; }
+  .badge-Advance  { @apply bg-red-50 text-red-700 border border-red-200/80 dark:bg-red-950/50 dark:text-red-400 dark:border-red-800/50; }
   .badge-billed    { @apply bg-blue-50 text-blue-700 border border-blue-200/80 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800/50; }
   .badge-delivered { @apply bg-violet-50 text-violet-700 border border-violet-200/80 dark:bg-violet-950/50 dark:text-violet-400 dark:border-violet-800/50; }
   .badge-active    { @apply bg-teal-50 text-teal-700 border border-teal-200/80 dark:bg-teal-950/50 dark:text-teal-400 dark:border-teal-800/50; }

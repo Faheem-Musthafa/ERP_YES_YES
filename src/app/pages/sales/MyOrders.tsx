@@ -12,6 +12,7 @@ import {
   StyledThead, StyledTh, StyledTr, StyledTd,
   StatusBadge, EmptyState, Spinner, TablePagination
 } from '@/app/components/ui/primitives';
+import { CustomerNameLink } from '@/app/components/CustomerNameLink';
 
 export const MyOrders = () => {
   const navigate = useNavigate();
@@ -30,7 +31,7 @@ export const MyOrders = () => {
       setLoading(true);
       const { data } = await supabase
         .from('orders')
-        .select('id, order_number, status, company, invoice_type, grand_total, delivery_date, created_at, customers(name)')
+        .select('id, order_number, status, company, invoice_type, grand_total, delivery_date, created_at, customer_id, customers(name)')
         .eq('created_by', user.id)
         .order('created_at', { ascending: false });
       setOrders(data ?? []);
@@ -131,7 +132,11 @@ export const MyOrders = () => {
                 {paginated.map(order => (
                   <StyledTr key={order.id} className="group">
                     <StyledTd className="font-semibold text-primary group-hover:underline">{order.order_number}</StyledTd>
-                    <StyledTd className="font-medium text-foreground">{order.customers?.name ?? '—'}</StyledTd>
+                    <StyledTd className="font-medium text-foreground">
+                      {order.customers?.name
+                        ? <CustomerNameLink customerId={order.customer_id}>{order.customers.name}</CustomerNameLink>
+                        : '—'}
+                    </StyledTd>
                     <StyledTd className="text-muted-foreground">{getCompanyDisplayName(order.company, companyProfiles)}</StyledTd>
                     <StyledTd className="text-muted-foreground">{order.invoice_type}</StyledTd>
                     <StyledTd right mono className="font-bold">₹{order.grand_total?.toLocaleString('en-IN')}</StyledTd>

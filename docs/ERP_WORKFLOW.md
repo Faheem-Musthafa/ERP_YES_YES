@@ -88,7 +88,7 @@ This is the primary business flow — from a sales rep creating an order to cash
 └──────────┘    └────────────┘    └──────────────┘    └───────────┘    └────────────┘
      │               │                   │
   status:        status:            status:
-  Pending     Approved/Rejected    In Transit
+  Pending     Approved/Advance    In Transit
                                    → Delivered
                                    → Failed
 ```
@@ -120,7 +120,7 @@ This is the primary business flow — from a sales rep creating an order to cash
 | Action | Result |
 |--------|--------|
 | **Approve** | `status → Approved`, approved_by + approved_at stamped, grand_total updated to approved figures |
-| **Reject** | `status → Rejected`, order disappears from queue |
+| **Reject** | `status → Advance`, order disappears from queue |
 
 ---
 
@@ -263,7 +263,7 @@ Key rules:
 #### My Orders (`/sales/my-orders`)
 
 - Shows only this salesperson's own orders
-- Filter by status: Pending | Approved | Rejected | Billed | Delivered
+- Filter by status: Pending | Approved | Advance | Billed | Delivered
 - Read-only — no editing after submission
 
 #### Receipt Entry (`/sales/receipt`)
@@ -307,7 +307,7 @@ Accounts can change:  Dealer Price = 950  | Discount = 5%  | Amount = 902.50
 - All Approved / Billed / Delivered orders visible
 - Shows running total of filtered records
 - Filter by status
-- **Rejected and Pending orders are excluded**
+- **Advance and Pending orders are excluded**
 
 #### Collection Status (`/accounts/collection-status`)
 
@@ -452,7 +452,7 @@ suppliers
 
 | Enum | Values |
 |------|--------|
-| OrderStatus | Pending · Approved · Rejected · Billed · Delivered |
+| OrderStatus | Pending · Approved · Advance · Billed · Delivered |
 | PaymentMode | Cash · Cheque · UPI · Bank Transfer |
 | DeliveryStatus | Pending · In Transit · Delivered · Failed |
 | CollectionStatus | Pending · Collected · Overdue |
@@ -475,7 +475,7 @@ suppliers
               │ Accounts reviews       │
               ▼                       ▼
         ┌──────────┐           ┌──────────┐
-        │ APPROVED │           │ REJECTED │ (terminal)
+        │ APPROVED │           │ Advance │ (terminal)
         └────┬─────┘           └──────────┘
              │
       ┌──────┴──────┐
@@ -491,7 +491,7 @@ suppliers
 ```
 
 **Where transitions happen:**
-- `Pending → Approved/Rejected`: Accounts module (`OrderReview.tsx`)
+- `Pending → Approved/Advance`: Accounts module (`OrderReview.tsx`)
 - `Approved → Billed`: Accounts Billing page (`/accounts/billing`) with invoice generation
 - `Billed → Delivered`: Implied via Delivery status reaching Delivered
 
