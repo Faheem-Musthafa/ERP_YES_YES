@@ -74,7 +74,7 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
       items: [
         { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={16} /> },
         { label: 'My Orders', path: '/sales/my-orders', icon: <ShoppingCart size={16} /> },
-        { label: 'My Approved Sales', path: '/sales/approved-sales', icon: <TrendingUp size={16} /> },
+        { label: 'Sales', path: '/sales/approved-sales', icon: <TrendingUp size={16} /> },
         { label: 'Back Orders', path: '/sales/back-orders', icon: <PackageOpen size={16} /> },
       ],
     },
