@@ -132,7 +132,7 @@ export const ApprovedSales = () => {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="My Approved Sales"
+        title="Sales"
         subtitle={`${stats.totalCount} approved order${stats.totalCount === 1 ? '' : 's'} in scope`}
         actions={
           <Button size="sm" variant="outline" onClick={exportCSV} className="gap-2" disabled={filtered.length === 0}>
