@@ -29,6 +29,7 @@ export type BackOrderStatusEnum = 'Pending' | 'Released' | 'Cancelled';
 export type DistrictEnum = string;
 export type VehicleTypeEnum = string;
 export type GodownEnum = string;
+export type StateEnum = string;
 
 type TableDef<Row, Insert, Update = Partial<Insert>, Relationships extends readonly unknown[] = []> = {
   Row: Row;
@@ -181,6 +182,7 @@ export interface Database {
           address: string;
           place: string | null;
           location: DistrictEnum | null;
+          state: StateEnum | null;
           pincode: string | null;
           gst_pan: string | null;
           pan_no: string | null;
@@ -204,6 +206,7 @@ export interface Database {
           address: string;
           place?: string | null;
           location?: DistrictEnum | null;
+          state?: StateEnum | null;
           pincode?: string | null;
           gst_pan?: string | null;
           pan_no?: string | null;
@@ -224,6 +227,7 @@ export interface Database {
           address: string;
           place?: string | null;
           location?: DistrictEnum | null;
+          state?: StateEnum | null;
           pincode?: string | null;
           gst_pan?: string | null;
           pan_no?: string | null;

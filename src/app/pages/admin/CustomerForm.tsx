@@ -12,6 +12,7 @@ import { PageHeader, FormCard, FormSection, Spinner, CustomTooltip } from '@/app
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
 import { LIMITS, sanitizeDigits, sanitizeMultilineText, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePAN, validatePhone, validatePincode, validateRequired } from '@/app/validation';
+import { INDIAN_STATES, normalizeStateInput } from '@/app/constants/indianStates';
 
 export const CustomerForm = () => {
     const navigate = useNavigate();
@@ -19,7 +20,7 @@ export const CustomerForm = () => {
     const isEdit = Boolean(id);
 
     const [form, setForm] = useState({
-        name: '', place: '', address: '', phone: '', second_phone: '', pincode: '', gst_pan: '', pan_no: '', location: null as string | null, opening_invoice: 0, opening_delivery_challan: 0,
+        name: '', place: '', address: '', phone: '', second_phone: '', pincode: '', gst_pan: '', pan_no: '', location: null as string | null, state: 'Kerala' as string | null, opening_invoice: 0, opening_delivery_challan: 0,
     });
     const [districtOptions, setDistrictOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.districts);
     const [loading, setLoading] = useState(false);
@@ -48,7 +49,7 @@ export const CustomerForm = () => {
         (async () => {
             const { data, error } = await supabase
                 .from('customers')
-                .select('name, place, address, phone, second_phone, pincode, gst_pan, pan_no, location, opening_invoice, opening_delivery_challan')
+                .select('name, place, address, phone, second_phone, pincode, gst_pan, pan_no, location, state, opening_invoice, opening_delivery_challan')
                 .eq('id', id)
                 .single();
             if (error) { toast.error('Failed to load customer'); navigate('/admin/customers'); return; }
@@ -56,6 +57,7 @@ export const CustomerForm = () => {
                 name: data.name ?? '', place: data.place ?? '', address: data.address ?? '',
                 phone: data.phone ?? '', second_phone: data.second_phone ?? '', pincode: data.pincode ?? '', gst_pan: data.gst_pan ?? '', pan_no: data.pan_no ?? '',
                 location: data.location ?? null,
+                state: data.state ?? null,
                 opening_invoice: data.opening_invoice ?? 0,
                 opening_delivery_challan: data.opening_delivery_challan ?? 0,
             });
@@ -79,7 +81,8 @@ export const CustomerForm = () => {
                 pincode: sanitizeDigits(form.pincode, LIMITS.pincode) || null,
                 gst_pan: sanitizeUpperAlnum(form.gst_pan, LIMITS.gstin) || null,
                 pan_no: sanitizeUpperAlnum(form.pan_no, LIMITS.pan) || null,
-                location: (form.location || null) as any,
+                state: (form.state || null) as any,
+                location: ((form.state === 'Kerala' ? form.location : null) || null) as any,
                 opening_invoice: parseFloat(form.opening_invoice?.toString() || '0') || 0,
                 opening_delivery_challan: parseFloat(form.opening_delivery_challan?.toString() || '0') || 0,
             };
@@ -188,6 +191,7 @@ export const CustomerForm = () => {
             const nameIdx = findIndex('customername', 'name');
             const placeIdx = findIndex('place');
             const locationIdx = findIndex('District', 'district', 'location');
+            const stateIdx = findIndex('state');
             const pincodeIdx = findIndex('pincode', 'zipcode', 'pin');
             const gstIdx = findIndex('gstin', 'gstpan', 'gst', 'gstno', 'gstnumber');
             const panIdx = findIndex('panno', 'pan', 'pannumber');
@@ -204,8 +208,8 @@ export const CustomerForm = () => {
             }
 
             const hasOpeningColumn = openingInvoiceIdx !== -1 || openingDcIdx !== -1 || legacyOpeningIdx !== -1;
-            if (companyIdx === -1 || brandIdx === -1 || placeIdx === -1 || locationIdx === -1 || pincodeIdx === -1 || gstIdx === -1 || !hasOpeningColumn) {
-                toast.error('Expected CSV format: Company, Brand, Customer Name, Place, District, pincode, GSTIN, Address, Invoice, Delivery Challan');
+            if (companyIdx === -1 || brandIdx === -1 || placeIdx === -1 || locationIdx === -1 || stateIdx === -1 || pincodeIdx === -1 || gstIdx === -1 || !hasOpeningColumn) {
+                toast.error('Expected CSV format: Company, Brand, Customer Name, Place, State, District, pincode, GSTIN, Address, Invoice, Delivery Challan');
                 return;
             }
 
@@ -253,13 +257,16 @@ export const CustomerForm = () => {
                 const dupPhone = phoneOk && seenPhones.has(rawPhone);
                 if (phoneOk && !dupPhone) seenPhones.add(rawPhone);
 
+                const rawState = stateIdx >= 0 ? normalizeStateInput(cols[stateIdx] || '') : null;
+                const rawLocation = locationIdx >= 0 ? sanitizeText(cols[locationIdx] || '', LIMITS.mediumText) || null : null;
                 return {
                     brand: brandIdx >= 0 ? cols[brandIdx] || null : null,
                     name: sanitizeText(cols[nameIdx] || '', LIMITS.longText),
                     phone: phoneOk && !dupPhone ? rawPhone : '',
                     address: sanitizeMultilineText(cols[addressIdx] || '', LIMITS.address),
                     place: placeIdx >= 0 ? sanitizeText(cols[placeIdx] || '', LIMITS.mediumText) || null : null,
-                    location: locationIdx >= 0 ? sanitizeText(cols[locationIdx] || '', LIMITS.mediumText) || null : null,
+                    state: rawState,
+                    location: rawState === 'Kerala' ? rawLocation : null,
                     pincode: rawPincode && safeValidate(validatePincode, rawPincode) ? rawPincode : null,
                     gst_pan: rawGstin && safeValidate(validateGSTIN, rawGstin) ? rawGstin : null,
                     pan_no: rawPan && safeValidate(validatePAN, rawPan) ? rawPan : null,
@@ -393,16 +400,29 @@ export const CustomerForm = () => {
                             <Input value={form.place} onChange={(e) => setForm(f => ({ ...f, place: sanitizeText(e.target.value, LIMITS.mediumText) }))} placeholder="e.g. Kochi Terminal" maxLength={LIMITS.mediumText} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50" />
                         </div>
                         <div className="space-y-2 group">
-                            <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">District Zone <span className="text-rose-500">*</span></Label>
-                            <Select value={form.location ?? ''} onValueChange={(v) => setForm(f => ({ ...f, location: v || null }))}>
-                                <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50"><SelectValue placeholder="Pick region or district" /></SelectTrigger>
-                                <SelectContent className="rounded-xl">
-                                    {districtOptions.map((district) => (
-                                        <SelectItem key={district} value={district}>{district}</SelectItem>
+                            <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">State <span className="text-rose-500">*</span></Label>
+                            <Select value={form.state ?? ''} onValueChange={(v) => setForm(f => ({ ...f, state: v || null, location: v === 'Kerala' ? f.location : null }))}>
+                                <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50"><SelectValue placeholder="Pick state" /></SelectTrigger>
+                                <SelectContent className="rounded-xl max-h-72">
+                                    {INDIAN_STATES.map((s) => (
+                                        <SelectItem key={s} value={s}>{s}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
+                        {form.state === 'Kerala' && (
+                            <div className="space-y-2 group">
+                                <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">District Zone <span className="text-rose-500">*</span></Label>
+                                <Select value={form.location ?? ''} onValueChange={(v) => setForm(f => ({ ...f, location: v || null }))}>
+                                    <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/50"><SelectValue placeholder="Pick region or district" /></SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {districtOptions.map((district) => (
+                                            <SelectItem key={district} value={district}>{district}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                         <div className="space-y-2 group">
                             <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Phone Number <span className="text-rose-500">*</span></Label>
                             <div className="relative">
@@ -553,7 +573,7 @@ export const CustomerForm = () => {
                                 />
                             </div>
                             <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 text-xs text-slate-500 font-medium leading-relaxed">
-                                <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Expected columns:</span> Company, Brand, Customer Name, Place, District, pincode, GSTIN, PAN No, Address, Invoice, Delivery Challan (legacy <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Opening Balance</code> column still accepted and maps to Invoice).</p>
+                                <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Expected columns:</span> Company, Brand, Customer Name, Place, State, District, pincode, GSTIN, PAN No, Address, Invoice, Delivery Challan (legacy <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Opening Balance</code> column still accepted and maps to Invoice). <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">District</code> is stored only when <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">State</code> is <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Kerala</code>; otherwise the district cell is ignored.</p>
                                 <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Notes:</span> Company and Brand are accepted for compatibility but not stored in customer master.</p>
                                 <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Phone fields:</span> <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Phone</code> is required and must be 7-15 digits with an optional leading <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">+</code> (e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">9876543210</code>). Rows missing a valid primary phone are skipped. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Second Phone No</code> is optional; invalid values are dropped silently.</p>
                                 <p className="mb-2"><span className="font-bold text-slate-700 dark:text-slate-300">Tax IDs:</span> <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">GSTIN</code> (15 chars, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">32ABCDE1234F1Z5</code>), <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">PAN No</code> (10 chars, e.g. <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">ABCDE1234F</code>) and <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">pincode</code> (6 digits) are all optional. Leave the cell blank if unknown — placeholder text like <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">N/A</code> or <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">Nil</code> is treated as missing. Invalid values are silently stored as <code className="bg-slate-200 dark:bg-slate-700 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 font-mono">NULL</code>.</p>

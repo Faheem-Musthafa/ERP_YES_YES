@@ -13,7 +13,8 @@ import { toast } from 'sonner';
 import { PageHeader } from '@/app/components/ui/primitives';
 import { cn } from '@/app/components/ui/utils';
 import { COMPANY_LIST, cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
-import { DEFAULT_ORDER_FORM_SETTINGS, loadOrderFormSettings } from '@/app/settings';
+import { DEFAULT_MASTER_DATA_SETTINGS, DEFAULT_ORDER_FORM_SETTINGS, loadMasterDataSettings, loadOrderFormSettings } from '@/app/settings';
+import { INDIAN_STATES } from '@/app/constants/indianStates';
 import type { CompanyEnum, InvoiceTypeEnum, GodownEnum, Json } from '@/app/types/database';
 import { LIMITS, sanitizeMultilineText, sanitizeNonNegativeDecimal, sanitizeNonNegativeInteger, sanitizePhone, sanitizeText, sanitizeUpperAlnum, validateGSTIN, validatePhone, validatePositiveAmount, validateRequired } from '@/app/validation';
 import { todayLocalISO, addDaysISO } from '@/app/dates';
@@ -52,6 +53,9 @@ export const CreateOrder = () => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerGst, setCustomerGst] = useState('');
+  const [customerState, setCustomerState] = useState<string | null>('Kerala');
+  const [customerDistrict, setCustomerDistrict] = useState<string | null>(null);
+  const [districtOptions, setDistrictOptions] = useState<string[]>(DEFAULT_MASTER_DATA_SETTINGS.districts);
   
   const [phoneAutoFilled, setPhoneAutoFilled] = useState(false);
   const [addressAutoFilled, setAddressAutoFilled] = useState(false);
@@ -161,6 +165,12 @@ export const CreateOrder = () => {
     void fetchData();
   }, []);
 
+  useEffect(() => {
+    void loadMasterDataSettings()
+      .then((settings) => setDistrictOptions(settings.districts))
+      .catch(() => {});
+  }, []);
+
   const handleCustomerSelect = (custId: string) => {
     setSelectedCustomerId(custId);
     const cust = customers.find(c => c.id === custId);
@@ -176,6 +186,7 @@ export const CreateOrder = () => {
   const handleCustomerTypeChange = (type: string) => {
     setCustomerType(type); setSelectedCustomerId(''); setCustomerName(''); setCustomerPhone('');
     setCustomerAddress(''); setCustomerGst(''); setPhoneAutoFilled(false); setAddressAutoFilled(false); setGstAutoFilled(false);
+    setCustomerState('Kerala'); setCustomerDistrict(null);
   };
 
   const handleProductChange = (id: string, productId: string) => {
@@ -284,7 +295,10 @@ export const CreateOrder = () => {
         validateRequired(normalizedCustomerAddress, 'Customer address');
         validatePhone(normalizedCustomerPhone);
         if (normalizedCustomerGst) validateGSTIN(normalizedCustomerGst);
-        const { data: newCust, error: custErr } = await supabase.from('customers').insert({ name: normalizedCustomerName, phone: normalizedCustomerPhone, address: normalizedCustomerAddress, gst_pan: normalizedCustomerGst, is_active: true }).select('id').single();
+        if (!customerState) throw new Error('Select a state');
+        if (customerState === 'Kerala' && !customerDistrict) throw new Error('Select a district');
+        const customerLocation = customerState === 'Kerala' ? customerDistrict : null;
+        const { data: newCust, error: custErr } = await supabase.from('customers').insert({ name: normalizedCustomerName, phone: normalizedCustomerPhone, address: normalizedCustomerAddress, gst_pan: normalizedCustomerGst, state: customerState, location: customerLocation, is_active: true }).select('id').single();
         if (custErr) throw custErr;
         customerId = newCust.id;
       } else if (customerType === 'existing') {
@@ -544,6 +558,37 @@ export const CreateOrder = () => {
                         placeholder="Optional" maxLength={LIMITS.gstin} className={cn("h-10 rounded-xl font-mono text-sm shadow-none", gstAutoFilled ? "bg-[#e6fffe] border-[#b3fffc] text-[#007571]" : "bg-gray-50 border-gray-200")} />
                     </div>
                   </FL>
+
+                  {customerType === 'new' && (
+                    <>
+                      <FL label="State" required>
+                        <Select value={customerState ?? ''} onValueChange={(v) => { setCustomerState(v || null); if (v !== 'Kerala') setCustomerDistrict(null); }}>
+                          <SelectTrigger className="h-10 rounded-xl bg-gray-50 border-gray-200 shadow-none">
+                            <SelectValue placeholder="Pick state" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl max-h-72">
+                            {INDIAN_STATES.map((s) => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FL>
+                      {customerState === 'Kerala' && (
+                        <FL label="District" required>
+                          <Select value={customerDistrict ?? ''} onValueChange={(v) => setCustomerDistrict(v || null)}>
+                            <SelectTrigger className="h-10 rounded-xl bg-gray-50 border-gray-200 shadow-none">
+                              <SelectValue placeholder="Pick district" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl max-h-72">
+                              {districtOptions.map((d) => (
+                                <SelectItem key={d} value={d}>{d}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </FL>
+                      )}
+                    </>
+                  )}
 
                   <div className="md:col-span-2">
                     <FL label="Billing Address" htmlFor="customerAddress" required>
