@@ -203,10 +203,10 @@ export const CustomerForm = () => {
             const panIdx = findIndex('panno', 'pan', 'pannumber');
             const addressIdx = findIndex('address');
             const openingInvoiceIdx = findIndex('invoice', 'openinginvoice', 'invoiceopening', 'invoicebalance');
-            const openingDcIdx = findIndex('deliverychallan', 'dc', 'openingdeliverychallan', 'openingdc', 'deliverychallanbalance', 'dcbalance');
+            const openingDcIdx = findIndex('deliverychallan', 'deliverychellan', 'dc', 'openingdeliverychallan', 'openingdeliverychellan', 'openingdc', 'deliverychallanbalance', 'deliverychellanbalance', 'dcbalance');
             const legacyOpeningIdx = findIndex('openingbalance', 'opening', 'openingamount');
-            const phoneIdx = findIndex('phone', 'phonenumber', 'mobile', 'mobilenumber');
-            const secondPhoneIdx = findIndex('secondphone', 'secondaryphone', 'phone2', 'alternatenumber', 'alternatephone');
+            const phoneIdx = findIndex('phone', 'phonenumber', 'mobile', 'mobilenumber', 'phoneno', 'mobileno');
+            const secondPhoneIdx = findIndex('secondphone', 'secondphoneno', 'secondaryphone', 'phone2', 'alternatenumber', 'alternatephone', 'alternatephonenumber', 'secondmobile', 'secondmobileno');
 
             if (nameIdx === -1 || addressIdx === -1) {
                 toast.error('CSV must include at least: Customer Name, Address');
