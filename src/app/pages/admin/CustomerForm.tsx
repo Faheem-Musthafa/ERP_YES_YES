@@ -136,53 +136,59 @@ export const CustomerForm = () => {
                 throw new Error('File is not a recognised CSV');
             }
             if (file.size > LIMITS.csvFileBytes) throw new Error('CSV file is too large. Keep it under 5 MB');
-            const parseCSVLine = (line: string) => {
-                const cols: string[] = [];
-                let current = '';
+            // Full-text state-machine parser. Required because quoted address
+            // cells may contain embedded newlines — splitting on \n before
+            // honoring quotes would shred those rows.
+            const parseCSV = (input: string): string[][] => {
+                const rows: string[][] = [];
+                let field = '';
+                let row: string[] = [];
                 let inQuotes = false;
 
-                for (let index = 0; index < line.length; index += 1) {
-                    const char = line[index];
-                    const nextChar = line[index + 1];
+                for (let i = 0; i < input.length; i += 1) {
+                    const ch = input[i];
 
-                    if (char === '"') {
-                        if (inQuotes && nextChar === '"') {
-                            current += '"';
-                            index += 1;
-                        } else {
-                            inQuotes = !inQuotes;
+                    if (inQuotes) {
+                        if (ch === '"') {
+                            if (input[i + 1] === '"') { field += '"'; i += 1; continue; }
+                            inQuotes = false;
+                            continue;
                         }
+                        field += ch;
                         continue;
                     }
 
-                    if (char === ',' && !inQuotes) {
-                        cols.push(current.trim());
-                        current = '';
+                    if (ch === '"') { inQuotes = true; continue; }
+                    if (ch === ',') { row.push(field.trim()); field = ''; continue; }
+                    if (ch === '\r') continue;
+                    if (ch === '\n') {
+                        row.push(field.trim());
+                        if (row.some((cell) => cell.length > 0)) rows.push(row);
+                        row = [];
+                        field = '';
                         continue;
                     }
-
-                    current += char;
+                    field += ch;
                 }
 
-                cols.push(current.trim());
-                return cols;
+                if (field.length > 0 || row.length > 0) {
+                    row.push(field.trim());
+                    if (row.some((cell) => cell.length > 0)) rows.push(row);
+                }
+                return rows;
             };
 
             const text = (await file.text()).replace(/^﻿/, ''); // strip UTF-8 BOM
-            const lines = text
-                .replace(/\r\n/g, '\n')
-                .replace(/\r/g, '\n')
-                .split('\n')
-                .filter((line) => line.trim().length > 0);
-            if (lines.length < 2) { toast.error('CSV must have at least a header and one row'); return; }
+            const allRows = parseCSV(text);
+            if (allRows.length < 2) { toast.error('CSV must have at least a header and one row'); return; }
             const MAX_CSV_ROWS = 5000;
-            if (lines.length - 1 > MAX_CSV_ROWS) {
+            if (allRows.length - 1 > MAX_CSV_ROWS) {
                 toast.error(`CSV has too many rows. Keep it under ${MAX_CSV_ROWS} rows`);
                 return;
             }
 
             const normalizeHeader = (header: string) => header.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const headers = parseCSVLine(lines[0]).map(h => normalizeHeader(h));
+            const headers = allRows[0].map(h => normalizeHeader(h));
 
             const findIndex = (...candidates: string[]) => headers.findIndex((header) => candidates.includes(header));
 
@@ -229,8 +235,7 @@ export const CustomerForm = () => {
             };
 
             const seenPhones = new Set<string>();
-            const parsedRows = lines.slice(1).map(line => {
-                const cols = parseCSVLine(line);
+            const parsedRows = allRows.slice(1).map(cols => {
                 const invoiceParsed = openingInvoiceIdx >= 0
                     ? parseOpeningBalance(cols[openingInvoiceIdx])
                     : null;
@@ -279,16 +284,16 @@ export const CustomerForm = () => {
 
             const totalRows = parsedRows.length;
             const toInsert = parsedRows
-                .filter((row) => row.name && row.address && row.phone)
+                .filter((row) => row.name && row.address)
                 .map(({ brand: _brand, ...customer }) => customer);
 
             const skipped = totalRows - toInsert.length;
             if (toInsert.length === 0) {
-                toast.error('No valid rows to import. Every row needs a name, address, and a valid Indian mobile number, with no duplicates within the file.');
+                toast.error('No valid rows to import. Every row needs at least a name and an address.');
                 return;
             }
             if (skipped > 0) {
-                toast.warning(`${skipped} row${skipped === 1 ? '' : 's'} skipped (missing name, address, or invalid phone format).`);
+                toast.warning(`${skipped} row${skipped === 1 ? '' : 's'} skipped (missing name or address).`);
             }
 
             const csvBrands = Array.from(
