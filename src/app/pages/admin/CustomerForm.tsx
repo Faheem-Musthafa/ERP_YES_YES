@@ -267,7 +267,7 @@ export const CustomerForm = () => {
                 return {
                     brand: brandIdx >= 0 ? cols[brandIdx] || null : null,
                     name: sanitizeText(cols[nameIdx] || '', LIMITS.longText),
-                    phone: phoneOk && !dupPhone ? rawPhone : '',
+                    phone: phoneOk && !dupPhone ? rawPhone : null,
                     address: sanitizeMultilineText(cols[addressIdx] || '', LIMITS.address),
                     place: placeIdx >= 0 ? sanitizeText(cols[placeIdx] || '', LIMITS.mediumText) || null : null,
                     state: rawState,

@@ -25,7 +25,7 @@ interface OrderItem {
   stock: number; quantity: string; dp: number; mrp: number; discount: string; amount: string;
   lastEdited?: 'discount' | 'amount' | 'quantity' | 'dp';
 }
-interface Customer { id: string; name: string; phone: string; address: string; gst_pan: string | null; }
+interface Customer { id: string; name: string; phone: string | null; address: string; gst_pan: string | null; }
 interface Product { id: string; name: string; sku: string; dealer_price: number; mrp: number; brand_name: string; locationStocks: Record<string, number>; searchStr: string; }
 
 export const CreateOrder = () => {
@@ -175,7 +175,7 @@ export const CreateOrder = () => {
     setSelectedCustomerId(custId);
     const cust = customers.find(c => c.id === custId);
     if (cust) {
-      setCustomerPhone(cust.phone); setCustomerAddress(cust.address); setPhoneAutoFilled(true); setAddressAutoFilled(true);
+      setCustomerPhone(cust.phone ?? ''); setCustomerAddress(cust.address); setPhoneAutoFilled(true); setAddressAutoFilled(true);
       if (cust.gst_pan) { setCustomerGst(cust.gst_pan); setGstAutoFilled(true); }
       else { setCustomerGst(''); setGstAutoFilled(false); }
     }

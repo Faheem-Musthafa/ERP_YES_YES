@@ -177,7 +177,7 @@ export interface Database {
         {
           id: string;
           name: string;
-          phone: string;
+          phone: string | null;
           second_phone: string | null;
           address: string;
           place: string | null;
@@ -201,7 +201,7 @@ export interface Database {
         },
         {
           name: string;
-          phone: string;
+          phone?: string | null;
           second_phone?: string | null;
           address: string;
           place?: string | null;
@@ -222,7 +222,7 @@ export interface Database {
         },
         Partial<{
           name: string;
-          phone: string;
+          phone: string | null;
           second_phone?: string | null;
           address: string;
           place?: string | null;

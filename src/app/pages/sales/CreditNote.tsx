@@ -21,7 +21,7 @@ const NGST_ITEM_OPTIONS: NgstItemType[] = ['Incentive', 'Discount', 'Bonton Coin
 interface CustomerOption {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
 }
 
 interface BillOption {

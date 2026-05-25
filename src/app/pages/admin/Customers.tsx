@@ -23,7 +23,7 @@ interface Customer {
     name: string;
     place: string | null;
     address: string | null;
-    phone: string;
+    phone: string | null;
     pincode: string | null;
     gst_pan: string | null;
     location: string | null;
