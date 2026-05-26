@@ -820,6 +820,9 @@ export interface Database {
           location: GodownEnum | null;
           adjusted_by: string | null;
           created_at: string;
+          invoice_no: string | null;
+          invoice_date: string | null;
+          company: CompanyEnum | null;
         },
         {
           product_id: string;
@@ -828,6 +831,9 @@ export interface Database {
           reason: string;
           location?: GodownEnum | null;
           adjusted_by?: string | null;
+          invoice_no?: string | null;
+          invoice_date?: string | null;
+          company?: CompanyEnum | null;
         },
         Partial<{
           product_id: string;
@@ -836,6 +842,9 @@ export interface Database {
           reason: string;
           location?: GodownEnum | null;
           adjusted_by?: string | null;
+          invoice_no?: string | null;
+          invoice_date?: string | null;
+          company?: CompanyEnum | null;
         }>,
         [
           {
@@ -1483,6 +1492,9 @@ export interface Database {
           p_type: StockAdjustmentTypeEnum;
           p_reason?: string | null;
           p_user_id?: string | null;
+          p_invoice_no?: string | null;
+          p_invoice_date?: string | null;
+          p_company?: CompanyEnum | null;
         };
         Returns: string;
       };
