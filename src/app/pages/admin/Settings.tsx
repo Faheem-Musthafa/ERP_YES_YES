@@ -15,7 +15,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
-import { Settings, Save, RotateCcw, Database, Building2, MapPin, Truck, AlertCircle, Check, Briefcase, Calculator, Building, Phone, Mail, BadgePercent, CalendarDays, FileText, Pencil } from 'lucide-react';
+import { Settings, Save, RotateCcw, Database, Building2, MapPin, Truck, AlertCircle, Check, Briefcase, Calculator, Building, Phone, Mail, BadgePercent, CalendarDays, FileText, Pencil, FileDown, ChevronDown } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
+import { renderTaxInvoicePdf } from '@/app/pages/accounts/invoiceRenderer';
+import { SAMPLE_VARIANTS, buildSampleByKey, type SampleVariantKey } from '@/app/pages/accounts/invoiceSamples';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 import {
@@ -680,6 +683,31 @@ export const AdminSettings = () => {
         </div>
         
         <div className="flex items-center gap-3 shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 transition-all shadow-sm"
+              >
+                <FileDown size={15} /> Preview Sample Invoice <ChevronDown size={12} className="opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {SAMPLE_VARIANTS.map((v) => (
+                <DropdownMenuItem
+                  key={v.key}
+                  onSelect={() => {
+                    void renderTaxInvoicePdf(buildSampleByKey(v.key as SampleVariantKey)).catch((err: any) => {
+                      toast.error(err?.message || 'Failed to render sample invoice');
+                    });
+                  }}
+                >
+                  {v.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <CustomTooltip content="Reset all changes to last saved state" side="bottom">
             <Button
               variant="outline"

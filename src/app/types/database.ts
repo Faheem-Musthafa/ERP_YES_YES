@@ -280,6 +280,24 @@ export interface Database {
           tax_amount: number;
           invoice_pdf_generated_at: string | null;
           salesperson_id: string | null;
+          irn: string | null;
+          ack_no: string | null;
+          ack_date: string | null;
+          signed_qr_payload: string | null;
+          e_invoice_status: 'pending' | 'generated' | 'cancelled' | null;
+          e_invoice_generated_at: string | null;
+          ewb_no: string | null;
+          ewb_generated_date: string | null;
+          ewb_valid_upto: string | null;
+          ewb_mode: string | null;
+          ewb_supply_type: string | null;
+          ewb_transaction_type: string | null;
+          ewb_approx_distance: number | null;
+          transporter_name: string | null;
+          transporter_id: string | null;
+          vehicle_no: string | null;
+          dispatch_from_pincode: string | null;
+          ship_to_pincode: string | null;
           created_at: string;
           updated_at: string;
         },
@@ -309,6 +327,24 @@ export interface Database {
           tax_amount?: number;
           invoice_pdf_generated_at?: string | null;
           salesperson_id?: string | null;
+          irn?: string | null;
+          ack_no?: string | null;
+          ack_date?: string | null;
+          signed_qr_payload?: string | null;
+          e_invoice_status?: 'pending' | 'generated' | 'cancelled' | null;
+          e_invoice_generated_at?: string | null;
+          ewb_no?: string | null;
+          ewb_generated_date?: string | null;
+          ewb_valid_upto?: string | null;
+          ewb_mode?: string | null;
+          ewb_supply_type?: string | null;
+          ewb_transaction_type?: string | null;
+          ewb_approx_distance?: number | null;
+          transporter_name?: string | null;
+          transporter_id?: string | null;
+          vehicle_no?: string | null;
+          dispatch_from_pincode?: string | null;
+          ship_to_pincode?: string | null;
         },
         Partial<{
           order_number: string;
@@ -336,6 +372,24 @@ export interface Database {
           tax_amount?: number;
           invoice_pdf_generated_at?: string | null;
           salesperson_id?: string | null;
+          irn?: string | null;
+          ack_no?: string | null;
+          ack_date?: string | null;
+          signed_qr_payload?: string | null;
+          e_invoice_status?: 'pending' | 'generated' | 'cancelled' | null;
+          e_invoice_generated_at?: string | null;
+          ewb_no?: string | null;
+          ewb_generated_date?: string | null;
+          ewb_valid_upto?: string | null;
+          ewb_mode?: string | null;
+          ewb_supply_type?: string | null;
+          ewb_transaction_type?: string | null;
+          ewb_approx_distance?: number | null;
+          transporter_name?: string | null;
+          transporter_id?: string | null;
+          vehicle_no?: string | null;
+          dispatch_from_pincode?: string | null;
+          ship_to_pincode?: string | null;
         }>,
         [
           {
