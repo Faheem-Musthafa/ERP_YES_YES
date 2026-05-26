@@ -501,7 +501,7 @@ export const CustomerForm = () => {
                                             ? 'text-emerald-600 dark:text-emerald-400'
                                             : 'text-slate-500 dark:text-slate-400';
                                     return (
-                                        <span className={`font-mono font-bold text-lg ${tone}`}>₹ {Math.abs(total).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                                        <span className={`font-mono font-bold text-lg ${tone}`}>{total < 0 ? '-' : ''}₹ {Math.abs(total).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                                     );
                                 })()}
                             </div>

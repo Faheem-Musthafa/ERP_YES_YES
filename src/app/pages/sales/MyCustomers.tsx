@@ -602,7 +602,7 @@ export const MyCustomers = () => {
                                             : totalOb < 0
                                                 ? 'Advance held'
                                                 : 'Settled';
-                                        const formatAmount = (n: number) => `₹ ${Math.abs(n).toLocaleString('en-IN')}`;
+                                        const formatAmount = (n: number) => `${n < 0 ? '-' : ''}₹ ${Math.abs(n).toLocaleString('en-IN')}`;
                                         return (
                                             <div className="p-4 rounded-xl bg-card border border-border/50 shadow-sm flex flex-col justify-between group hover:border-primary/20 transition-colors">
                                                 <div className="flex items-center justify-between">

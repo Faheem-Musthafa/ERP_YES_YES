@@ -199,7 +199,7 @@ export const Customers = () => {
                                                             : amount < 0
                                                                 ? 'text-emerald-600 dark:text-emerald-400'
                                                                 : 'text-muted-foreground';
-                                                        const formatAmount = (n: number) => `₹ ${Math.abs(n).toLocaleString('en-IN')}`;
+                                                        const formatAmount = (n: number) => `${n < 0 ? '-' : ''}₹ ${Math.abs(n).toLocaleString('en-IN')}`;
                                                         return (
                                                             <div className="font-mono text-xs leading-relaxed inline-block text-left min-w-[170px]">
                                                                 <div className={`font-bold text-sm ${toneFor(total)}`}>{formatAmount(total)}</div>
