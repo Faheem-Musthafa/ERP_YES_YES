@@ -12,7 +12,7 @@ import {
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog';
-import { Plus, Copy, Check, UserPlus, Eye, EyeOff, Shield, Pencil, KeyRound, Archive, RotateCcw } from 'lucide-react';
+import { Plus, Copy, Check, UserPlus, Eye, EyeOff, Shield, Pencil, KeyRound, Archive, RotateCcw, Wrench, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { toast } from 'sonner';
 import { archiveRecoverableRecord, restoreRecoverableRecord } from '@/app/recovery';
@@ -35,6 +35,7 @@ interface StaffUser {
     must_change_password: boolean;
     employee_id: string | null;
     created_at: string;
+    deleted_at: string | null;
 }
 
 const ROLES: Array<{ value: Exclude<UserRole, 'admin'>; label: string }> = [
@@ -151,6 +152,7 @@ function generatePassword(length = 12): string {
 export const StaffManagement = () => {
     const [users, setUsers] = useState<StaffUser[]>([]);
     const [loading, setLoading] = useState(true);
+    const [repairing, setRepairing] = useState(false);
     const [search, setSearch] = useState('');
     const [createOpen, setCreateOpen] = useState(false);
     const [creating, setCreating] = useState(false);
@@ -197,7 +199,7 @@ export const StaffManagement = () => {
         setLoading(true);
         const { data, error } = await supabase
             .from('users')
-            .select('id, full_name, email, role, is_active, must_change_password, employee_id, created_at')
+            .select('id, full_name, email, role, is_active, must_change_password, employee_id, created_at, deleted_at')
             .order('created_at', { ascending: false });
         if (error) toast.error('Failed to load staff: ' + error.message);
         const usersList = data ?? [];
@@ -208,6 +210,38 @@ export const StaffManagement = () => {
     };
 
     useEffect(() => { fetchUsers(); }, []);
+
+    const handleRepairInconsistencies = async () => {
+        const stuckUsers = users.filter(u => u.is_active && u.deleted_at !== null);
+        if (stuckUsers.length === 0) {
+            toast.success('No inconsistent users found');
+            return;
+        }
+        const confirmed = window.confirm(
+            `Restore ${stuckUsers.length} user${stuckUsers.length === 1 ? '' : 's'} with mismatched archive state (is_active=true but deleted_at set)?`,
+        );
+        if (!confirmed) return;
+        setRepairing(true);
+        try {
+            const { error } = await supabase
+                .from('users')
+                .update({
+                    deleted_at: null,
+                    deleted_by: null,
+                    delete_reason: null,
+                    restored_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                })
+                .in('id', stuckUsers.map(u => u.id));
+            if (error) throw error;
+            toast.success(`Restored ${stuckUsers.length} user${stuckUsers.length === 1 ? '' : 's'}`);
+            await fetchUsers();
+        } catch (err: any) {
+            toast.error(err?.message || 'Failed to repair user states');
+        } finally {
+            setRepairing(false);
+        }
+    };
 
     const handleCreate = async () => {
         let normalizedName = '';
@@ -448,6 +482,31 @@ export const StaffManagement = () => {
                     </CustomTooltip>
                 }
             />
+
+            {users.filter(u => u.is_active && u.deleted_at !== null).length > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-start gap-2 text-sm text-amber-800">
+                        <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                        <div>
+                            <p className="font-semibold">
+                                {users.filter(u => u.is_active && u.deleted_at !== null).length} user(s) in inconsistent state
+                            </p>
+                            <p className="text-xs text-amber-700">
+                                Marked active but soft-deleted. They are hidden from dropdowns (Create Order, etc.) until restored.
+                            </p>
+                        </div>
+                    </div>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-2 border-amber-300 text-amber-900 hover:bg-amber-100"
+                        onClick={() => void handleRepairInconsistencies()}
+                        disabled={repairing}
+                    >
+                        <Wrench size={14} /> {repairing ? 'Repairing...' : 'Repair Now'}
+                    </Button>
+                </div>
+            )}
 
             {/* Stats row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

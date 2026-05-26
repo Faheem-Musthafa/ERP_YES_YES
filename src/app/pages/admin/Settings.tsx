@@ -130,6 +130,43 @@ const applySystemSetting = (
   }
 };
 
+interface InvoiceSequenceRow {
+  series_key: string;
+  last_seq: number;
+  updated_at: string;
+}
+
+const computeCurrentFy = (): string => {
+  const now = new Date();
+  const yy = (d: Date) => d.getFullYear().toString().slice(-2);
+  if (now.getMonth() + 1 >= 4) {
+    const next = new Date(now);
+    next.setFullYear(now.getFullYear() + 1);
+    return yy(now) + yy(next);
+  }
+  const prev = new Date(now);
+  prev.setFullYear(now.getFullYear() - 1);
+  return yy(prev) + yy(now);
+};
+
+const parseSeriesKey = (key: string) => ({
+  prefix: key.slice(0, -6),
+  coSerial: key.slice(-6, -4),
+  fy: key.slice(-4),
+});
+
+const CO_SERIAL_TO_COMPANY: Record<string, CompanyEnum> = {
+  '18': 'LLP',
+  '96': 'YES YES',
+  '19': 'Zekon',
+};
+
+const formatLastInvoice = (row: InvoiceSequenceRow) =>
+  row.series_key + row.last_seq.toString().padStart(4, '0');
+
+const formatNextInvoice = (row: InvoiceSequenceRow) =>
+  row.series_key + (row.last_seq + 1).toString().padStart(4, '0');
+
 export const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
   const [savingBusiness, setSavingBusiness] = useState(false);
@@ -138,6 +175,8 @@ export const AdminSettings = () => {
   const [originalConfig, setOriginalConfig] = useState<SystemConfig>(DEFAULT_CONFIG);
   const [companyProfiles, setCompanyProfiles] = useState<CompanyProfiles>(cloneCompanyProfiles());
   const [originalCompanyProfiles, setOriginalCompanyProfiles] = useState<CompanyProfiles>(cloneCompanyProfiles());
+  const [invoiceSequences, setInvoiceSequences] = useState<InvoiceSequenceRow[]>([]);
+  const [currentFy, setCurrentFy] = useState<string>(computeCurrentFy());
   const [resetConfirm, setResetConfirm] = useState(false);
 
   // Dialog states for master data
@@ -163,7 +202,19 @@ export const AdminSettings = () => {
 
   useEffect(() => {
     loadSettings();
+    loadInvoiceSequences();
   }, []);
+
+  const loadInvoiceSequences = async () => {
+    setCurrentFy(computeCurrentFy());
+    const { data, error } = await supabase.rpc('get_invoice_sequences_for_fy');
+    if (error) {
+      if (import.meta.env.DEV) console.warn('Failed to load invoice sequences:', error.message);
+      setInvoiceSequences([]);
+      return;
+    }
+    setInvoiceSequences((data ?? []) as InvoiceSequenceRow[]);
+  };
 
   const loadSettings = async () => {
     setLoading(true);
@@ -894,6 +945,39 @@ export const AdminSettings = () => {
                           className="rounded-xl resize-none bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700/60 text-sm leading-relaxed"
                         />
                       </div>
+
+                      {(() => {
+                        const seriesForCompany = invoiceSequences.filter(
+                          (s) => CO_SERIAL_TO_COMPANY[parseSeriesKey(s.series_key).coSerial] === company,
+                        );
+                        return (
+                          <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-4">
+                            <Label className="text-xs text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                              <FileText size={12} /> Invoice Series · FY {currentFy.slice(0, 2)}-{currentFy.slice(2, 4)}
+                            </Label>
+                            {seriesForCompany.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic">No invoices issued this FY yet.</p>
+                            ) : (
+                              <ul className="text-xs space-y-1.5 font-mono">
+                                {seriesForCompany.map((s) => (
+                                  <li
+                                    key={s.series_key}
+                                    className="flex flex-wrap justify-between items-baseline gap-2 px-2 py-1.5 bg-slate-50 dark:bg-slate-800/40 rounded-md"
+                                  >
+                                    <span className="text-slate-500 font-semibold">{parseSeriesKey(s.series_key).prefix}</span>
+                                    <span className="text-slate-800 dark:text-slate-100">
+                                      last: <strong>{formatLastInvoice(s)}</strong>
+                                    </span>
+                                    <span className="text-emerald-600 dark:text-emerald-400">
+                                      next: {formatNextInvoice(s)}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );

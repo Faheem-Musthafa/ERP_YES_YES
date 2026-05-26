@@ -27,6 +27,7 @@ interface OrderItem {
 }
 interface Customer { id: string; name: string; phone: string | null; address: string; gst_pan: string | null; }
 interface Product { id: string; name: string; sku: string; dealer_price: number; mrp: number; brand_name: string; locationStocks: Record<string, number>; searchStr: string; }
+interface Salesperson { id: string; full_name: string; employee_id: string | null; }
 
 export const CreateOrder = () => {
   const navigate = useNavigate();
@@ -34,6 +35,8 @@ export const CreateOrder = () => {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
+  const [salespersonId, setSalespersonId] = useState('');
   const [loading, setLoading] = useState(false);
   const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
   const [GodownOptions, setGodownOptions] = useState<string[]>(DEFAULT_ORDER_FORM_SETTINGS.Godowns);
@@ -78,13 +81,26 @@ export const CreateOrder = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [{ data: custData, error: custError }, { data: prodData, error: prodError }, { data: stockData, error: stockError }, profiles, orderSettings] = await Promise.all([
+        const [{ data: custData, error: custError }, { data: prodData, error: prodError }, { data: stockData, error: stockError }, { data: salesData, error: salesError }, profiles, orderSettings] = await Promise.all([
           supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
           supabase.from('products').select('id, name, sku, dealer_price, mrp, brands(name)').eq('is_active', true).order('name'),
           supabase.from('product_stock_locations').select('product_id, location, stock_qty'),
+          supabase.from('users').select('id, full_name, employee_id').eq('role', 'sales').eq('is_active', true).is('deleted_at', null).order('full_name'),
           loadCompanyProfiles().catch(() => null),
           loadOrderFormSettings().catch(() => null),
         ]);
+
+        if (salesError) {
+          if (import.meta.env.DEV) console.warn('Failed to load salespeople:', salesError.message);
+        } else if (salesData) {
+          const rows = salesData as Salesperson[];
+          setSalespeople(rows);
+          setSalespersonId((current) => {
+            if (current) return current;
+            if (user?.role === 'sales' && rows.some(r => r.id === user.id)) return user.id;
+            return '';
+          });
+        }
 
         if (profiles) {
           setCompanyProfiles(profiles);
@@ -277,6 +293,7 @@ export const CreateOrder = () => {
     e.preventDefault();
     if (!company || !invoiceType) { toast.error('Select company and invoice type'); return; }
     if (!Godown) { toast.error('Select Godown'); return; }
+    if (!salespersonId) { toast.error('Select Sale Made By'); return; }
     const validItems = orderItems.filter(i => i.productId && i.quantity);
     if (validItems.length === 0) { toast.error('Add at least one product'); return; }
     const stockErrors = validItems.filter(i => Number(i.quantity) > i.stock);
@@ -330,6 +347,7 @@ export const CreateOrder = () => {
         p_remarks: sanitizeMultilineText(remarks, LIMITS.reason) || null,
         p_delivery_date: deliveryDate || null,
         p_created_by: user?.id ?? null,
+        p_salesperson_id: salespersonId,
       });
       let resolvedOrderId = createdOrderId;
 
@@ -476,6 +494,7 @@ export const CreateOrder = () => {
                       <SelectItem value="IGST">IGST</SelectItem>
                       <SelectItem value="Delivery Challan Out">DC Out</SelectItem>
                       <SelectItem value="Delivery Challan In">DC In</SelectItem>
+                      <SelectItem value="Accessories">Accessories</SelectItem>
                     </SelectContent>
                   </Select>
                 </FL>
@@ -486,6 +505,20 @@ export const CreateOrder = () => {
                       {GodownOptions.map((location) => (
                         <SelectItem key={location} value={location}>
                           {location}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FL>
+                <FL label="Sale Made By" htmlFor="salesperson" required>
+                  <Select value={salespersonId} onValueChange={setSalespersonId}>
+                    <SelectTrigger id="salesperson" className="h-10 rounded-xl text-sm bg-gray-50 border-gray-200 shadow-none">
+                      <SelectValue placeholder={salespeople.length === 0 ? 'No sales users found' : 'Select salesperson'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {salespeople.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.full_name}{s.employee_id ? ` (${s.employee_id})` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>

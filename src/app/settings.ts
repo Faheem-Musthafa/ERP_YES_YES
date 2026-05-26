@@ -21,6 +21,7 @@ const ORDER_INVOICE_TYPES: InvoiceTypeEnum[] = [
   'Delivery Challan In',
   'Stock Transfer',
   'Credit Note',
+  'Accessories',
 ];
 
 export const DEFAULT_GodownS: readonly string[] = [];

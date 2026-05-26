@@ -15,7 +15,8 @@ export type InvoiceTypeEnum =
   | 'Delivery Challan Out'
   | 'Delivery Challan In'
   | 'Stock Transfer'
-  | 'Credit Note';
+  | 'Credit Note'
+  | 'Accessories';
 export type OrderStatusEnum = 'Pending' | 'Approved' | 'Rejected' | 'Billed' | 'Delivered' | 'Voided';
 export type PaymentModeEnum = 'Cash' | 'Cheque' | 'UPI' | 'Bank Transfer';
 export type CollectionStatusEnum = 'Pending' | 'Collected' | 'Overdue' | 'Voided';
@@ -278,6 +279,7 @@ export interface Database {
           igst_amount: number;
           tax_amount: number;
           invoice_pdf_generated_at: string | null;
+          salesperson_id: string | null;
           created_at: string;
           updated_at: string;
         },
@@ -306,6 +308,7 @@ export interface Database {
           igst_amount?: number;
           tax_amount?: number;
           invoice_pdf_generated_at?: string | null;
+          salesperson_id?: string | null;
         },
         Partial<{
           order_number: string;
@@ -332,6 +335,7 @@ export interface Database {
           igst_amount?: number;
           tax_amount?: number;
           invoice_pdf_generated_at?: string | null;
+          salesperson_id?: string | null;
         }>,
         [
           {
@@ -358,6 +362,13 @@ export interface Database {
           {
             foreignKeyName: 'orders_billed_by_fkey';
             columns: ['billed_by'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'orders_salesperson_id_fkey';
+            columns: ['salesperson_id'];
             isOneToOne: false;
             referencedRelation: 'users';
             referencedColumns: ['id'];
@@ -1357,6 +1368,10 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      get_invoice_sequences_for_fy: {
+        Args: { p_fy?: string | null };
+        Returns: Array<{ series_key: string; last_seq: number; updated_at: string }>;
+      };
       bill_order_atomic: {
         Args: {
           p_order_id: string;
@@ -1444,6 +1459,7 @@ export interface Database {
           p_remarks?: string | null;
           p_delivery_date?: string | null;
           p_created_by?: string | null;
+          p_salesperson_id?: string | null;
         };
         Returns: string;
       };

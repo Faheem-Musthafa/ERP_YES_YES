@@ -381,8 +381,8 @@ export const MyCustomers = () => {
                 {[
                     { label: 'Total Customers', value: stats.totalCustomers, icon: Users },
                     { label: 'Total Orders', value: stats.totalOrders, icon: TrendingUp },
-                    { label: 'Total Revenue', value: `₹ ${fmt(stats.totalRevenue)}`, icon: TrendingUp },
-                    { label: 'Avg Order Value', value: `₹ ${fmt(stats.avgOrderValue)}`, icon: TrendingUp },
+                    { label: 'Total Revenue', value: `${fmt(stats.totalRevenue)}`, icon: TrendingUp },
+                    { label: 'Avg Order Value', value: `${fmt(stats.avgOrderValue)}`, icon: TrendingUp },
                 ].map((stat, i) => {
                     const Icon = stat.icon;
                     return (
