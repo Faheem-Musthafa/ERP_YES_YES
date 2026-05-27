@@ -28,6 +28,7 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
       items: [
         { label: 'Brands', path: '/admin/brands', icon: <Package size={16} /> },
         { label: 'Products', path: '/admin/products', icon: <Boxes size={16} /> },
+        { label: 'Price List', path: '/sales/price-list', icon: <Tags size={16} /> },
         { label: 'Stock View', path: '/stock', icon: <BarChart3 size={16} /> },
         { label: 'Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={16} /> },
         { label: 'Delivery', path: '/inventory/delivery', icon: <Truck size={16} /> },
