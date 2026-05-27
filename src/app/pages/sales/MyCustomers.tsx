@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Button } from '@/app/components/ui/button';
-import { Download, Users, TrendingUp, Phone, MapPin, Receipt, ShoppingBag, FileText, IndianRupee } from 'lucide-react';
+import { Download, Users, TrendingUp, Phone, MapPin, Receipt, ShoppingBag, FileText, IndianRupee, MessageCircle, Plus, ChevronRight, Search, X } from 'lucide-react';
+import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { fmt, downloadCSV } from '@/app/utils';
 import { loadMasterDataSettings } from '@/app/settings';
@@ -348,7 +349,201 @@ export const MyCustomers = () => {
     const COLORS = ['#00bdb4', '#ff6b6b', '#4ecdc4', '#ffe66d'];
 
     return (
-        <div className="space-y-6">
+        <>
+        {/* ════════════════════════════════════════════════════
+           MOBILE — sales-rep customer book, Enterprise SaaS aesthetic.
+           Indigo→Violet gradient hero, search-first, big-touch
+           list cards with call / WhatsApp / quick-order. Hidden ≥ lg.
+           ════════════════════════════════════════════════════ */}
+        <div className="lg:hidden sm-font sm-surface -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 min-h-[calc(100vh-4rem)]">
+          <div className="space-y-5 px-4 pt-5 pb-4 max-w-2xl mx-auto">
+            <header className="sm-rise">
+              <p className="sm-eyebrow text-[var(--sm-muted)]">Portfolio</p>
+              <h1 className="sm-headline text-[26px] text-[var(--sm-text)] mt-0.5">My customers</h1>
+            </header>
+
+            {/* Portfolio hero */}
+            <section className="sm-rise sm-rise-1 relative overflow-hidden sm-gradient rounded-[20px] p-5 shadow-[0_18px_40px_-20px_rgba(79,70,229,0.55)]">
+              <div
+                className="absolute -top-16 -right-16 h-44 w-44 rounded-full"
+                style={{ background: 'radial-gradient(closest-side, rgba(255,255,255,0.22), transparent 70%)' }}
+                aria-hidden
+              />
+              <p className="relative sm-eyebrow text-white/80">My book</p>
+              <div className="relative mt-2 flex items-end gap-3">
+                <span className="sm-headline text-[44px] leading-none text-white">{stats.totalCustomers}</span>
+                <span className="text-xs text-white/75 pb-1.5">customer{stats.totalCustomers === 1 ? '' : 's'}</span>
+              </div>
+              <div className="relative mt-4 grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-white/12 border border-white/10 px-2.5 py-2">
+                  <p className="text-[9px] font-bold tracking-wider uppercase text-white/80">Revenue</p>
+                  <p className="mt-0.5 font-mono font-bold text-sm text-white">{fmt(stats.totalRevenue)}</p>
+                </div>
+                <div className="rounded-xl bg-white/12 border border-white/10 px-2.5 py-2">
+                  <p className="text-[9px] font-bold tracking-wider uppercase text-white/80">Orders</p>
+                  <p className="mt-0.5 font-mono font-bold text-sm text-white">{stats.totalOrders}</p>
+                </div>
+                <div className="rounded-xl bg-white/12 border border-white/10 px-2.5 py-2">
+                  <p className="text-[9px] font-bold tracking-wider uppercase text-white/80">Avg</p>
+                  <p className="mt-0.5 font-mono font-bold text-sm text-white">{fmt(stats.avgOrderValue)}</p>
+                </div>
+              </div>
+            </section>
+
+            {/* Search */}
+            <div className="sm-rise sm-rise-2 relative">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--sm-muted)]" />
+              <input
+                type="search"
+                inputMode="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search name or phone…"
+                className="sm-font w-full h-12 sm-pill bg-white border border-[var(--sm-border)] pl-11 pr-10 text-sm font-medium text-[var(--sm-text)] placeholder:text-[var(--sm-muted)] focus:border-[var(--sm-primary)] focus:ring-2 focus:ring-indigo-200 outline-none"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="sm-tap absolute right-3 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center text-[var(--sm-muted)]"
+                  aria-label="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Location filter chips */}
+            {locationOptions.length > 0 && (
+              <div className="sm-rise sm-rise-2 -mx-1 overflow-x-auto" role="tablist" aria-label="Location filter">
+                <div className="flex gap-2 px-1 pb-1">
+                  <button
+                    type="button"
+                    onClick={() => setLocationFilter('all')}
+                    className={`sm-tap shrink-0 sm-pill px-3.5 py-1.5 text-[11px] font-bold border ${
+                      locationFilter === 'all'
+                        ? 'sm-gradient text-white border-transparent'
+                        : 'bg-white text-[var(--sm-text)] border-[var(--sm-border)]'
+                    }`}
+                  >
+                    All
+                  </button>
+                  {locationOptions.map((loc) => (
+                    <button
+                      key={loc}
+                      type="button"
+                      onClick={() => setLocationFilter(loc)}
+                      className={`sm-tap shrink-0 sm-pill px-3.5 py-1.5 text-[11px] font-bold border ${
+                        locationFilter === loc
+                          ? 'sm-gradient text-white border-transparent'
+                          : 'bg-white text-[var(--sm-text)] border-[var(--sm-border)]'
+                      }`}
+                    >
+                      {loc}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* List */}
+            <section className="sm-rise sm-rise-3 sm-card overflow-hidden">
+              {loading ? (
+                <div className="p-8 text-center text-sm text-[var(--sm-muted)]">Loading…</div>
+              ) : paginated.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Users size={28} className="mx-auto text-[var(--sm-muted)]" />
+                  <p className="mt-2 text-sm font-bold text-[var(--sm-text)]">No customers</p>
+                  <p className="text-xs text-[var(--sm-muted)]">Try clearing filters.</p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-[var(--sm-border)]">
+                  {paginated.map((c) => {
+                    const phoneDigits = (c.phone || '').replace(/\D/g, '');
+                    return (
+                      <li key={c.id} className="px-4 py-3.5">
+                        <button
+                          type="button"
+                          onClick={() => openHistory(c)}
+                          className="sm-tap w-full flex items-start gap-3 text-left"
+                        >
+                          <span className="shrink-0 h-10 w-10 sm-pill sm-gradient text-white flex items-center justify-center font-bold">
+                            {c.name.charAt(0).toUpperCase()}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-bold text-[var(--sm-text)] truncate">{c.name}</p>
+                              <p className="font-mono font-bold text-sm text-[var(--sm-text)] shrink-0">{fmt(c.totalRevenue)}</p>
+                            </div>
+                            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--sm-muted)]">
+                              {c.location && (
+                                <>
+                                  <MapPin size={11} />
+                                  <span className="truncate">{c.location}</span>
+                                  <span className="opacity-40">·</span>
+                                </>
+                              )}
+                              <span>{c.totalOrders} order{c.totalOrders === 1 ? '' : 's'}</span>
+                            </div>
+                            {c.lastOrderDate && (
+                              <p className="mt-0.5 text-[11px] text-[var(--sm-muted)]/80">
+                                Last: {new Date(c.lastOrderDate).toLocaleDateString('en-IN')}
+                              </p>
+                            )}
+                          </div>
+                          <ChevronRight size={16} className="text-[var(--sm-muted)] mt-1 shrink-0" />
+                        </button>
+                        <div className="mt-2.5 flex items-center gap-2">
+                          {phoneDigits && (
+                            <a
+                              href={`tel:${phoneDigits}`}
+                              className="sm-tap inline-flex items-center gap-1.5 sm-pill bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 text-[11px] font-bold"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Phone size={12} /> Call
+                            </a>
+                          )}
+                          {phoneDigits && (
+                            <a
+                              href={`https://wa.me/${phoneDigits}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="sm-tap inline-flex items-center gap-1.5 sm-pill bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 text-[11px] font-bold"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MessageCircle size={12} /> WhatsApp
+                            </a>
+                          )}
+                          <Link
+                            to={`/sales/create-order?customer=${c.id}`}
+                            className="sm-tap ml-auto inline-flex items-center gap-1.5 sm-pill sm-gradient text-white px-3 py-1.5 text-[11px] font-bold"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Plus size={12} /> Order
+                          </Link>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {filtered.length > pageSize && (
+                <div className="border-t border-[var(--sm-border)]">
+                  <TablePagination
+                    totalItems={filtered.length}
+                    currentPage={page}
+                    pageSize={pageSize}
+                    onPageChange={setCurrentPage}
+                    itemLabel="customers"
+                  />
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
+
+        {/* Desktop preserved verbatim */}
+        <div className="hidden lg:block space-y-6">
             <PageHeader
                 title="My Customers"
                 subtitle="Active customer portfolio"
@@ -511,8 +706,8 @@ export const MyCustomers = () => {
                                                 ) : '—'}
                                             </StyledTd>
                                             <StyledTd right className="font-semibold">{c.totalOrders}</StyledTd>
-                                            <StyledTd right mono>₹ {c.totalRevenue.toLocaleString('en-IN')}</StyledTd>
-                                            <StyledTd right mono>₹ {Math.round(c.averageOrderValue).toLocaleString('en-IN')}</StyledTd>
+                                            <StyledTd right mono> {c.totalRevenue.toLocaleString('en-IN')}</StyledTd>
+                                            <StyledTd right mono> {Math.round(c.averageOrderValue).toLocaleString('en-IN')}</StyledTd>
                                             <StyledTd className="text-xs text-muted-foreground">
                                                 {c.lastOrderDate ? new Date(c.lastOrderDate).toLocaleDateString('en-IN') : '—'}
                                             </StyledTd>
@@ -544,55 +739,57 @@ export const MyCustomers = () => {
                     }
                 }}
             >
-                <DialogContent className="max-w-[95vw] xl:max-w-[1400px] h-[90vh] max-h-[90vh] overflow-hidden flex flex-col p-0 bg-background/95 backdrop-blur-xl border-border/50 shadow-2xl sm:rounded-2xl">
-                    <DialogHeader className="p-6 pb-4 shrink-0 border-b border-border/50 bg-muted/20">
-                        <div className="flex items-center gap-4">
-                            <div className="h-14 w-14 rounded-full bg-primary/10 text-primary flex items-center justify-center text-2xl font-bold ring-1 ring-primary/20 shadow-inner">
-                                {selectedCustomer?.name?.charAt(0) || 'C'}
+                <DialogContent className="p-0 bg-background/95 backdrop-blur-xl border-border/50 shadow-2xl overflow-hidden flex flex-col w-screen max-w-screen h-[100dvh] max-h-[100dvh] rounded-none lg:w-auto lg:max-w-[1400px] lg:h-[90vh] lg:max-h-[90vh] lg:rounded-2xl sm-font lg:font-normal">
+                    <DialogHeader className="p-4 lg:p-6 lg:pb-4 shrink-0 border-b border-border/50 bg-muted/20">
+                        <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4">
+                            <div className="flex items-center gap-3 lg:gap-4 min-w-0">
+                                <div className="h-11 w-11 lg:h-14 lg:w-14 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg lg:text-2xl font-bold ring-1 ring-primary/20 shadow-inner shrink-0">
+                                    {selectedCustomer?.name?.charAt(0) || 'C'}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <DialogTitle className="text-lg lg:text-2xl font-bold tracking-tight truncate">
+                                        {selectedCustomer?.name}
+                                    </DialogTitle>
+                                    <DialogDescription className="mt-1 lg:mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs lg:text-sm">
+                                         {selectedCustomer?.phone && (
+                                            <a href={`tel:${(selectedCustomer.phone || '').replace(/\D/g, '')}`} className="flex items-center gap-1 opacity-90 hover:text-primary"><Phone size={12} className="text-primary/70"/> {selectedCustomer.phone}</a>
+                                         )}
+                                         {selectedCustomer?.location && (
+                                            <>
+                                                <span className="text-muted-foreground/30 hidden lg:inline">•</span>
+                                                <span className="flex items-center gap-1 opacity-90"><MapPin size={12} className="text-primary/70"/> {selectedCustomer.location}</span>
+                                            </>
+                                         )}
+                                    </DialogDescription>
+                                </div>
                             </div>
-                            <div>
-                                <DialogTitle className="text-2xl font-bold tracking-tight">
-                                    {selectedCustomer?.name}
-                                </DialogTitle>
-                                <DialogDescription className="mt-1.5 flex items-center gap-3 text-sm">
-                                     {selectedCustomer?.phone && (
-                                        <span className="flex items-center gap-1.5 opacity-90"><Phone size={14} className="text-primary/70"/> {selectedCustomer.phone}</span>
-                                     )}
-                                     {selectedCustomer?.location && (
-                                        <>
-                                            <span className="text-muted-foreground/30">•</span>
-                                            <span className="flex items-center gap-1.5 opacity-90"><MapPin size={14} className="text-primary/70"/> {selectedCustomer.location}</span>
-                                        </>
-                                     )}
-                                </DialogDescription>
-                            </div>
-                            <div className="ml-auto flex flex-wrap items-center gap-2">
-                                <Button size="sm" variant="default" onClick={exportCustomerStatement} className="gap-2">
-                                    <Download size={14} /> Export Statement
+                            <div className="lg:ml-auto flex flex-wrap items-center gap-2 -mr-1 lg:mr-0 overflow-x-auto lg:overflow-visible pr-1">
+                                <Button size="sm" variant="default" onClick={exportCustomerStatement} className="gap-1.5 h-8 lg:h-9 text-[11px] lg:text-sm shrink-0">
+                                    <Download size={13} /> Statement
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => exportCustomerSection('transactions')} className="gap-2">
-                                    <Receipt size={14} /> Transactions
+                                <Button size="sm" variant="outline" onClick={() => exportCustomerSection('transactions')} className="gap-1.5 h-8 lg:h-9 text-[11px] lg:text-sm shrink-0">
+                                    <Receipt size={13} /> Transactions
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => exportCustomerSection('bills')} className="gap-2">
-                                    <FileText size={14} /> Bills
+                                <Button size="sm" variant="outline" onClick={() => exportCustomerSection('bills')} className="gap-1.5 h-8 lg:h-9 text-[11px] lg:text-sm shrink-0">
+                                    <FileText size={13} /> Bills
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => exportCustomerSection('orders')} className="gap-2">
-                                    <ShoppingBag size={14} /> Orders
+                                <Button size="sm" variant="outline" onClick={() => exportCustomerSection('orders')} className="gap-1.5 h-8 lg:h-9 text-[11px] lg:text-sm shrink-0">
+                                    <ShoppingBag size={13} /> Orders
                                 </Button>
                             </div>
                         </div>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-y-auto p-6 pt-4">
+                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 lg:pt-4 pb-24 lg:pb-6">
                         {historyLoading ? (
                             <div className="py-20 flex flex-col items-center justify-center gap-4">
                                 <Spinner />
                                 <p className="text-sm text-muted-foreground animate-pulse">Loading history...</p>
                             </div>
                         ) : (
-                            <div className="space-y-6">
+                            <div className="space-y-4 lg:space-y-6">
                                 {/* Summary Cards */}
-                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
                                     {(() => {
                                         const invoiceOb = selectedCustomer?.openingInvoice ?? 0;
                                         const dcOb = selectedCustomer?.openingDeliveryChallan ?? 0;
@@ -612,7 +809,7 @@ export const MyCustomers = () => {
                                             : totalOb < 0
                                                 ? 'Advance held'
                                                 : 'Settled';
-                                        const formatAmount = (n: number) => `${n < 0 ? '-' : ''}₹ ${Math.abs(n).toLocaleString('en-IN')}`;
+                                        const formatAmount = (n: number) => `${n < 0 ? '-' : ''} ${Math.abs(n).toLocaleString('en-IN')}`;
                                         return (
                                             <div className="p-4 rounded-xl bg-card border border-border/50 shadow-sm flex flex-col justify-between group hover:border-primary/20 transition-colors">
                                                 <div className="flex items-center justify-between">
@@ -653,7 +850,7 @@ export const MyCustomers = () => {
                                             <div className="p-2 rounded-md bg-emerald-500/10 text-emerald-500 group-hover:bg-emerald-500/20 transition-colors"><FileText size={16} /></div>
                                         </div>
                                         <span className="text-2xl font-bold mt-3 font-mono text-emerald-600 dark:text-emerald-400">
-                                            ₹ {customerBills.reduce((acc, b) => acc + (b.grand_total || 0), 0).toLocaleString('en-IN')}
+                                             {customerBills.reduce((acc, b) => acc + (b.grand_total || 0), 0).toLocaleString('en-IN')}
                                         </span>
                                     </div>
                                     <div className="p-4 rounded-xl bg-card border border-border/50 shadow-sm flex flex-col justify-between group hover:border-primary/20 transition-colors">
@@ -669,23 +866,23 @@ export const MyCustomers = () => {
                                             <div className="p-2 rounded-md bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors"><IndianRupee size={16} /></div>
                                         </div>
                                         <span className="text-2xl font-bold mt-3 font-mono text-amber-600 dark:text-amber-400">
-                                            ₹ {customerTransactions.reduce((acc, t) => acc + (t.amount || 0), 0).toLocaleString('en-IN')}
+                                             {customerTransactions.reduce((acc, t) => acc + (t.amount || 0), 0).toLocaleString('en-IN')}
                                         </span>
                                     </div>
                                 </div>
 
                                 {/* Tabs */}
                                 <Tabs defaultValue="transactions" className="w-full">
-                                    <div className="flex items-center mb-4">
-                                        <TabsList className="h-11 bg-muted/50 p-1 rounded-lg">
-                                            <TabsTrigger value="transactions" className="rounded-md px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                                Transactions <span className="ml-2 rounded-full bg-muted-foreground/10 px-2 py-0.5 text-xs">{customerTransactions.length}</span>
+                                    <div className="flex items-center mb-3 lg:mb-4 -mx-1 overflow-x-auto">
+                                        <TabsList className="h-10 lg:h-11 bg-muted/50 p-1 rounded-lg w-full lg:w-auto">
+                                            <TabsTrigger value="transactions" className="flex-1 lg:flex-none rounded-md px-2 lg:px-4 text-xs lg:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                                Transactions <span className="ml-1.5 rounded-full bg-muted-foreground/10 px-1.5 py-0.5 text-[10px] lg:text-xs">{customerTransactions.length}</span>
                                             </TabsTrigger>
-                                            <TabsTrigger value="bills" className="rounded-md px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                                Bills <span className="ml-2 rounded-full bg-muted-foreground/10 px-2 py-0.5 text-xs">{customerBills.length}</span>
+                                            <TabsTrigger value="bills" className="flex-1 lg:flex-none rounded-md px-2 lg:px-4 text-xs lg:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                                Bills <span className="ml-1.5 rounded-full bg-muted-foreground/10 px-1.5 py-0.5 text-[10px] lg:text-xs">{customerBills.length}</span>
                                             </TabsTrigger>
-                                            <TabsTrigger value="orders" className="rounded-md px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                                Orders <span className="ml-2 rounded-full bg-muted-foreground/10 px-2 py-0.5 text-xs">{customerOrders.length}</span>
+                                            <TabsTrigger value="orders" className="flex-1 lg:flex-none rounded-md px-2 lg:px-4 text-xs lg:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                                Orders <span className="ml-1.5 rounded-full bg-muted-foreground/10 px-1.5 py-0.5 text-[10px] lg:text-xs">{customerOrders.length}</span>
                                             </TabsTrigger>
                                         </TabsList>
                                     </div>
@@ -753,7 +950,7 @@ export const MyCustomers = () => {
                                                                     <StyledTd><StatusBadge status={bill.status ?? 'Pending'} /></StyledTd>
                                                                     <StyledTd className="text-muted-foreground">{bill.company ?? '—'}</StyledTd>
                                                                     <StyledTd mono className="text-muted-foreground">{new Date(bill.created_at).toLocaleDateString('en-IN')}</StyledTd>
-                                                                    <StyledTd right mono className="font-bold text-base pr-6">₹ {(bill.grand_total ?? 0).toLocaleString('en-IN')}</StyledTd>
+                                                                    <StyledTd right mono className="font-bold text-base pr-6">{(bill.grand_total ?? 0).toLocaleString('en-IN')}</StyledTd>
                                                                 </StyledTr>
                                                             ))}
                                                         </tbody>
@@ -786,7 +983,7 @@ export const MyCustomers = () => {
                                                                     <StyledTd className="text-muted-foreground">{order.company ?? '—'}</StyledTd>
                                                                     <StyledTd mono className="text-muted-foreground">{new Date(order.created_at).toLocaleDateString('en-IN')}</StyledTd>
                                                                     <StyledTd mono className="text-muted-foreground">{order.delivery_date ? new Date(order.delivery_date).toLocaleDateString('en-IN') : '—'}</StyledTd>
-                                                                    <StyledTd right mono className="font-bold text-base pr-6">₹ {(order.grand_total ?? 0).toLocaleString('en-IN')}</StyledTd>
+                                                                    <StyledTd right mono className="font-bold text-base pr-6">{(order.grand_total ?? 0).toLocaleString('en-IN')}</StyledTd>
                                                                 </StyledTr>
                                                             ))}
                                                         </tbody>
@@ -802,5 +999,6 @@ export const MyCustomers = () => {
                 </DialogContent>
             </Dialog>
         </div>
+        </>
     );
 };

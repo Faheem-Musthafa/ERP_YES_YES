@@ -135,15 +135,33 @@ export const CollectionStatus = () => {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Collection Status"
-        subtitle="Monitor all receipts and payment clearance"
-        actions={
-          <Button size="sm" onClick={() => navigate('/sales/receipt')} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
-            <Plus size={15} /> New Receipt
-          </Button>
-        }
-      />
+      {/* Mobile header */}
+      <div className="lg:hidden sm-font -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 px-4 pt-4 pb-3 bg-white border-b border-slate-200/70 flex items-start justify-between gap-3">
+        <div>
+          <p className="sm-eyebrow text-[var(--sm-muted)]">Collections</p>
+          <h1 className="sm-headline text-[24px] text-[var(--sm-text)] mt-0.5">Status</h1>
+          <p className="text-xs text-[var(--sm-muted)] mt-0.5">Clearance and bounces</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/sales/receipt')}
+          className="sm-tap sm-gradient sm-pill px-3.5 py-2 text-[11px] font-bold text-white inline-flex items-center gap-1.5 shrink-0"
+        >
+          <Plus size={13} strokeWidth={2.6} /> NEW
+        </button>
+      </div>
+
+      <div className="hidden lg:block">
+        <PageHeader
+          title="Collection Status"
+          subtitle="Monitor all receipts and payment clearance"
+          actions={
+            <Button size="sm" onClick={() => navigate('/sales/receipt')} className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
+              <Plus size={15} /> New Receipt
+            </Button>
+          }
+        />
+      </div>
 
       <FilterBar>
         <SearchBar

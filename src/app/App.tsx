@@ -37,6 +37,7 @@ const CollectionStatus = lazy(() => import('@/app/pages/sales/CollectionStatus')
 const BackOrders = lazy(() => import('@/app/pages/sales/BackOrders').then(m => ({ default: m.BackOrders })));
 const ApprovedSales = lazy(() => import('@/app/pages/sales/ApprovedSales').then(m => ({ default: m.ApprovedSales })));
 const PriceList = lazy(() => import('@/app/pages/sales/PriceList').then(m => ({ default: m.PriceList })));
+const SalesMore = lazy(() => import('@/app/pages/sales/SalesMore').then(m => ({ default: m.SalesMore })));
 
 // Accounts
 const AccountsDashboard = lazy(() => import('@/app/pages/accounts/Dashboard').then(m => ({ default: m.AccountsDashboard })));
@@ -151,6 +152,7 @@ const AppRoutes = () => {
         <Route path="/sales/back-orders" element={<ProtectedRoute allowedRoles={['sales', 'admin', 'accounts']}><BackOrders /></ProtectedRoute>} />
         <Route path="/sales/approved-sales" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><ApprovedSales /></ProtectedRoute>} />
         <Route path="/sales/price-list" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><PriceList /></ProtectedRoute>} />
+        <Route path="/sales/more" element={<ProtectedRoute allowedRoles={['sales']}><SalesMore /></ProtectedRoute>} />
         <Route path="/accounts/back-orders" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><BackOrders /></ProtectedRoute>} />
 
         {/* Accounts Routes */}

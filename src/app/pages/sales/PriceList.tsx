@@ -242,11 +242,20 @@ export const PriceList = () => {
   const isLowStock = (qty: number) => qty <= LOW_STOCK_THRESHOLD;
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Price List"
-        subtitle="Current MRP, dealer pricing tiers, stock health, and your private product notes."
-      />
+    <div className="space-y-4 pb-4">
+      {/* Mobile header */}
+      <div className="lg:hidden sm-font -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 px-4 pt-4 pb-3 bg-white border-b border-slate-200/70">
+        <p className="sm-eyebrow text-[var(--sm-muted)]">Catalogue</p>
+        <h1 className="sm-headline text-[24px] text-[var(--sm-text)] mt-0.5">Price list</h1>
+        <p className="text-xs text-[var(--sm-muted)] mt-0.5">MRP · DP tiers · stock</p>
+      </div>
+
+      <div className="hidden lg:block">
+        <PageHeader
+          title="Price List"
+          subtitle="Current MRP, dealer pricing tiers, stock health, and your private product notes."
+        />
+      </div>
 
       <FilterBar>
         <FilterField label="Search" className="flex-1 min-w-[180px]">
@@ -292,14 +301,14 @@ export const PriceList = () => {
         <div className="space-y-5">
           {grouped.map(([brandName, brandRows]) => (
             <DataCard key={brandName}>
-              <div className="flex items-center justify-between border-b border-border/60 bg-slate-50/60 px-4 py-2.5 dark:bg-slate-900/40">
-                <h2 className="text-sm font-semibold tracking-wide text-foreground">{brandName}</h2>
-                <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-                  {brandRows.length} {brandRows.length === 1 ? 'product' : 'products'}
+              <div className="flex items-center justify-between border-b border-border/60 bg-gradient-to-r from-indigo-50/50 to-violet-50/30 lg:bg-slate-50/60 px-4 py-2.5 dark:bg-slate-900/40 lg:static sticky top-[57px] z-10 sm-font lg:font-normal">
+                <h2 className="text-sm font-bold tracking-wide text-[var(--sm-text)] lg:text-foreground">{brandName}</h2>
+                <span className="sm-eyebrow text-[var(--sm-muted)] lg:text-[11px] lg:uppercase lg:tracking-[0.14em] lg:text-muted-foreground">
+                  {brandRows.length} {brandRows.length === 1 ? 'PRODUCT' : 'PRODUCTS'}
                 </span>
               </div>
               {/* Mobile brand rows list */}
-              <ul className="lg:hidden divide-y divide-border sa-font-body" aria-label={`Products in brand ${brandName}`}>
+              <ul className="lg:hidden divide-y divide-[var(--sm-border)] sm-font" aria-label={`Products in brand ${brandName}`}>
                 {brandRows.map((row) => {
                   const low = isLowStock(row.totalStock);
                   return (

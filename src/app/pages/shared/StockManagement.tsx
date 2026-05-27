@@ -244,12 +244,40 @@ export const StockManagement = () => {
 
   return (
     <div className="space-y-5 pb-10">
-      <PageHeader
-        title="Stock Management & Valuation"
-        subtitle="Detailed view of product quantities, locations, and total stock value"
-      />
+      {/* Mobile header — sm-font Indigo aesthetic */}
+      <div className="lg:hidden sm-font -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 px-4 pt-4 pb-3 bg-white border-b border-slate-200/70">
+        <p className="sm-eyebrow text-[var(--sm-muted)]">Inventory</p>
+        <h1 className="sm-headline text-[24px] text-[var(--sm-text)] mt-0.5">Stock view</h1>
+        <p className="text-xs text-[var(--sm-muted)] mt-0.5">Live stock by product and godown</p>
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Mobile hero stats */}
+      <div className="lg:hidden sm-font grid grid-cols-2 gap-3">
+        <div className="relative overflow-hidden sm-gradient rounded-2xl p-3.5 text-white shadow-[0_12px_28px_-14px_rgba(79,70,229,0.55)]">
+          <p className="sm-eyebrow text-white/80">Stock Value</p>
+          <p className="font-mono font-bold text-lg mt-1 truncate">₹{totalStockValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+          <p className="text-[11px] text-white/75 mt-0.5">{totalItems} item{totalItems === 1 ? '' : 's'}</p>
+        </div>
+        <div className="rounded-2xl bg-white border border-[var(--sm-border)] p-3.5">
+          <p className="sm-eyebrow text-[var(--sm-muted)]">Health</p>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className="font-mono font-bold text-lg text-amber-600">{lowCount}</span>
+            <span className="text-[10px] font-bold text-[var(--sm-muted)]">LOW</span>
+            <span className="opacity-30">·</span>
+            <span className="font-mono font-bold text-lg text-red-600">{outOfStockCount}</span>
+            <span className="text-[10px] font-bold text-[var(--sm-muted)]">OUT</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden lg:block">
+        <PageHeader
+          title="Stock Management & Valuation"
+          subtitle="Detailed view of product quantities, locations, and total stock value"
+        />
+      </div>
+
+      <div className="hidden lg:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={<Boxes size={18} />}
           label="Total Items"
@@ -345,7 +373,63 @@ export const StockManagement = () => {
           <EmptyState icon={PackageSearch} message="No products found for selected filters" />
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Mobile card list — sm aesthetic */}
+            <ul className="lg:hidden sm-font divide-y divide-[var(--sm-border)]" aria-label="Stock items">
+              {paginated.map((p) => {
+                const relevantStock = getLocationStock(p, locationFilter);
+                const reserved = getLocationReserved(p, locationFilter);
+                const stripe = relevantStock === 0
+                  ? 'bg-rose-500'
+                  : relevantStock <= LOW_STOCK_THRESHOLD
+                    ? 'bg-amber-400'
+                    : 'bg-emerald-500';
+                return (
+                  <li key={p.id} className="px-4 py-3.5 flex items-stretch gap-3 sm-tap active:bg-slate-50">
+                    <span className={`w-1 rounded-full ${stripe}`} aria-hidden />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-bold text-[var(--sm-text)] truncate">{p.name}</p>
+                        <p className={`text-xl font-mono font-bold leading-none ${stockClassName(relevantStock)}`}>
+                          {relevantStock}
+                        </p>
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--sm-muted)]">
+                        <span className="truncate">{p.brands?.name ?? '—'}</span>
+                        <span className="opacity-40">·</span>
+                        <span className="font-mono">{p.sku}</span>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-2 text-xs">
+                        <span className="font-mono font-bold text-[var(--sm-text)]">₹{p.dealer_price?.toLocaleString('en-IN')}</span>
+                        {reserved > 0 && (
+                          <>
+                            <span className="opacity-40">·</span>
+                            <span className="font-bold text-amber-700">{reserved} reserved</span>
+                          </>
+                        )}
+                      </div>
+                      {locationFilter === 'all' && locationOptions.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {locationOptions.map((loc) => {
+                            const qty = getLocationStock(p, loc);
+                            if (qty === 0) return null;
+                            return (
+                              <span
+                                key={loc}
+                                className="inline-flex items-center gap-1 sm-pill bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-[var(--sm-text)]"
+                              >
+                                {loc} <span className="font-mono">{qty}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <div className="hidden lg:block overflow-x-auto">
             <table className="w-full text-sm">
               <caption className="sr-only">Stock table with product, brand, SKU, dealer price, stock quantity and stock status</caption>
               <StyledThead>

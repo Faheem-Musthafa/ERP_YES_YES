@@ -199,10 +199,21 @@ export const BackOrders = () => {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Back-Orders"
-        subtitle={`${rows.filter((r) => r.status === 'Pending').length} pending lines awaiting release`}
-      />
+      {/* Mobile header */}
+      <div className="lg:hidden sm-font -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 px-4 pt-4 pb-3 bg-white border-b border-slate-200/70">
+        <p className="sm-eyebrow text-[var(--sm-muted)]">Fulfilment</p>
+        <h1 className="sm-headline text-[24px] text-[var(--sm-text)] mt-0.5">Back-orders</h1>
+        <p className="text-xs text-[var(--sm-muted)] mt-0.5">
+          {rows.filter((r) => r.status === 'Pending').length} pending awaiting release
+        </p>
+      </div>
+
+      <div className="hidden lg:block">
+        <PageHeader
+          title="Back-Orders"
+          subtitle={`${rows.filter((r) => r.status === 'Pending').length} pending lines awaiting release`}
+        />
+      </div>
 
       <div className="flex flex-col md:flex-row gap-3">
         <SearchBar

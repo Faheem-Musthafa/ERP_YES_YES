@@ -465,24 +465,55 @@ export const CreateOrder = () => {
   };
 
   return (
-    <div className="space-y-4 pb-20 xl:pb-6 animate-fade-up">
-      <PageHeader
-        title="New Sales Order"
-        subtitle="Fill in the fields and submit"
-        actions={(
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => navigate('/sales/stock-transfer')} className="gap-2">
-              <ArrowRightLeft size={16} /> Stock Transfer
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => navigate('/sales/credit-note')} className="gap-2">
-              <ChevronRight size={16} /> Credit Note
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={handleCancel} className="gap-2">
-              <ArrowLeft size={16} /> Cancel
-            </Button>
-          </div>
-        )}
-      />
+    <div className="space-y-4 pb-32 lg:pb-6 animate-fade-up">
+      {/* Mobile header — compact, sm-font, hidden on desktop */}
+      <div className="lg:hidden sm-font -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 px-4 pt-4 pb-3 bg-white border-b border-slate-200/70">
+        <button
+          type="button"
+          onClick={handleCancel}
+          className="sm-tap mb-1.5 text-[11px] font-bold tracking-wider uppercase text-[var(--sm-muted)] inline-flex items-center gap-1"
+        >
+          <ArrowLeft size={13} /> Back
+        </button>
+        <h1 className="sm-headline text-[24px] text-[var(--sm-text)]">New order</h1>
+        <p className="text-xs text-[var(--sm-muted)] mt-0.5">Fill the fields and submit</p>
+        <div className="mt-3 flex items-center gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+          <button
+            type="button"
+            onClick={() => navigate('/sales/credit-note')}
+            className="sm-tap shrink-0 sm-pill bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-[var(--sm-text)] inline-flex items-center gap-1"
+          >
+            <ChevronRight size={12} /> Credit Note
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/sales/stock-transfer')}
+            className="sm-tap shrink-0 sm-pill bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-[var(--sm-text)] inline-flex items-center gap-1"
+          >
+            <ArrowRightLeft size={12} /> Stock Transfer
+          </button>
+        </div>
+      </div>
+
+      <div className="hidden lg:block">
+        <PageHeader
+          title="New Sales Order"
+          subtitle="Fill in the fields and submit"
+          actions={(
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => navigate('/sales/stock-transfer')} className="gap-2">
+                <ArrowRightLeft size={16} /> Stock Transfer
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => navigate('/sales/credit-note')} className="gap-2">
+                <ChevronRight size={16} /> Credit Note
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={handleCancel} className="gap-2">
+                <ArrowLeft size={16} /> Cancel
+              </Button>
+            </div>
+          )}
+        />
+      </div>
 
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col xl:flex-row gap-6">
@@ -500,7 +531,7 @@ export const CreateOrder = () => {
             </div>
 
             {/* ── 1. Context Definition (Company & Logistics) ── */}
-            <section className="panel-surface p-5 space-y-4">
+            <section className="panel-surface p-4 md:p-5 space-y-4">
               <div className="flex items-center gap-2 mb-4">
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#e6fffe] text-[#00bdb4] text-xs font-bold font-mono">1</span>
                 <h2 className="text-base font-bold text-gray-900 tracking-tight">Order Context</h2>
@@ -562,7 +593,7 @@ export const CreateOrder = () => {
             </section>
 
             {/* ── 2. Customer Selection (Typeahead) ── */}
-            <section className="panel-surface p-5 space-y-4">
+            <section className="panel-surface p-4 md:p-5 space-y-4">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#e6fffe] text-[#00bdb4] text-xs font-bold font-mono">2</span>
@@ -684,7 +715,7 @@ export const CreateOrder = () => {
             </section>
 
             {/* ── 3. Product Addition (Bento Cards) ── */}
-            <section className="panel-surface p-5 space-y-4">
+            <section className="panel-surface p-4 md:p-5 space-y-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#e6fffe] text-[#00bdb4] text-xs font-bold font-mono">3</span>
@@ -812,7 +843,7 @@ export const CreateOrder = () => {
             </section>
 
             {/* ── 4. Final Meta & Delivery ── */}
-            <section className="panel-surface p-5 space-y-5">
+            <section className="panel-surface p-4 md:p-5 space-y-5">
                <div className="flex items-center gap-2 mb-2">
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[#e6fffe] text-[#00bdb4] text-xs font-bold font-mono">4</span>
                   <h2 className="text-base font-bold text-gray-900 tracking-tight">Delivery & Logistics</h2>
@@ -860,7 +891,7 @@ export const CreateOrder = () => {
           {/* ══ RIGHT: Sticky Action/Summary Bar ══ */}
           <div className="xl:w-[320px] shrink-0">
             {/* Using bottom-0 fixed on mobile, and sticky top-4 on desktop */}
-            <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.06)] xl:sticky xl:top-4 xl:bg-transparent xl:border-none xl:p-0 xl:shadow-none">
+            <div className="fixed bottom-[88px] left-2 right-2 z-40 bg-white border border-slate-200 rounded-2xl p-3 shadow-[0_-12px_28px_-12px_rgba(15,23,42,0.18)] xl:static xl:bottom-auto xl:left-auto xl:right-auto xl:sticky xl:top-4 xl:bg-transparent xl:border-none xl:p-0 xl:shadow-none xl:rounded-none">
               <div className="xl:panel-surface-strong xl:p-5 space-y-4 max-w-7xl mx-auto flex flex-col">
                 
                 <p className="hidden xl:block text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">Checkout Summary</p>
@@ -876,14 +907,14 @@ export const CreateOrder = () => {
                        <span className="font-mono">−₹{totalDiscount.toFixed(2)}</span>
                      </div>
                      <div className="flex xl:mt-3 xl:pt-3 xl:border-t xl:border-gray-100 justify-between items-center text-gray-900 group">
-                       <span className="font-bold xl:text-lg">Grand Total</span>
-                       <span className="font-mono font-black text-xl xl:text-3xl text-[#00bdb4] tracking-tight">₹{grandTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                       <span className="font-bold xl:text-lg sm-font">Grand Total</span>
+                       <span className="font-mono font-black text-xl xl:text-3xl text-[#4F46E5] xl:text-[#00bdb4] tracking-tight">₹{grandTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
                      </div>
                      <p className="text-[11px] text-gray-400 hidden xl:block">All numerical calculations are auto-synced. Inclusive of defined local taxes.</p>
                    </div>
    
                    <div className="flex flex-col gap-2 w-[160px] xl:w-full shrink-0">
-                     <Button type="submit" disabled={loading} size="lg" className="w-full bg-[#00bdb4] hover:bg-[#009994] text-white rounded-xl shadow-[0_8px_20px_-6px_rgba(0,189,180,0.5)] font-bold text-base h-12 truncate">
+                     <Button type="submit" disabled={loading} size="lg" className="w-full bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] xl:from-[#00bdb4] xl:to-[#00bdb4] hover:opacity-90 text-white rounded-xl xl:rounded-xl shadow-[0_10px_22px_-12px_rgba(79,70,229,0.55)] xl:shadow-[0_8px_20px_-6px_rgba(0,189,180,0.5)] font-bold text-base h-12 truncate sm-tap">
                        {loading ? <span className="animate-pulse">Locking...</span> : "Confirm Order"}
                      </Button>
                      <Button type="button" variant="ghost" onClick={handleCancel} className="hidden xl:flex w-full text-gray-500 hover:text-red-600 hover:bg-red-50">
@@ -893,8 +924,8 @@ export const CreateOrder = () => {
                 </div>
               </div>
             </div>
-            {/* Mobile padding spacer to prevent content hiding under fixed bar */}
-            <div className="h-24 xl:hidden" aria-hidden="true" />
+            {/* Mobile padding spacer — clears sticky bar (88px) + bottom nav (~80px) */}
+            <div className="h-44 xl:hidden" aria-hidden="true" />
           </div>
 
         </div>

@@ -131,15 +131,26 @@ export const ApprovedSales = () => {
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title="Sales"
-        subtitle={`${stats.totalCount} approved order${stats.totalCount === 1 ? '' : 's'} in scope`}
-        actions={
-          <Button size="sm" variant="outline" onClick={exportCSV} className="gap-2" disabled={filtered.length === 0}>
-            <Download size={15} /> Export CSV
-          </Button>
-        }
-      />
+      {/* Mobile header */}
+      <div className="lg:hidden sm-font -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 px-4 pt-4 pb-3 bg-white border-b border-slate-200/70">
+        <p className="sm-eyebrow text-[var(--sm-muted)]">Pipeline</p>
+        <h1 className="sm-headline text-[24px] text-[var(--sm-text)] mt-0.5">Approved sales</h1>
+        <p className="text-xs text-[var(--sm-muted)] mt-0.5">
+          {stats.totalCount} approved order{stats.totalCount === 1 ? '' : 's'} in scope
+        </p>
+      </div>
+
+      <div className="hidden lg:block">
+        <PageHeader
+          title="Sales"
+          subtitle={`${stats.totalCount} approved order${stats.totalCount === 1 ? '' : 's'} in scope`}
+          actions={
+            <Button size="sm" variant="outline" onClick={exportCSV} className="gap-2" disabled={filtered.length === 0}>
+              <Download size={15} /> Export CSV
+            </Button>
+          }
+        />
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <DataCard className="p-4">

@@ -388,9 +388,27 @@ export const ReceiptEntry = () => {
   const remainingTargets = settleableTargets.filter((t) => !usedKeys.has(t.key));
 
   return (
-    <div className="space-y-8 pb-20 animate-in fade-in duration-500 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between sticky top-0 z-20 bg-background/80 backdrop-blur-xl py-4 border-b border-border/40 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-6">
+    <div className="space-y-6 lg:space-y-8 pb-32 lg:pb-20 animate-in fade-in duration-500 max-w-4xl mx-auto">
+      {/* Mobile header */}
+      <div className="lg:hidden sm-font -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 px-4 pt-4 pb-3 bg-white border-b border-slate-200/70">
+        <button
+          type="button"
+          onClick={handleCancel}
+          className="sm-tap mb-1.5 text-[11px] font-bold tracking-wider uppercase text-[var(--sm-muted)] inline-flex items-center gap-1"
+        >
+          <ArrowLeft size={13} /> Back
+        </button>
+        <h1 className="sm-headline text-[24px] text-[var(--sm-text)] inline-flex items-center gap-2">
+          <ReceiptText size={20} className="text-[var(--sm-primary)]" />
+          New Receipt
+        </h1>
+        <p className="text-xs text-[var(--sm-muted)] mt-0.5">
+          Record a customer payment and allocate it.
+        </p>
+      </div>
+
+      {/* Desktop header */}
+      <div className="hidden lg:flex flex-col gap-4 md:flex-row md:items-end md:justify-between sticky top-0 z-20 bg-background/80 backdrop-blur-xl py-4 border-b border-border/40 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-6">
         <div>
           <button onClick={handleCancel} className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1 hover:text-primary transition-colors">
             <ArrowLeft size={14} /> Back to Collection
@@ -418,7 +436,7 @@ export const ReceiptEntry = () => {
               <p className="text-xs text-slate-500">Company and how it was paid</p>
             </div>
           </div>
-          <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+          <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
             <div className="space-y-2 group">
               <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Company Entity <span className="text-rose-500">*</span></Label>
               <Select value={company} onValueChange={(value) => setCompany(value as CompanyEnum)}>
@@ -440,10 +458,48 @@ export const ReceiptEntry = () => {
           </div>
         </div>
 
-        {/* Section 2: Financial Amount */}
-        <div className="rounded-3xl border border-teal-200/50 dark:border-teal-900/30 bg-gradient-to-br from-teal-50/30 to-cyan-50/10 dark:from-teal-950/20 dark:to-cyan-950/10 backdrop-blur-md shadow-sm overflow-hidden relative">
+        {/* Mobile — hero Indigo amount card */}
+        <div className="lg:hidden sm-font relative overflow-hidden sm-gradient rounded-3xl p-5 shadow-[0_18px_40px_-20px_rgba(79,70,229,0.55)]">
+          <div
+            className="absolute -top-16 -right-16 h-44 w-44 rounded-full"
+            style={{ background: 'radial-gradient(closest-side, rgba(255,255,255,0.22), transparent 70%)' }}
+            aria-hidden
+          />
+          <p className="relative sm-eyebrow text-white/80">Received Amount *</p>
+          <div className="relative mt-2 flex items-center gap-2">
+            <IndianRupee size={30} className="text-white/85 shrink-0" />
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0.01"
+              step="0.01"
+              value={receivedAmount}
+              onChange={(e) => setReceivedAmount(sanitizeNonNegativeDecimal(e.target.value))}
+              placeholder="0"
+              required
+              className="sm-headline w-full bg-transparent text-white text-[42px] tabular-nums tracking-tight outline-none placeholder:text-white/35"
+            />
+          </div>
+          <div className="relative mt-4">
+            <p className="sm-eyebrow text-white/80 mb-1.5">Received Date</p>
+            <div className="relative">
+              <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70 pointer-events-none" />
+              <input
+                type="date"
+                value={receivedDate}
+                onChange={(e) => setReceivedDate(e.target.value)}
+                max={todayLocalISO()}
+                required
+                className="w-full h-12 sm-pill bg-white/15 text-white font-bold pl-10 pr-4 border border-white/20 outline-none focus:bg-white/20 [color-scheme:dark]"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop — original teal amount section */}
+        <div className="hidden lg:block rounded-3xl border border-teal-200/50 dark:border-teal-900/30 bg-gradient-to-br from-teal-50/30 to-cyan-50/10 dark:from-teal-950/20 dark:to-cyan-950/10 backdrop-blur-md shadow-sm overflow-hidden relative">
           <div className="absolute right-0 top-0 w-64 h-64 bg-teal-400/10 dark:bg-teal-400/5 blur-3xl opacity-50 pointer-events-none rounded-full" />
-          <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+          <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
             <div className="space-y-3 md:col-span-2 lg:col-span-1">
               <Label className="text-xs uppercase tracking-wider text-teal-700 dark:text-teal-400 font-bold">Received Amount <span className="text-rose-500">*</span></Label>
               <div className="relative group">
@@ -476,7 +532,7 @@ export const ReceiptEntry = () => {
               <p className="text-xs text-slate-500">Used for sales reports</p>
             </div>
           </div>
-          <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+          <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
             <div className="space-y-2 group">
               <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Ref Brand <span className="text-rose-500">*</span></Label>
               <Select value={brand} onValueChange={setBrand}>
@@ -504,7 +560,7 @@ export const ReceiptEntry = () => {
               <p className="text-xs text-slate-500">Target identity for ledger entry</p>
             </div>
           </div>
-          <div className="p-6 md:p-8 animate-in fade-in duration-300">
+          <div className="p-4 md:p-8 animate-in fade-in duration-300">
             <div className="space-y-3 group max-w-xl">
               <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Lookup Directory <span className="text-rose-500">*</span></Label>
               <Select value={selectedCustomerId} onValueChange={handleCustomerSelect}>
@@ -532,7 +588,7 @@ export const ReceiptEntry = () => {
             </div>
           </div>
 
-          <div className="p-6 md:p-8 space-y-5">
+          <div className="p-4 md:p-8 space-y-5">
             {!selectedCustomerId && (
               <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 dark:bg-amber-950/20 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber-500 flex items-center gap-3">
                 <Info size={18} />
@@ -671,7 +727,7 @@ export const ReceiptEntry = () => {
              <div className="px-6 py-5 border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/50">
                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Cheque Parameters</h3>
              </div>
-             <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 group">
                   <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary">Reference ID <span className="text-rose-500">*</span></Label>
                   <Input value={chequeNumber} onChange={(e) => setChequeNumber(sanitizeChallanNumber(e.target.value, LIMITS.mediumText))} placeholder="000123" required maxLength={LIMITS.mediumText} className="h-12 rounded-xl bg-slate-50 font-mono text-lg" />
@@ -689,7 +745,7 @@ export const ReceiptEntry = () => {
           <span className="font-medium leading-relaxed">Receipt finalization permanently impacts customer ledger. Allocations against opening balances will reduce the customer's carried-forward balance.</span>
         </div>
 
-        <div className="sticky bottom-4 z-30 bg-background/90 backdrop-blur-xl shadow-2xl rounded-[1.5rem] border border-slate-200/80 dark:border-slate-700 p-4 w-full flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between transform transition-all hover:bg-background/95 mt-8">
+        <div className="sticky bottom-24 lg:bottom-4 z-30 bg-background/90 backdrop-blur-xl shadow-2xl rounded-[1.5rem] border border-slate-200/80 dark:border-slate-700 p-4 w-full flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between transform transition-all hover:bg-background/95 mt-8">
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 ml-2 flex-1 min-w-0">Receipt cannot be saved until the received amount is fully allocated.</p>
           <div className="flex gap-3 w-full sm:w-auto shrink-0">
             <Button type="button" variant="outline" onClick={handleCancel} className="flex-1 sm:flex-none h-12 px-6 rounded-xl border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold transition-all">

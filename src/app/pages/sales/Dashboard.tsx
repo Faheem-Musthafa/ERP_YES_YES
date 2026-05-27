@@ -1,11 +1,12 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { fmtK, isCollectedReceiptStatus } from '@/app/utils';
 import { DEFAULT_SALES_TARGET_SETTINGS, loadSalesTargetSettings } from '@/app/settings';
 import {
-  ShoppingCart, TrendingUp, CheckCircle,
-  DollarSign, Activity, FileText
+  ShoppingCart, TrendingUp, TrendingDown, CheckCircle, CheckCircle2,
+  DollarSign, Activity, FileText, Wallet, Boxes, Sparkles, ChevronRight,
+  ArrowUpRight, Hourglass, Plus, Flame, Zap, Receipt,
 } from 'lucide-react';
 import { Link } from 'react-router';
 import { Button } from '@/app/components/ui/button';
@@ -92,11 +93,46 @@ export const SalesDashboard = () => {
   const monthName = new Date().toLocaleString('en-IN', { month: 'long' });
   const maxWeekSales = Math.max(...monthlyData.map(d => d.sales), 1);
 
+  const pace = useMemo(() => {
+    const now = new Date();
+    const dayOfMonth = now.getDate();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const expectedPct = (dayOfMonth / daysInMonth) * 100;
+    const delta = targetPct - expectedPct;
+    return { dayOfMonth, daysInMonth, expectedPct, delta };
+  }, [targetPct]);
+
   if (loading) return <Spinner size={32} />;
   if (error) return <ErrorState message={error} onRetry={() => void fetchAll()} />;
 
+  const firstName = user?.full_name?.split(' ')[0] ?? 'there';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const isAhead = pace.delta >= 0;
+
   return (
-    <div className="space-y-6 pb-12">
+    <>
+      {/* ════════════════════════════════════════════════════════
+         MOBILE — Enterprise SaaS Mobile aesthetic.
+         Indigo→Violet gradient hero, pill CTAs, 16px cards,
+         spring tap, Plus Jakarta Sans. Hidden ≥ lg.
+         ════════════════════════════════════════════════════════ */}
+      <SalesDashboardMobile
+        firstName={firstName}
+        greeting={greeting}
+        monthName={monthName}
+        stats={stats}
+        monthlyTarget={monthlyTarget}
+        targetPct={targetPct}
+        pace={pace}
+        isAhead={isAhead}
+        monthlyData={monthlyData}
+        maxWeekSales={maxWeekSales}
+        recentOrders={recentOrders}
+      />
+
+      {/* Desktop preserved verbatim */}
+      <div className="hidden lg:block space-y-6 pb-12">
       <PageHeader
         title="My Dashboard"
         subtitle={`Welcome back, ${user?.full_name?.split(' ')[0]}. Here's your performance overview.`}
@@ -223,7 +259,7 @@ export const SalesDashboard = () => {
                         <span className="text-xs text-muted-foreground truncate max-w-[150px]">{o.customers?.name ?? '—'}</span>
                       </div>
                       <div className="flex flex-col items-end gap-1.5">
-                        <span className="text-sm font-bold font-mono text-foreground leading-none">₹{o.grand_total?.toLocaleString('en-IN') ?? '0'}</span>
+                        <span className="text-sm font-bold font-mono text-foreground leading-none">{o.grand_total?.toLocaleString('en-IN') ?? '0'}</span>
                         <StatusBadge status={o.status} className="h-5 text-[9px] px-1.5" />
                       </div>
                     </li>
@@ -234,6 +270,295 @@ export const SalesDashboard = () => {
           </DataCard>
         </div>
       </div>
+      </div>
+    </>
+  );
+};
+
+// ════════════════════════════════════════════════════════════════
+// Mobile-only sales dashboard. Plus Jakarta Sans + Indigo→Violet
+// gradient + 16px radii + spring tap (sm-tap). Engagement signals:
+// pace-vs-month, active days, status tiles, recent activity feed.
+// ════════════════════════════════════════════════════════════════
+interface SalesDashboardMobileProps {
+  firstName: string;
+  greeting: string;
+  monthName: string;
+  stats: {
+    myMonthSales: number;
+    myMonthOrders: number;
+    myPending: number;
+    myApproved: number;
+    myCollected: number;
+    myMonthCollected: number;
+    totalOrders: number;
+    myOrdersTotal: number;
+  };
+  monthlyTarget: number;
+  targetPct: number;
+  pace: { dayOfMonth: number; daysInMonth: number; expectedPct: number; delta: number };
+  isAhead: boolean;
+  monthlyData: { week: string; sales: number }[];
+  maxWeekSales: number;
+  recentOrders: any[];
+}
+
+const STATUS_STRIPE: Record<string, string> = {
+  Pending:   'bg-amber-400',
+  Approved:  'bg-emerald-500',
+  Billed:    'bg-blue-500',
+  Delivered: 'bg-violet-500',
+  Rejected:  'bg-rose-500',
+  Voided:    'bg-slate-400',
+};
+
+const SalesDashboardMobile = ({
+  firstName, greeting, monthName, stats, monthlyTarget, targetPct, pace,
+  isAhead, monthlyData, maxWeekSales, recentOrders,
+}: SalesDashboardMobileProps) => {
+  const paceLabel = isAhead
+    ? `${pace.delta.toFixed(0)}% ahead of pace`
+    : `${Math.abs(pace.delta).toFixed(0)}% behind pace`;
+  const ringStroke = 10;
+  const ringSize = 116;
+  const ringR = (ringSize - ringStroke) / 2;
+  const ringC = 2 * Math.PI * ringR;
+
+  return (
+    <div className="lg:hidden sm-font sm-surface -mx-4 -mt-4 sm:-mx-6 sm:-mt-6 min-h-[calc(100vh-4rem)]">
+      <div className="space-y-5 px-4 pt-5 pb-4 max-w-2xl mx-auto">
+        {/* Greeting + day chip */}
+        <header className="flex items-center justify-between sm-rise">
+          <div>
+            <p className="sm-eyebrow text-[var(--sm-muted)]">{greeting}</p>
+            <h1 className="sm-headline text-[26px] text-[var(--sm-text)] mt-0.5">{firstName}.</h1>
+          </div>
+          <div className="inline-flex items-center gap-2 sm-pill border border-[var(--sm-border)] bg-white px-3 py-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 sm-pulse-dot" />
+            <span className="text-[11px] font-bold text-[var(--sm-text)]">
+              Day {pace.dayOfMonth}/{pace.daysInMonth}
+            </span>
+          </div>
+        </header>
+
+        {/* Hero — gradient target card */}
+        <section className="sm-rise sm-rise-1 relative overflow-hidden sm-gradient rounded-[20px] p-5 shadow-[0_18px_40px_-20px_rgba(79,70,229,0.55)]">
+          <div
+            className="absolute -top-16 -right-16 h-44 w-44 rounded-full"
+            style={{ background: 'radial-gradient(closest-side, rgba(255,255,255,0.22), transparent 70%)' }}
+            aria-hidden
+          />
+          <div className="relative flex items-start justify-between gap-5">
+            <div className="min-w-0">
+              <p className="sm-eyebrow text-white/80">{monthName} · Target</p>
+              <p className="sm-headline text-[40px] text-white mt-2">
+                {fmtK(stats.myMonthSales)}
+              </p>
+              <p className="mt-0.5 text-sm text-white/75">
+                of <span className="font-bold text-white">{fmtK(monthlyTarget)}</span>
+              </p>
+            </div>
+            <div className="relative shrink-0" style={{ width: ringSize, height: ringSize }}>
+              <svg width={ringSize} height={ringSize} viewBox={`0 0 ${ringSize} ${ringSize}`} className="-rotate-90">
+                <circle cx={ringSize/2} cy={ringSize/2} r={ringR} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={ringStroke} />
+                <circle
+                  cx={ringSize/2} cy={ringSize/2} r={ringR} fill="none"
+                  stroke="#FFFFFF" strokeWidth={ringStroke}
+                  strokeDasharray={ringC}
+                  strokeDashoffset={ringC * (1 - Math.min(Math.max(targetPct, 0), 100) / 100)}
+                  strokeLinecap="round"
+                  style={{ transition: 'stroke-dashoffset 1.2s cubic-bezier(.22,.61,.36,1)' }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                <span className="sm-headline text-[28px] leading-none">{Math.round(targetPct)}</span>
+                <span className="sm-eyebrow mt-1 text-white/70">PERCENT</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Pace chip */}
+          <div
+            className={`relative mt-5 inline-flex items-center gap-1.5 sm-pill px-3 py-1.5 text-[11px] font-bold ${
+              isAhead
+                ? 'bg-white text-[var(--sm-primary)]'
+                : 'bg-white/15 text-white border border-white/20'
+            }`}
+          >
+            {isAhead ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+            {paceLabel}
+          </div>
+
+          {/* Mini stats */}
+          <div className="relative mt-5 grid grid-cols-3 gap-2.5">
+            <MobileMiniStat label="Collected" value={`${fmtK(stats.myMonthCollected)}`} icon={<Wallet size={13} />} />
+            <MobileMiniStat label="Orders" value={stats.myMonthOrders.toString()} icon={<Receipt size={13} />} />
+            <MobileMiniStat label="Total Sales" value={`${fmtK(stats.myOrdersTotal)}`} icon={<Sparkles size={13} />} />
+          </div>
+        </section>
+
+        {/* Quick actions grid */}
+        <section className="sm-rise sm-rise-2" aria-label="Quick actions">
+          <div className="grid grid-cols-4 gap-3">
+            <QuickAction to="/sales/create-order" label="New Order" icon={<Plus size={20} strokeWidth={2.6} />} primary />
+            <QuickAction to="/sales/receipt" label="Collect" icon={<Wallet size={20} />} />
+            <QuickAction to="/sales/price-list" label="Prices" icon={<Sparkles size={20} />} />
+            <QuickAction to="/stock" label="Stock" icon={<Boxes size={20} />} />
+          </div>
+        </section>
+
+        {/* Status tiles */}
+        <section className="sm-rise sm-rise-3 grid grid-cols-2 gap-3">
+          <StatusTile
+            to="/sales/my-orders?status=Pending"
+            label="Pending"
+            value={stats.myPending}
+            tone="amber"
+            icon={<Hourglass size={18} />}
+          />
+          <StatusTile
+            to="/sales/my-orders?status=Approved"
+            label="Approved"
+            value={stats.myApproved}
+            tone="emerald"
+            icon={<CheckCircle2 size={18} />}
+          />
+        </section>
+
+        {/* Weekly velocity */}
+        <section className="sm-rise sm-rise-4 sm-card p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="sm-eyebrow text-[var(--sm-muted)]">Weekly Velocity</p>
+              <p className="text-sm font-bold text-[var(--sm-text)] mt-0.5">This month by week</p>
+            </div>
+            <Zap size={14} className="text-[var(--sm-muted)]" />
+          </div>
+          <div className="flex items-end justify-between h-24 gap-3">
+            {monthlyData.map((d) => {
+              const heightPct = Math.max((d.sales / maxWeekSales) * 100, 4);
+              return (
+                <div key={d.week} className="flex-1 flex flex-col items-center gap-2">
+                  <div className="w-full flex-1 flex items-end">
+                    <div
+                      className="w-full sm-gradient rounded-md"
+                      style={{
+                        height: `${heightPct}%`,
+                        transition: 'height 0.9s cubic-bezier(.22,.61,.36,1)',
+                      }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold text-[var(--sm-muted)]">{d.week}</span>
+                  <span className="text-[10px] text-[var(--sm-muted)]/80 font-mono">
+                    {d.sales > 0 ? fmtK(d.sales) : '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Recent orders */}
+        <section className="sm-rise sm-card overflow-hidden">
+          <div className="flex items-center justify-between px-4 pt-4 pb-2">
+            <div>
+              <p className="sm-eyebrow text-[var(--sm-muted)]">Recent</p>
+              <p className="text-sm font-bold text-[var(--sm-text)] mt-0.5">Your latest orders</p>
+            </div>
+            <Link
+              to="/sales/my-orders"
+              className="text-[11px] font-bold tracking-wider text-[var(--sm-primary)] inline-flex items-center gap-0.5"
+            >
+              ALL <ArrowUpRight size={12} />
+            </Link>
+          </div>
+          {recentOrders.length === 0 ? (
+            <div className="px-4 pb-5">
+              <div className="rounded-xl border border-dashed border-[var(--sm-border)] p-5 text-center">
+                <ShoppingCart size={20} className="mx-auto text-[var(--sm-muted)]" />
+                <p className="mt-2 text-sm font-semibold text-[var(--sm-text)]">No orders yet</p>
+                <p className="text-xs text-[var(--sm-muted)]">Tap + to start one.</p>
+              </div>
+            </div>
+          ) : (
+            <ul className="divide-y divide-[var(--sm-border)]">
+              {recentOrders.map((o) => (
+                <li key={o.id}>
+                  <Link
+                    to={`/sales/my-orders?focus=${o.id}`}
+                    className="sm-tap flex items-stretch gap-3 px-4 py-3 hover:bg-slate-50 active:bg-slate-100"
+                  >
+                    <span className={`w-1 rounded-full ${STATUS_STRIPE[o.status] ?? 'bg-slate-300'}`} aria-hidden />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-[var(--sm-text)] truncate">{o.order_number}</p>
+                      <p className="text-xs text-[var(--sm-muted)] truncate">{o.customers?.name ?? '—'}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-mono font-bold text-sm text-[var(--sm-text)]">
+                        ₹{(o.grand_total ?? 0).toLocaleString('en-IN')}
+                      </p>
+                      <p className="text-[10px] uppercase tracking-wide text-[var(--sm-muted)] font-bold">
+                        {o.status}
+                      </p>
+                    </div>
+                    <ChevronRight size={14} className="text-[var(--sm-muted)] self-center shrink-0" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </div>
   );
 };
+
+const MobileMiniStat = ({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) => (
+  <div className="rounded-xl bg-white/12 backdrop-blur px-2.5 py-2 border border-white/10">
+    <div className="flex items-center gap-1 text-[10px] font-bold tracking-wider uppercase text-white/80">
+      {icon}<span className="truncate">{label}</span>
+    </div>
+    <p className="mt-1 font-mono font-bold text-sm text-white truncate">{value}</p>
+  </div>
+);
+
+const QuickAction = ({ to, label, icon, primary }: { to: string; label: string; icon: React.ReactNode; primary?: boolean }) => (
+  <Link
+    to={to}
+    className={`sm-tap flex flex-col items-center justify-center gap-1.5 rounded-2xl py-3 border ${
+      primary
+        ? 'sm-gradient border-transparent shadow-[0_10px_22px_-12px_rgba(79,70,229,0.5)] text-white'
+        : 'bg-white border-[var(--sm-border)] text-[var(--sm-text)]'
+    }`}
+  >
+    <span
+      className={`h-10 w-10 sm-pill flex items-center justify-center ${
+        primary ? 'bg-white/20 text-white' : 'sm-gradient-soft text-[var(--sm-primary)]'
+      }`}
+    >
+      {icon}
+    </span>
+    <span className="text-[10px] font-bold tracking-wider uppercase">{label}</span>
+  </Link>
+);
+
+const TONE_TILE: Record<'amber' | 'emerald', { chip: string }> = {
+  amber:   { chip: 'bg-amber-100 text-amber-700' },
+  emerald: { chip: 'bg-emerald-100 text-emerald-700' },
+};
+
+const StatusTile = ({ to, label, value, tone, icon }: { to: string; label: string; value: number; tone: 'amber' | 'emerald'; icon: React.ReactNode }) => (
+  <Link
+    to={to}
+    className="sm-tap relative sm-card p-4 flex items-start justify-between overflow-hidden hover:shadow-[0_12px_28px_-12px_rgba(79,70,229,0.18)]"
+  >
+    <div>
+      <p className="sm-eyebrow text-[var(--sm-muted)]">{label}</p>
+      <p className="sm-headline text-[34px] text-[var(--sm-text)] mt-1">{value}</p>
+    </div>
+    <div className={`shrink-0 h-9 w-9 sm-pill flex items-center justify-center ${TONE_TILE[tone].chip}`}>
+      {icon}
+    </div>
+    <ChevronRight size={14} className="absolute bottom-3 right-3 text-[var(--sm-muted)]" />
+  </Link>
+);

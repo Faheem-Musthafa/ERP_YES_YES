@@ -288,4 +288,120 @@
   .animate-fade-up {
     animation: fadeUp 0.4s ease forwards;
   }
+
+  /* ═══ Sales Mobile · Enterprise SaaS (Mobile) ═════════════
+     Scoped tokens for the sales-rep mobile suite. .sm- prefix
+     keeps desktop styles untouched. Aesthetic derived from
+     ui-ux-pro-max "Enterprise SaaS Mobile":
+     Plus Jakarta Sans · Indigo→Violet gradient · 16px radius
+     · pill CTAs · spring press scale · colored card shadows. */
+  :root {
+    --sm-bg:           #F8FAFC;
+    --sm-surface:      #FFFFFF;
+    --sm-text:         #0F172A;
+    --sm-muted:        #64748B;
+    --sm-soft:         #F1F5F9;
+    --sm-primary:      #4F46E5;
+    --sm-secondary:    #7C3AED;
+    --sm-success:      #10B981;
+    --sm-warning:      #F59E0B;
+    --sm-danger:       #EF4444;
+    --sm-border:       #E2E8F0;
+    --sm-shadow-card:  rgba(79, 70, 229, 0.08);
+    --sm-shadow-press: rgba(79, 70, 229, 0.18);
+    --sm-radius:       16px;
+    --sm-radius-pill:  999px;
+  }
+
+  .sm-font {
+    font-family: 'Plus Jakarta Sans', 'DM Sans', system-ui, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  .sm-headline {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+  }
+  .sm-eyebrow {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 10px;
+  }
+
+  .sm-surface { background: var(--sm-bg); color: var(--sm-text); }
+
+  .sm-card {
+    background: var(--sm-surface);
+    border: 1px solid var(--sm-border);
+    border-radius: var(--sm-radius);
+    box-shadow: 0 8px 24px -12px var(--sm-shadow-card);
+  }
+
+  .sm-gradient {
+    background-image: linear-gradient(135deg, var(--sm-primary) 0%, var(--sm-secondary) 100%);
+    color: #fff;
+  }
+
+  .sm-gradient-soft {
+    background-image: linear-gradient(135deg, rgba(79,70,229,0.08) 0%, rgba(124,58,237,0.08) 100%);
+  }
+
+  .sm-pill {
+    border-radius: var(--sm-radius-pill);
+  }
+
+  /* Spring-feel press (web-adapted, no Haptics API) */
+  .sm-tap {
+    transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 160ms ease, background-color 160ms ease;
+    will-change: transform;
+  }
+  .sm-tap:active {
+    transform: scale(0.97);
+  }
+
+  /* Pulse dot for live status */
+  @keyframes smPulseDot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.55); }
+    50%      { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+  }
+  .sm-pulse-dot {
+    animation: smPulseDot 2.2s ease-in-out infinite;
+  }
+
+  /* Skeletal pulse */
+  @keyframes smSkeleton {
+    0%, 100% { background-color: var(--sm-soft); }
+    50%      { background-color: #e2e8f0; }
+  }
+  .sm-skeleton {
+    animation: smSkeleton 1.4s ease-in-out infinite;
+    border-radius: 8px;
+  }
+
+  /* Staggered entrance */
+  @keyframes smRise {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .sm-rise { animation: smRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .sm-rise-1 { animation-delay: 60ms; }
+  .sm-rise-2 { animation-delay: 120ms; }
+  .sm-rise-3 { animation-delay: 180ms; }
+  .sm-rise-4 { animation-delay: 240ms; }
+
+  /* Safe-area aware fixed bottom */
+  .sm-safe-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  /* Respect reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .sm-rise,
+    .sm-pulse-dot,
+    .sm-skeleton { animation: none !important; }
+    .sm-tap { transition: none !important; }
+  }
 }
