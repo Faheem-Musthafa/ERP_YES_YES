@@ -298,7 +298,96 @@ export const PriceList = () => {
                   {brandRows.length} {brandRows.length === 1 ? 'product' : 'products'}
                 </span>
               </div>
-              <div className="overflow-x-auto">
+              {/* Mobile brand rows list */}
+              <ul className="lg:hidden divide-y divide-border sa-font-body" aria-label={`Products in brand ${brandName}`}>
+                {brandRows.map((row) => {
+                  const low = isLowStock(row.totalStock);
+                  return (
+                    <li
+                      key={row.id}
+                      className={`p-4 space-y-3.5 ${
+                        low ? 'bg-red-50/20 dark:bg-red-950/5' : ''
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-foreground">{row.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono mt-0.5">{row.sku}</p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-1.5">
+                          <span
+                            className={
+                              low
+                                ? 'inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                                : 'inline-flex items-center gap-1 text-xs text-muted-foreground font-semibold'
+                            }
+                          >
+                            {low && <AlertTriangle size={11} aria-hidden />}
+                            Stock: {row.totalStock}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 bg-muted/20 p-2.5 rounded-xl border border-border/40 text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">MRP</span>
+                          <span className="font-mono font-bold text-foreground">{formatMoney(row.mrp, { paise: false })}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Dealer Price</span>
+                          <span className="font-mono font-bold text-primary">{formatMoney(row.dealerPrice, { paise: false })}</span>
+                        </div>
+                      </div>
+
+                      {/* Pricing Tiers expansion or list */}
+                      <div className="border border-border/60 rounded-xl bg-card overflow-hidden">
+                        <div className="px-3 py-1.5 bg-muted/30 border-b border-border/60 text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+                          Dealer Pricing Tiers
+                        </div>
+                        <div className="grid grid-cols-4 divide-x divide-y divide-border/40 text-center font-mono text-[11px]">
+                          {TIER_CODES.map((tier) => (
+                            <div key={tier} className="py-2 flex flex-col gap-0.5">
+                              <span className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold font-sans">{tier}</span>
+                              <span className="font-bold text-foreground">
+                                {row.tiers[tier] != null
+                                  ? formatMoney(row.tiers[tier], { paise: false })
+                                  : <span className="text-muted-foreground/40">—</span>}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Notes Section */}
+                      <div className="pt-2 flex items-start justify-between gap-3 text-xs bg-muted/10 p-2.5 rounded-xl border border-border/20">
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold block mb-1">My Note</span>
+                          {row.note ? (
+                            <div>
+                              <p className="text-xs leading-snug text-foreground">{row.note.note}</p>
+                              <p className="mt-0.5 text-[9px] text-muted-foreground">
+                                Edited {new Date(row.note.updated_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-xs italic text-muted-foreground">No note added yet.</p>
+                          )}
+                        </div>
+                        <IconBtn
+                          onClick={() => openNoteDialog(row)}
+                          title={row.note ? 'Edit note' : 'Add note'}
+                          className="h-8 w-8 shrink-0 bg-background border border-border/80 rounded-lg flex items-center justify-center hover:bg-muted"
+                        >
+                          {row.note ? <Pencil size={12} /> : <StickyNote size={12} />}
+                        </IconBtn>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {/* Desktop Table */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full min-w-[1200px] text-sm">
                   <StyledThead>
                     <tr>

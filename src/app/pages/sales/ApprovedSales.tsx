@@ -234,7 +234,74 @@ export const ApprovedSales = () => {
         </DataCard>
       ) : (
         <DataCard>
-          <div className="overflow-x-auto">
+          {/* Mobile cards */}
+          <ul className="lg:hidden divide-y divide-border sa-font-body" aria-label="Approved sales">
+            {paginated.map((o) => {
+              const stripeMap: Record<string, string> = {
+                Approved:  'bg-emerald-500',
+                Billed:    'bg-blue-500',
+                Delivered: 'bg-violet-500',
+              };
+              return (
+                <li key={o.id}>
+                  <div className="w-full flex items-stretch gap-3 px-4 py-3.5">
+                    <span className={`w-1 rounded-full ${stripeMap[o.status] ?? 'bg-slate-300'}`} aria-hidden />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-foreground truncate">{o.order_number}</p>
+                        <p className="font-mono font-bold text-sm text-foreground">
+                          {formatCurrency(o.grand_total ?? 0)}
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        {o.customers?.name ?? '—'}
+                      </p>
+                      
+                      <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-muted-foreground bg-muted/20 p-2 rounded-lg border border-border/40">
+                        <div className="flex flex-col gap-0.5 pr-2 border-r border-border/40">
+                          <span className="text-[9px] uppercase tracking-wider font-semibold">Invoice No</span>
+                          <span className="font-mono font-bold text-foreground/90">{o.invoice_number ?? '—'}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5 pr-2 border-r border-border/40">
+                          <span className="text-[9px] uppercase tracking-wider font-semibold">Company</span>
+                          <span className="font-medium text-foreground/90 truncate max-w-[80px]">{getCompanyDisplayName(o.company, companyProfiles)}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[9px] uppercase tracking-wider font-semibold">Approved</span>
+                          <span className="font-mono font-medium text-foreground/90">
+                            {o.approved_at ? new Date(o.approved_at).toLocaleDateString('en-IN') : '—'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-2.5 flex items-center justify-between">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-muted text-foreground/80`}>
+                          {o.status}
+                        </span>
+                        {o.invoice_type && (
+                          <span className="text-[10px] font-semibold text-muted-foreground">
+                            Type: {o.invoice_type}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="lg:hidden">
+            <TablePagination
+              totalItems={filtered.length}
+              currentPage={page}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              itemLabel="orders"
+            />
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full text-sm">
               <StyledThead>
                 <tr>
@@ -268,13 +335,15 @@ export const ApprovedSales = () => {
               </tbody>
             </table>
           </div>
-          <TablePagination
-            totalItems={filtered.length}
-            currentPage={page}
-            pageSize={pageSize}
-            onPageChange={setCurrentPage}
-            itemLabel="orders"
-          />
+          <div className="hidden lg:block">
+            <TablePagination
+              totalItems={filtered.length}
+              currentPage={page}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              itemLabel="orders"
+            />
+          </div>
         </DataCard>
       )}
     </div>

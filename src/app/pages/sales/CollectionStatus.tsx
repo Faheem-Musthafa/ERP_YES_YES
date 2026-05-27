@@ -195,66 +195,60 @@ export const CollectionStatus = () => {
           />
         ) : (
           <>
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <StyledThead>
-                <tr>
-                  <StyledTh>Receipt No</StyledTh>
-                  <StyledTh>Invoice No</StyledTh>
-                  <StyledTh>Customer</StyledTh>
-                  <StyledTh center>Mode</StyledTh>
-                  <StyledTh center>Payment Status</StyledTh>
-                  <StyledTh right>Amount (₹)</StyledTh>
-                  <StyledTh>Date</StyledTh>
-                </tr>
-              </StyledThead>
-              <tbody>
-                {paginated.map(r => {
-                  const invoiceNo = r.orders?.invoice_number ?? r.orders?.order_number ?? '—';
-                  const statusOptions = RECEIPT_STATUS_OPTIONS_BY_MODE[r.payment_mode] ?? [];
-                  const currentStatus = r.payment_status ?? DEFAULT_RECEIPT_STATUS;
+            {/* Mobile list */}
+            <ul className="lg:hidden divide-y divide-border sa-font-body" aria-label="Collections status list">
+              {paginated.map(r => {
+                const invoiceNo = r.orders?.invoice_number ?? r.orders?.order_number ?? '—';
+                const statusOptions = RECEIPT_STATUS_OPTIONS_BY_MODE[r.payment_mode] ?? [];
+                const currentStatus = r.payment_status ?? DEFAULT_RECEIPT_STATUS;
+                return (
+                  <li key={r.id}>
+                    <div className="w-full flex items-stretch gap-3 px-4 py-3.5 bg-white/60 dark:bg-slate-900/40">
+                      <span className="w-1 rounded-full bg-primary" aria-hidden />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-bold text-foreground truncate">{r.receipt_number}</p>
+                          <p className="font-mono font-bold text-sm text-foreground">
+                            ₹ {r.amount?.toLocaleString('en-IN')}
+                          </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {(() => {
+                            const name = r.orders?.customers?.name ?? r.customers?.name ?? null;
+                            const cid = r.orders?.customer_id ?? r.customer_id ?? null;
+                            if (!name) return '—';
+                            return <CustomerNameLink customerId={cid}>{name}</CustomerNameLink>;
+                          })()}
+                        </p>
+                        
+                        <div className="mt-2.5 flex items-center justify-between">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${MODE_COLORS[r.payment_mode] ?? 'bg-muted text-muted-foreground'}`}>
+                            {r.payment_mode}
+                          </span>
+                          <span className="text-[10px] font-semibold text-muted-foreground">
+                            Invoice: {invoiceNo}
+                          </span>
+                        </div>
 
-                  return (
-                    <StyledTr key={r.id}>
-                      <StyledTd className="font-semibold text-primary">{r.receipt_number}</StyledTd>
-                      <StyledTd className="font-medium text-foreground">{invoiceNo}</StyledTd>
-                      <StyledTd className="text-muted-foreground">
-                        {(() => {
-                          const name = r.orders?.customers?.name ?? r.customers?.name ?? null;
-                          const cid = r.orders?.customer_id ?? r.customer_id ?? null;
-                          if (!name) return '—';
-                          return <CustomerNameLink customerId={cid}>{name}</CustomerNameLink>;
-                        })()}
-                      </StyledTd>
-                      <StyledTd center>
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${MODE_COLORS[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>
-                          {r.payment_mode}
-                        </span>
-                      </StyledTd>
-                      <StyledTd center>
-                        <div className="flex flex-col items-center gap-1">
-                          {currentStatus ? (
-                            <div className="flex items-center gap-1.5">
-                              <StatusBadge status={STATUS_COLORS[currentStatus] ?? currentStatus} />
-                              {currentStatus === 'Bounced' && r.bounce_reason && (
-                                <span title={r.bounce_reason} className="cursor-help">
-                                  <AlertCircle size={14} className="text-orange-500" />
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-400 italic">Not set</span>
-                          )}
+                        <div className="mt-3 pt-3 border-t border-border/40 flex items-center justify-between gap-3 flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <StatusBadge status={STATUS_COLORS[currentStatus] ?? currentStatus} />
+                            {currentStatus === 'Bounced' && r.bounce_reason && (
+                              <span title={r.bounce_reason} className="cursor-help">
+                                <AlertCircle size={14} className="text-orange-500" />
+                              </span>
+                            )}
+                          </div>
                           {statusOptions.length > 0 && (
                             <Select
                               value={currentStatus}
-                              onValueChange={(v: string) => updateStatus(r.id, v)}
+                              onValueChange={(v: string) => void updateStatus(r.id, v)}
                               disabled={savingStatus === r.id}
                             >
-                              <SelectTrigger className="h-6 text-[10px] w-28 rounded-md border-gray-200">
+                              <SelectTrigger className="h-7 text-[10px] w-28 rounded-lg border-border bg-card">
                                 <SelectValue placeholder="Update…" />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent className="rounded-lg">
                                 {statusOptions.map((s: string) => (
                                   <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
                                 ))}
@@ -262,22 +256,112 @@ export const CollectionStatus = () => {
                             </Select>
                           )}
                         </div>
-                      </StyledTd>
-                      <StyledTd right mono className="font-bold">₹ {r.amount?.toLocaleString('en-IN')}</StyledTd>
-                      <StyledTd mono className="text-xs text-muted-foreground">{new Date(r.received_date ?? r.created_at).toLocaleDateString()}</StyledTd>
-                    </StyledTr>
-                  );
-                })}
-              </tbody>
-            </table>
+
+                        <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span>Received Date: {new Date(r.received_date ?? r.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="lg:hidden">
+              <TablePagination
+                totalItems={filtered.length}
+                currentPage={page}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                itemLabel="receipts"
+              />
             </div>
-            <TablePagination
-              totalItems={filtered.length}
-              currentPage={page}
-              pageSize={pageSize}
-              onPageChange={setCurrentPage}
-              itemLabel="receipts"
-            />
+
+            {/* Desktop table */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <StyledThead>
+                  <tr>
+                    <StyledTh>Receipt No</StyledTh>
+                    <StyledTh>Invoice No</StyledTh>
+                    <StyledTh>Customer</StyledTh>
+                    <StyledTh center>Mode</StyledTh>
+                    <StyledTh center>Payment Status</StyledTh>
+                    <StyledTh right>Amount (₹)</StyledTh>
+                    <StyledTh>Date</StyledTh>
+                  </tr>
+                </StyledThead>
+                <tbody>
+                  {paginated.map(r => {
+                    const invoiceNo = r.orders?.invoice_number ?? r.orders?.order_number ?? '—';
+                    const statusOptions = RECEIPT_STATUS_OPTIONS_BY_MODE[r.payment_mode] ?? [];
+                    const currentStatus = r.payment_status ?? DEFAULT_RECEIPT_STATUS;
+
+                    return (
+                      <StyledTr key={r.id}>
+                        <StyledTd className="font-semibold text-primary">{r.receipt_number}</StyledTd>
+                        <StyledTd className="font-medium text-foreground">{invoiceNo}</StyledTd>
+                        <StyledTd className="text-muted-foreground">
+                          {(() => {
+                            const name = r.orders?.customers?.name ?? r.customers?.name ?? null;
+                            const cid = r.orders?.customer_id ?? r.customer_id ?? null;
+                            if (!name) return '—';
+                            return <CustomerNameLink customerId={cid}>{name}</CustomerNameLink>;
+                          })()}
+                        </StyledTd>
+                        <StyledTd center>
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${MODE_COLORS[r.payment_mode] ?? 'bg-gray-100 text-gray-700'}`}>
+                            {r.payment_mode}
+                          </span>
+                        </StyledTd>
+                        <StyledTd center>
+                          <div className="flex flex-col items-center gap-1">
+                            {currentStatus ? (
+                              <div className="flex items-center gap-1.5">
+                                <StatusBadge status={STATUS_COLORS[currentStatus] ?? currentStatus} />
+                                {currentStatus === 'Bounced' && r.bounce_reason && (
+                                  <span title={r.bounce_reason} className="cursor-help">
+                                    <AlertCircle size={14} className="text-orange-500" />
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400 italic">Not set</span>
+                            )}
+                            {statusOptions.length > 0 && (
+                              <Select
+                                value={currentStatus}
+                                onValueChange={(v: string) => updateStatus(r.id, v)}
+                                disabled={savingStatus === r.id}
+                              >
+                                <SelectTrigger className="h-6 text-[10px] w-28 rounded-md border-gray-200">
+                                  <SelectValue placeholder="Update…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {statusOptions.map((s: string) => (
+                                    <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        </StyledTd>
+                        <StyledTd right mono className="font-bold">₹ {r.amount?.toLocaleString('en-IN')}</StyledTd>
+                        <StyledTd mono className="text-xs text-muted-foreground">{new Date(r.received_date ?? r.created_at).toLocaleDateString()}</StyledTd>
+                      </StyledTr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="hidden lg:block">
+              <TablePagination
+                totalItems={filtered.length}
+                currentPage={page}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                itemLabel="receipts"
+              />
+            </div>
           </>
         )}
       </DataCard>

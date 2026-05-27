@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
@@ -531,7 +531,143 @@ export const StaffManagement = () => {
                         <EmptyState icon={UserPlus} message="No staff accounts" sub="Create your first staff account to get started" />
                     ) : (
                         <>
-                            <div className="overflow-x-auto">
+                            {/* Mobile card view */}
+                            <ul className="lg:hidden divide-y divide-border sa-font-body" aria-label="Staff members">
+                                {paginated.map((u) => (
+                                    <li key={u.id} className="p-4 space-y-3.5">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-bold text-foreground truncate">{u.full_name}</p>
+                                                <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                                {u.role === 'admin' ? (
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${ROLE_STYLES.admin}`}>
+                                                        <Shield size={9} /> admin
+                                                    </span>
+                                                ) : (
+                                                    <Select
+                                                        value={u.role}
+                                                        onValueChange={async (newRole) => {
+                                                            setUpdatingRoleId(u.id);
+                                                            try {
+                                                                const { error } = await supabase.from('users').update({ role: newRole as UserRole }).eq('id', u.id);
+                                                                if (error) {
+                                                                    toast.error('Failed to update role');
+                                                                } else {
+                                                                    toast.success('Role updated');
+                                                                    await fetchUsers();
+                                                                }
+                                                            } finally {
+                                                                setUpdatingRoleId(null);
+                                                            }
+                                                        }}
+                                                        disabled={updatingRoleId !== null && updatingRoleId !== u.id}
+                                                    >
+                                                        <SelectTrigger className={`h-6 text-[10px] font-bold rounded-full px-2 border ${ROLE_STYLES[u.role] ?? ''}`}>
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {ROLES.map(r => <SelectItem key={r.value} value={r.value} className="text-xs">{r.label}</SelectItem>)}
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                                <div className="mt-1">
+                                                    <StatusBadge status={u.is_active ? 'Active' : 'Archived'} />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between gap-2 bg-muted/30 p-2.5 rounded-xl border border-border/50 text-xs">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Employee ID</span>
+                                                <span className="font-mono text-foreground font-semibold">{u.employee_id ?? '—'}</span>
+                                            </div>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Joined</span>
+                                                <span className="font-medium text-foreground">{new Date(u.created_at).toLocaleDateString()}</span>
+                                            </div>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Pwd Changed</span>
+                                                <span className="font-medium text-foreground">{u.must_change_password ? 'No (Pending)' : 'Yes'}</span>
+                                            </div>
+                                        </div>
+
+                                        {u.role !== 'admin' && (
+                                            <div className="flex items-center justify-between gap-3 pt-1">
+                                                <div className="flex items-center gap-2 flex-1">
+                                                    <span className="text-xs font-bold text-muted-foreground">Target:</span>
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        max="100000000"
+                                                        value={targetDrafts[u.id] ?? ''}
+                                                        onChange={(event) => {
+                                                            const value = sanitizeNonNegativeInteger(event.target.value, 12);
+                                                            setTargetDrafts((prev) => ({ ...prev, [u.id]: value }));
+                                                        }}
+                                                        className="h-8 flex-1"
+                                                        placeholder="Monthly Target"
+                                                    />
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        disabled={savingTargetId === u.id}
+                                                        onClick={() => void handleSaveTarget(u)}
+                                                        className="h-8 px-3 text-xs font-bold"
+                                                    >
+                                                        {savingTargetId === u.id ? 'Saving...' : 'Save'}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center justify-end gap-2 border-t border-border/60 pt-2.5">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => openEdit(u)}
+                                                className="sa-tap h-8 px-3 text-xs gap-1"
+                                            >
+                                                <Pencil size={12} /> Edit Details
+                                            </Button>
+                                            {u.role !== 'admin' && (
+                                                u.is_active ? (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="destructive"
+                                                        onClick={() => setDeleteTarget(u)}
+                                                        className="sa-tap h-8 px-3 text-xs gap-1"
+                                                    >
+                                                        <Archive size={12} /> Archive
+                                                    </Button>
+                                                ) : (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => void handleRestoreStaff(u)}
+                                                        className="sa-tap h-8 px-3 text-xs gap-1 text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
+                                                    >
+                                                        <RotateCcw size={12} /> Restore
+                                                    </Button>
+                                                )
+                                            )}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                            <div className="lg:hidden px-4 pb-4">
+                                <TablePagination
+                                    totalItems={filtered.length}
+                                    currentPage={page}
+                                    pageSize={pageSize}
+                                    onPageChange={setCurrentPage}
+                                    itemLabel="staff members"
+                                />
+                            </div>
+
+                            {/* Desktop table */}
+                            <div className="hidden lg:block overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <StyledThead>
                                         <tr>
@@ -656,13 +792,15 @@ export const StaffManagement = () => {
                                     </tbody>
                                 </table>
                             </div>
-                            <TablePagination
-                                totalItems={filtered.length}
-                                currentPage={page}
-                                pageSize={pageSize}
-                                onPageChange={setCurrentPage}
-                                itemLabel="staff members"
-                            />
+                            <div className="hidden lg:block">
+                                <TablePagination
+                                    totalItems={filtered.length}
+                                    currentPage={page}
+                                    pageSize={pageSize}
+                                    onPageChange={setCurrentPage}
+                                    itemLabel="staff members"
+                                />
+                            </div>
                         </>
                     )
                 }

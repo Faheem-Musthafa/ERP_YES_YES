@@ -262,7 +262,52 @@ export const BackOrders = () => {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Mobile back-order lines */}
+                <ul className="lg:hidden divide-y divide-border sa-font-body" aria-label={`Back-order lines for order ${g.orderNumber}`}>
+                  {g.rows.map((r) => (
+                    <li key={r.id} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-foreground">{r.products?.name ?? '—'}</p>
+                          {r.products?.sku && (
+                            <p className="text-xs text-muted-foreground font-mono mt-0.5">{r.products.sku}</p>
+                          )}
+                        </div>
+                        <div className="shrink-0">
+                          <StatusBadge status={r.status} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 bg-muted/20 p-2.5 rounded-xl border border-border/40 text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Pending Qty</span>
+                          <span className="font-mono font-bold text-amber-700 dark:text-amber-400">{r.pending_qty}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Dealer Price</span>
+                          <span className="font-mono text-foreground">{formatCurrency(r.dealer_price)}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Discount</span>
+                          <span className="font-mono text-foreground">{r.discount_pct}%</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Line Value</span>
+                          <span className="font-mono font-bold text-foreground">
+                            {formatCurrency(r.pending_qty * r.dealer_price * (1 - (r.discount_pct || 0) / 100))}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>Created: {new Date(r.created_at).toLocaleDateString('en-IN')}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                {/* Desktop Table */}
+                <div className="hidden lg:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <StyledThead>
                       <tr>
@@ -313,7 +358,74 @@ export const BackOrders = () => {
 
           {modalGroup && (
             <>
-              <div className="overflow-x-auto rounded-xl border border-border/60">
+              {/* Mobile selector card list */}
+              <div className="lg:hidden space-y-3">
+                {modalPendingRows.map((r) => {
+                  const sel = selected[r.id] ?? { checked: false, qty: r.pending_qty };
+                  const lineAmt = (sel.qty || 0) * r.dealer_price * (1 - (r.discount_pct || 0) / 100);
+                  return (
+                    <div
+                      key={r.id}
+                      className={`p-3.5 rounded-xl border transition-all ${
+                        sel.checked
+                          ? 'border-emerald-500/50 bg-emerald-50/30 dark:bg-emerald-950/10'
+                          : 'border-border bg-card'
+                      }`}
+                    >
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={sel.checked}
+                          onChange={(e) => setSelected((prev) => ({ ...prev, [r.id]: { checked: e.target.checked, qty: prev[r.id]?.qty ?? r.pending_qty } }))}
+                          className="h-5 w-5 rounded accent-emerald-600 mt-0.5 shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-foreground">{r.products?.name ?? '—'}</p>
+                          <div className="mt-2.5 flex items-center justify-between gap-3">
+                            <div className="text-[11px] text-muted-foreground">
+                              <span>Pending: </span>
+                              <span className="font-mono font-bold text-foreground">{r.pending_qty}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-muted-foreground font-semibold">Release:</span>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={r.pending_qty}
+                                value={sel.qty}
+                                disabled={!sel.checked}
+                                onChange={(e) => setSelected((prev) => ({ ...prev, [r.id]: { checked: prev[r.id]?.checked ?? true, qty: Math.max(0, Math.min(r.pending_qty, Math.floor(Number(e.target.value) || 0))) } }))}
+                                className="h-8 w-20 rounded-lg font-mono text-center text-xs px-1"
+                              />
+                            </div>
+                          </div>
+                          {sel.checked && (
+                            <div className="mt-2 pt-2 border-t border-dashed border-border flex justify-between items-center text-xs">
+                              <span className="text-muted-foreground font-semibold">Line Value:</span>
+                              <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(lineAmt)}</span>
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    </div>
+                  );
+                })}
+
+                {/* Mobile Total summary card */}
+                <div className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground uppercase font-bold tracking-wider text-[10px]">Total Selected Qty</span>
+                    <span className="font-mono font-bold text-foreground">{totalSelectedQty}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-border">
+                    <span className="text-muted-foreground uppercase font-bold tracking-wider text-[10px]">Total Release Amount</span>
+                    <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 text-sm">{formatCurrency(totalSelectedAmount)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Desktop selection table */}
+              <div className="hidden lg:block overflow-x-auto rounded-xl border border-border/60">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
                     <tr>
