@@ -26,7 +26,7 @@ interface OrderItem {
   quantity: string; dp: number; mrp: number; discount: string; amount: string;
   lastEdited?: 'discount' | 'amount' | 'quantity' | 'dp';
 }
-interface Customer { id: string; name: string; phone: string | null; address: string; gst_pan: string | null; }
+interface Customer { id: string; name: string; phone: string | null; address: string; gst_pan: string | null; company: CompanyEnum | null; }
 interface Product {
   id: string; name: string; sku: string; dealer_price: number; mrp: number; brand_name: string;
   locationStocks: Record<string, number>;
@@ -94,7 +94,7 @@ export const CreateOrder = () => {
     const fetchData = async () => {
       try {
         const [{ data: custData, error: custError }, { data: prodData, error: prodError }, { data: stockData, error: stockError }, { data: salesData, error: salesError }, profiles, orderSettings] = await Promise.all([
-          supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
+          supabase.from('customers').select('id, name, phone, address, gst_pan, company').eq('is_active', true).order('name'),
           supabase.from('products').select('id, name, sku, dealer_price, mrp, brands(name)').eq('is_active', true).order('name'),
           supabase.from('v_available_stock').select('product_id, location, stock_qty, reserved_qty'),
           supabase.from('users').select('id, full_name, employee_id').eq('role', 'sales').eq('is_active', true).is('deleted_at', null).order('full_name'),
@@ -589,13 +589,26 @@ export const CreateOrder = () => {
                         <CommandList>
                           <CommandEmpty>No customer found.</CommandEmpty>
                           <CommandGroup heading="Verified Customers">
-                            {customers.map((c) => (
-                              <CommandItem key={c.id} value={c.name} onSelect={() => { handleCustomerSelect(c.id); setCustomerOpen(false); }}>
-                                <Building2 className="mr-2 h-4 w-4 text-gray-400" />
-                                {c.name}
-                                <Check className={cn("ml-auto h-4 w-4 text-[#00bdb4]", selectedCustomerId === c.id ? "opacity-100" : "opacity-0")} />
-                              </CommandItem>
-                            ))}
+                            {customers.map((c) => {
+                              const mismatch = !!company && !!c.company && c.company !== company;
+                              return (
+                                <CommandItem key={c.id} value={`${c.name} ${c.phone ?? ''} ${c.company ?? ''}`} onSelect={() => { handleCustomerSelect(c.id); setCustomerOpen(false); }}>
+                                  <Building2 className="mr-2 h-4 w-4 text-gray-400 shrink-0" />
+                                  <span className="flex-1 truncate">{c.name}</span>
+                                  {c.company ? (
+                                    <span className={cn(
+                                      "ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0",
+                                      mismatch ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-teal-50 text-teal-700 border-teal-200",
+                                    )} title={mismatch ? `Belongs to ${c.company} — order is for ${company}` : c.company}>
+                                      {c.company}
+                                    </span>
+                                  ) : (
+                                    <span className="ml-2 text-[10px] italic text-amber-600 shrink-0">unassigned</span>
+                                  )}
+                                  <Check className={cn("ml-2 h-4 w-4 text-[#00bdb4] shrink-0", selectedCustomerId === c.id ? "opacity-100" : "opacity-0")} />
+                                </CommandItem>
+                              );
+                            })}
                           </CommandGroup>
                         </CommandList>
                       </Command>

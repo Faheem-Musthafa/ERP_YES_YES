@@ -24,6 +24,7 @@ interface CustomerData {
     phone: string;
     location: string | null;
     place: string | null;
+    company: string | null;
     openingInvoice: number;
     openingDeliveryChallan: number;
     openingBalance: number;
@@ -81,7 +82,7 @@ export const MyCustomers = () => {
             // Fetch active customers
             const { data: custData, error: custErr } = await supabase
                 .from('customers')
-                .select('id, name, phone, location, place, opening_invoice, opening_delivery_challan, opening_balance, is_active')
+                .select('id, name, phone, location, place, company, opening_invoice, opening_delivery_challan, opening_balance, is_active')
                 .eq('is_active', true);
 
             if (custErr) throw custErr;
@@ -119,6 +120,7 @@ export const MyCustomers = () => {
                     phone: c.phone,
                     location: c.location,
                     place: c.place,
+                    company: c.company ?? null,
                     openingInvoice: c.opening_invoice ?? 0,
                     openingDeliveryChallan: c.opening_delivery_challan ?? 0,
                     openingBalance: c.opening_balance ?? 0,
@@ -469,6 +471,7 @@ export const MyCustomers = () => {
                                 <StyledThead>
                                     <tr>
                                         <StyledTh>Customer Name</StyledTh>
+                                        <StyledTh>Company</StyledTh>
                                         <StyledTh>Phone</StyledTh>
                                         <StyledTh>Location</StyledTh>
                                         <StyledTh right>Orders</StyledTh>
@@ -493,6 +496,13 @@ export const MyCustomers = () => {
                                                 >
                                                     {c.name}
                                                 </button>
+                                            </StyledTd>
+                                            <StyledTd>
+                                                {c.company ? (
+                                                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200">{c.company}</span>
+                                                ) : (
+                                                    <span className="text-[11px] text-amber-600 italic">unassigned</span>
+                                                )}
                                             </StyledTd>
                                             <StyledTd mono className="text-muted-foreground">{c.phone}</StyledTd>
                                             <StyledTd>

@@ -103,17 +103,18 @@ export const GlobalSearch = ({
       // Search customers
       const { data: customers, error: customersError } = await supabase
         .from('customers')
-        .select('id, name, phone, location')
+        .select('id, name, phone, location, company')
         .or(`name.ilike.%${safe}%,phone.ilike.%${safe}%`)
         .limit(5);
 
       if (customersError) throw customersError;
       if (customers) {
         customers.forEach(c => {
+          const parts = [c.company, c.phone, c.location].filter(Boolean);
           results_list.push({
             id: c.id,
             title: c.name,
-            subtitle: c.phone || c.location || undefined,
+            subtitle: parts.length ? parts.join(' · ') : undefined,
             type: 'customer',
             path: `/admin/customers`,
             icon: RESULT_ICONS.customer,

@@ -18,6 +18,7 @@ interface CustomerOption {
   id: string;
   name: string;
   phone: string;
+  company: string | null;
   opening_invoice: number | null;
   opening_delivery_challan: number | null;
 }
@@ -84,7 +85,7 @@ export const ReceiptEntry = () => {
         const [{ data: custData, error: custError }, { data: brandData, error: brandError }, profiles] = await Promise.all([
           supabase
             .from('customers')
-            .select('id, name, phone, opening_invoice, opening_delivery_challan')
+            .select('id, name, phone, company, opening_invoice, opening_delivery_challan')
             .eq('is_active', true)
             .order('name'),
           supabase.from('brands').select('name').eq('is_active', true).order('name'),
@@ -508,7 +509,7 @@ export const ReceiptEntry = () => {
               <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Lookup Directory <span className="text-rose-500">*</span></Label>
               <Select value={selectedCustomerId} onValueChange={handleCustomerSelect}>
                 <SelectTrigger className="h-14 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border-slate-200 dark:border-slate-700 text-base"><SelectValue placeholder="Search by name or phone..." /></SelectTrigger>
-                <SelectContent className="rounded-2xl max-h-[300px]">{customers.map(c => <SelectItem key={c.id} value={c.id} className="py-3 font-medium">{c.name} <span className="text-slate-400 text-xs ml-2 font-mono">({c.phone})</span></SelectItem>)}</SelectContent>
+                <SelectContent className="rounded-2xl max-h-[300px]">{customers.map(c => <SelectItem key={c.id} value={c.id} className="py-3 font-medium"><span className="inline-flex items-center gap-2">{c.name} {c.company && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">{c.company}</span>}<span className="text-slate-400 text-xs font-mono">({c.phone})</span></span></SelectItem>)}</SelectContent>
               </Select>
             </div>
           </div>

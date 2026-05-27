@@ -8,7 +8,7 @@ import {
   EmptyState, Spinner, StatusBadge,
 } from '@/app/components/ui/primitives';
 import { downloadCSV } from '@/app/utils';
-import { Phone, MapPin, Receipt, ShoppingBag, FileText, IndianRupee, Download } from 'lucide-react';
+import { Phone, MapPin, Receipt, ShoppingBag, FileText, IndianRupee, Download, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CustomerSummary {
@@ -17,6 +17,7 @@ interface CustomerSummary {
   phone: string | null;
   place: string | null;
   location: string | null;
+  company: string | null;
   opening_invoice: number | null;
   opening_delivery_challan: number | null;
 }
@@ -93,7 +94,7 @@ export const CustomerDialogProvider = ({ children }: { children: React.ReactNode
         const [custRes, ordersRes, receiptsRes] = await Promise.allSettled([
           supabase
             .from('customers')
-            .select('id, name, phone, place, location, opening_invoice, opening_delivery_challan')
+            .select('id, name, phone, place, location, company, opening_invoice, opening_delivery_challan')
             .eq('id', openId)
             .single(),
           supabase
@@ -250,7 +251,16 @@ export const CustomerDialogProvider = ({ children }: { children: React.ReactNode
                 <DialogTitle className="text-2xl font-bold tracking-tight">
                   {customerLoading ? 'Loading…' : (customer?.name ?? 'Unknown customer')}
                 </DialogTitle>
-                <DialogDescription className="mt-1.5 flex items-center gap-3 text-sm">
+                <DialogDescription className="mt-1.5 flex items-center gap-3 text-sm flex-wrap">
+                  {customer?.company ? (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-teal-50 text-teal-700 border border-teal-200 text-[11px] font-bold uppercase tracking-wide">
+                      <Building2 size={11} /> {customer.company}
+                    </span>
+                  ) : customer ? (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold uppercase tracking-wide">
+                      <Building2 size={11} /> Unassigned
+                    </span>
+                  ) : null}
                   {customer?.phone && (
                     <span className="flex items-center gap-1.5 opacity-90"><Phone size={14} className="text-primary/70"/> {customer.phone}</span>
                   )}

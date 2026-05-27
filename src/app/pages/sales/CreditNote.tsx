@@ -22,6 +22,7 @@ interface CustomerOption {
   id: string;
   name: string;
   phone: string | null;
+  company: string | null;
 }
 
 interface BillOption {
@@ -73,7 +74,7 @@ export const CreditNote = () => {
         const [{ data: customerData, error: customerError }, profiles] = await Promise.all([
           supabase
             .from('customers')
-            .select('id, name, phone')
+            .select('id, name, phone, company')
             .eq('is_active', true)
             .order('name'),
           loadCompanyProfiles().catch(() => null),
@@ -474,7 +475,13 @@ export const CreditNote = () => {
                   <SelectContent>
                     {customers.map((customer) => (
                       <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name} ({customer.phone})
+                        <span className="inline-flex items-center gap-2">
+                          {customer.name}
+                          {customer.company && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">{customer.company}</span>
+                          )}
+                          <span className="text-slate-400 text-xs font-mono">({customer.phone})</span>
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

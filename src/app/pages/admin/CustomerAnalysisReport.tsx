@@ -19,6 +19,7 @@ interface CustomerAnalysis {
     phone: string;
     location: string | null;
     place: string | null;
+    company: string | null;
     totalOrders: number;
     totalRevenue: number;
     totalCollected: number;
@@ -35,6 +36,7 @@ interface CustomerRow {
     phone: string;
     location: string | null;
     place: string | null;
+    company: string | null;
         opening_balance: number | null;
     is_active: boolean;
 }
@@ -65,7 +67,7 @@ export const CustomerAnalysisReport = () => {
         try {
             const { data: customers, error: custErr } = await supabase
                 .from('customers')
-                .select('id, name, phone, location, place, opening_balance, is_active');
+                .select('id, name, phone, location, place, company, opening_balance, is_active');
 
             if (custErr) throw custErr;
 
@@ -111,6 +113,7 @@ export const CustomerAnalysisReport = () => {
                     phone: c.phone,
                     location: c.location,
                     place: c.place,
+                    company: c.company ?? null,
                     totalOrders: orderInfo.count,
                     totalRevenue: orderInfo.revenue,
                     totalCollected,
@@ -186,9 +189,10 @@ export const CustomerAnalysisReport = () => {
                     <Button
                         size="sm"
                         onClick={() => downloadCSV(
-                            ['Name', 'Phone', 'Location', 'Place', 'Total Orders', 'Total Revenue', 'Collected', 'Net Balance', 'Avg Order Value', 'Last Order', 'Status'],
+                            ['Name', 'Company', 'Phone', 'Location', 'Place', 'Total Orders', 'Total Revenue', 'Collected', 'Net Balance', 'Avg Order Value', 'Last Order', 'Status'],
                             paginated.map(c => [
                                 c.name,
+                                c.company || '-',
                                 c.phone,
                                 c.location || '-',
                                 c.place || '-',
@@ -513,7 +517,14 @@ export const CustomerAnalysisReport = () => {
                                                         <p className="font-bold text-slate-900 dark:text-slate-100">
                                                             <CustomerNameLink customerId={c.id}>{c.name}</CustomerNameLink>
                                                         </p>
-                                                        <p className="text-[11px] font-medium text-slate-500 mt-0.5">{c.totalOrders} TXNs logged</p>
+                                                        <p className="text-[11px] font-medium text-slate-500 mt-0.5 flex items-center gap-1.5">
+                                                            {c.company ? (
+                                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">{c.company}</span>
+                                                            ) : (
+                                                                <span className="text-[10px] italic text-amber-600">unassigned</span>
+                                                            )}
+                                                            <span>· {c.totalOrders} TXNs logged</span>
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </td>

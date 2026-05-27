@@ -16,6 +16,7 @@ interface CustomerPayment {
     customerId: string;
     customerName: string;
     place: string;
+    company: string | null;
     openingBalance: number;
     totalOrders: number;
     totalBilled: number;
@@ -30,6 +31,7 @@ interface OrderPaymentRow {
     customers: {
         name: string;
         place: string | null;
+        company: string | null;
         opening_balance: number | null;
     } | null;
 }
@@ -38,6 +40,7 @@ interface CustomerRow {
     id: string;
     name: string;
     place: string | null;
+    company: string | null;
     opening_balance: number | null;
 }
 
@@ -68,7 +71,7 @@ export const Payments = () => {
             // Query 1: Fetch orders with customer info
             let ordersQuery = supabase
                 .from('orders')
-                .select('id, customer_id, grand_total, status, created_at, customers(name, place, opening_balance)')
+                .select('id, customer_id, grand_total, status, created_at, customers(name, place, company, opening_balance)')
                 .in('status', ['Approved', 'Billed', 'Delivered']);
 
             // Local calendar day → UTC half-open range, so an IST late-evening
@@ -95,7 +98,7 @@ export const Payments = () => {
 
             const customersQuery = supabase
                 .from('customers')
-                .select('id, name, place, opening_balance')
+                .select('id, name, place, company, opening_balance')
                 .eq('is_active', true);
 
             const [{ data: orders, error: ordersError }, { data: receipts, error: receiptsError }, { data: customerRows, error: customersError }] = await Promise.all([
@@ -127,6 +130,7 @@ export const Payments = () => {
                     customerId: customer.id,
                     customerName: customer.name,
                     place: customer.place ?? '—',
+                    company: customer.company ?? null,
                     openingBalance: customer.opening_balance ?? 0,
                     totalOrders: 0,
                     totalBilled: 0,
@@ -153,6 +157,7 @@ export const Payments = () => {
                         customerId: cid,
                         customerName: customer?.name ?? 'Unknown',
                         place: customer?.place ?? '—',
+                        company: customer?.company ?? null,
                         openingBalance: customer?.opening_balance ?? 0,
                         totalOrders: 1,
                         totalBilled: o.grand_total ?? 0,
@@ -211,9 +216,10 @@ export const Payments = () => {
 
     const exportCSV = () => {
         if (filtered.length === 0) return;
-        const headers = ['Customer Name', 'Place', 'Opening Balance', 'Total Orders', 'Total Billed', 'Total Paid', 'Net Balance', 'Status'];
+        const headers = ['Customer Name', 'Company', 'Place', 'Opening Balance', 'Total Orders', 'Total Billed', 'Total Paid', 'Net Balance', 'Status'];
         const rows = filtered.map(c => [
             c.customerName,
+            c.company ?? '—',
             c.place,
             c.openingBalance,
             c.totalOrders,
@@ -308,6 +314,7 @@ export const Payments = () => {
                                 <StyledThead>
                                     <tr>
                                         <StyledTh>Customer Name</StyledTh>
+                                        <StyledTh>Company</StyledTh>
                                         <StyledTh>Place</StyledTh>
                                         <StyledTh right>Total Orders</StyledTh>
                                         <StyledTh right>Total Billed (₹)</StyledTh>
@@ -322,6 +329,13 @@ export const Payments = () => {
                                         return (
                                             <StyledTr key={c.customerId}>
                                                 <StyledTd className="font-semibold text-foreground">{c.customerName}</StyledTd>
+                                                <StyledTd>
+                                                    {c.company ? (
+                                                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200">{c.company}</span>
+                                                    ) : (
+                                                        <span className="text-[11px] text-amber-600 italic">unassigned</span>
+                                                    )}
+                                                </StyledTd>
                                                 <StyledTd className="text-muted-foreground">{c.place}</StyledTd>
                                                 <StyledTd right mono className="font-medium">{c.totalOrders}</StyledTd>
                                                 <StyledTd right mono className="font-semibold text-foreground">{fmt(c.totalBilled)}</StyledTd>
