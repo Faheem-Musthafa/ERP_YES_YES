@@ -246,7 +246,7 @@ export const ApprovedSales = () => {
       ) : (
         <DataCard>
           {/* Mobile cards */}
-          <ul className="lg:hidden divide-y divide-border sa-font-body" aria-label="Approved sales">
+          <ul className="lg:hidden divide-y divide-border sm-font" aria-label="Approved sales">
             {paginated.map((o) => {
               const stripeMap: Record<string, string> = {
                 Approved:  'bg-emerald-500',

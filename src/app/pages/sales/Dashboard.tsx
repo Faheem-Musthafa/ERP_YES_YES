@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { fmtK, isCollectedReceiptStatus } from '@/app/utils';
@@ -6,7 +6,7 @@ import { DEFAULT_SALES_TARGET_SETTINGS, loadSalesTargetSettings } from '@/app/se
 import {
   ShoppingCart, TrendingUp, TrendingDown, CheckCircle, CheckCircle2,
   DollarSign, Activity, FileText, Wallet, Boxes, Sparkles, ChevronRight,
-  ArrowUpRight, Hourglass, Plus, Flame, Zap, Receipt,
+  ArrowUpRight, Hourglass, Plus, Zap, Receipt,
 } from 'lucide-react';
 import { Link } from 'react-router';
 import { Button } from '@/app/components/ui/button';
@@ -93,14 +93,14 @@ export const SalesDashboard = () => {
   const monthName = new Date().toLocaleString('en-IN', { month: 'long' });
   const maxWeekSales = Math.max(...monthlyData.map(d => d.sales), 1);
 
-  const pace = useMemo(() => {
+  const pace = (() => {
     const now = new Date();
     const dayOfMonth = now.getDate();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const expectedPct = (dayOfMonth / daysInMonth) * 100;
     const delta = targetPct - expectedPct;
     return { dayOfMonth, daysInMonth, expectedPct, delta };
-  }, [targetPct]);
+  })();
 
   if (loading) return <Spinner size={32} />;
   if (error) return <ErrorState message={error} onRetry={() => void fetchAll()} />;
@@ -259,7 +259,7 @@ export const SalesDashboard = () => {
                         <span className="text-xs text-muted-foreground truncate max-w-[150px]">{o.customers?.name ?? '—'}</span>
                       </div>
                       <div className="flex flex-col items-end gap-1.5">
-                        <span className="text-sm font-bold font-mono text-foreground leading-none">{o.grand_total?.toLocaleString('en-IN') ?? '0'}</span>
+                        <span className="text-sm font-bold font-mono text-foreground leading-none">₹{o.grand_total?.toLocaleString('en-IN') ?? '0'}</span>
                         <StatusBadge status={o.status} className="h-5 text-[9px] px-1.5" />
                       </div>
                     </li>

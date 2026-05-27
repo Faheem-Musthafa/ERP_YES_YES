@@ -48,6 +48,9 @@ const TABS: TabDef[] = [
       || p.startsWith('/sales/approved-sales')
       || p.startsWith('/sales/back-orders')
       || p.startsWith('/sales/price-list')
+      || p.startsWith('/sales/credit-note')
+      || p.startsWith('/sales/stock-transfer')
+      || p.startsWith('/sales/collection-status')
       || p.startsWith('/stock'),
   },
 ];
@@ -57,7 +60,7 @@ export const SalesMobileNav = () => {
   return (
     <nav
       aria-label="Sales primary navigation"
-      className="sm-font sm-safe-bottom lg:hidden fixed bottom-0 inset-x-0 z-30"
+      className="sm-font sm-safe-bottom lg:hidden fixed bottom-0 inset-x-0 z-20"
     >
       <div className="mx-2 mb-2 sm-card overflow-visible !rounded-2xl bg-white/95 backdrop-blur-md shadow-[0_-12px_28px_-12px_rgba(15,23,42,0.18)]">
         <ul className="grid grid-cols-5 px-1 pt-1.5">

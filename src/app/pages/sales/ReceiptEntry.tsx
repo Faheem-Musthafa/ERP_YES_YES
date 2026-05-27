@@ -476,7 +476,6 @@ export const ReceiptEntry = () => {
               value={receivedAmount}
               onChange={(e) => setReceivedAmount(sanitizeNonNegativeDecimal(e.target.value))}
               placeholder="0"
-              required
               className="sm-headline w-full bg-transparent text-white text-[42px] tabular-nums tracking-tight outline-none placeholder:text-white/35"
             />
           </div>
@@ -489,7 +488,6 @@ export const ReceiptEntry = () => {
                 value={receivedDate}
                 onChange={(e) => setReceivedDate(e.target.value)}
                 max={todayLocalISO()}
-                required
                 className="w-full h-12 sm-pill bg-white/15 text-white font-bold pl-10 pr-4 border border-white/20 outline-none focus:bg-white/20 [color-scheme:dark]"
               />
             </div>
@@ -506,7 +504,7 @@ export const ReceiptEntry = () => {
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors">
                   <IndianRupee size={24} />
                 </div>
-                <Input type="number" min="0.01" step="0.01" value={receivedAmount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedAmount(sanitizeNonNegativeDecimal(e.target.value))} placeholder="0.00" required className="pl-12 h-16 text-3xl font-bold font-mono bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-inner rounded-2xl focus-visible:ring-teal-500/30" />
+                <Input type="number" min="0.01" step="0.01" value={receivedAmount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedAmount(sanitizeNonNegativeDecimal(e.target.value))} placeholder="0.00" className="pl-12 h-16 text-3xl font-bold font-mono bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-inner rounded-2xl focus-visible:ring-teal-500/30" />
               </div>
             </div>
             <div className="space-y-3">
@@ -515,7 +513,7 @@ export const ReceiptEntry = () => {
                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors">
                    <Calendar size={18} />
                  </div>
-                 <Input type="date" value={receivedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedDate(e.target.value)} max={todayLocalISO()} required className="pl-12 h-16 text-lg font-medium bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-inner rounded-2xl focus-visible:ring-teal-500/30 [&::-webkit-calendar-picker-indicator]:opacity-50" />
+                 <Input type="date" value={receivedDate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReceivedDate(e.target.value)} max={todayLocalISO()} className="pl-12 h-16 text-lg font-medium bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-inner rounded-2xl focus-visible:ring-teal-500/30 [&::-webkit-calendar-picker-indicator]:opacity-50" />
                </div>
             </div>
           </div>

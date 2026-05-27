@@ -1,5 +1,5 @@
 ﻿import React, { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router';
 import { AuthProvider, useAuth } from '@/app/contexts/AuthContext';
 import { Layout } from '@/app/components/Layout';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
@@ -76,14 +76,24 @@ const Loader = (
 
 // ── Guard components ──────────────────────────────────────────────────────
 
-const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
+// Parent layout shell — mounts Layout once and renders nested route content
+// via Outlet. Persisting across child route changes prevents Layout
+// (notification poll, sidebar state) from remounting on every navigation.
+const ProtectedShell = () => {
   const { user, loading } = useAuth();
   if (loading) return Loader;
   if (!user) return <Navigate to="/login" replace />;
   if (!user.is_active) return <Navigate to="/login" replace />;
   if (user.must_change_password) return <Navigate to="/change-password" replace />;
-  if (allowedRoles && !allowedRoles.includes(user.role ?? '')) return <Navigate to="/" replace />;
-  return <Layout>{children}</Layout>;
+  return <Layout><Outlet /></Layout>;
+};
+
+// Per-route role check. Auth/active/must-change-password already enforced by
+// ProtectedShell parent.
+const RoleGate = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
+  const { user } = useAuth();
+  if (allowedRoles && !allowedRoles.includes(user?.role ?? '')) return <Navigate to="/" replace />;
+  return <>{children}</>;
 };
 
 const ChangePasswordRoute = () => {
@@ -125,65 +135,71 @@ const AppRoutes = () => {
         <Route path="/login" element={loading ? Loader : user && !user.must_change_password ? <Navigate to="/" replace /> : <Login />} />
         <Route path="/change-password" element={<ChangePasswordRoute />} />
 
-        {/* Admin Routes */}
-        <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/admin/staff" element={<ProtectedRoute allowedRoles={['admin']}><StaffManagement /></ProtectedRoute>} />
-        <Route path="/admin/customers" element={<ProtectedRoute allowedRoles={['admin']}><Customers /></ProtectedRoute>} />
-        <Route path="/admin/customers/new" element={<ProtectedRoute allowedRoles={['admin']}><CustomerForm /></ProtectedRoute>} />
-        <Route path="/admin/customers/:id/edit" element={<ProtectedRoute allowedRoles={['admin']}><CustomerForm /></ProtectedRoute>} />
-        <Route path="/admin/customer-analysis" element={<ProtectedRoute allowedRoles={['admin']}><CustomerAnalysisReport /></ProtectedRoute>} />
-        <Route path="/admin/brands" element={<ProtectedRoute allowedRoles={['admin']}><Brands /></ProtectedRoute>} />
-        <Route path="/admin/products" element={<ProtectedRoute allowedRoles={['admin']}><Products /></ProtectedRoute>} />
-        <Route path="/admin/sales" element={<ProtectedRoute allowedRoles={['admin']}><SalesRecords /></ProtectedRoute>} />
-        <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={['admin']}><AdminReports /></ProtectedRoute>} />
-        <Route path="/admin/drivers" element={<ProtectedRoute allowedRoles={['admin']}><DeliveryDrivers /></ProtectedRoute>} />
-        <Route path="/admin/activity" element={<ProtectedRoute allowedRoles={['admin']}><ActivityLog /></ProtectedRoute>} />
-        <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']}><AdminSettings /></ProtectedRoute>} />
+        {/* All authenticated routes share one Layout instance (mounted by
+            ProtectedShell). Layout persists across navigations between child
+            routes — sidebar/notification state and the notification polling
+            interval no longer reset on every page change. */}
+        <Route element={<ProtectedShell />}>
+          {/* Admin Routes */}
+          <Route path="/admin" element={<RoleGate allowedRoles={['admin']}><AdminDashboard /></RoleGate>} />
+          <Route path="/admin/staff" element={<RoleGate allowedRoles={['admin']}><StaffManagement /></RoleGate>} />
+          <Route path="/admin/customers" element={<RoleGate allowedRoles={['admin']}><Customers /></RoleGate>} />
+          <Route path="/admin/customers/new" element={<RoleGate allowedRoles={['admin']}><CustomerForm /></RoleGate>} />
+          <Route path="/admin/customers/:id/edit" element={<RoleGate allowedRoles={['admin']}><CustomerForm /></RoleGate>} />
+          <Route path="/admin/customer-analysis" element={<RoleGate allowedRoles={['admin']}><CustomerAnalysisReport /></RoleGate>} />
+          <Route path="/admin/brands" element={<RoleGate allowedRoles={['admin']}><Brands /></RoleGate>} />
+          <Route path="/admin/products" element={<RoleGate allowedRoles={['admin']}><Products /></RoleGate>} />
+          <Route path="/admin/sales" element={<RoleGate allowedRoles={['admin']}><SalesRecords /></RoleGate>} />
+          <Route path="/admin/reports" element={<RoleGate allowedRoles={['admin']}><AdminReports /></RoleGate>} />
+          <Route path="/admin/drivers" element={<RoleGate allowedRoles={['admin']}><DeliveryDrivers /></RoleGate>} />
+          <Route path="/admin/activity" element={<RoleGate allowedRoles={['admin']}><ActivityLog /></RoleGate>} />
+          <Route path="/admin/settings" element={<RoleGate allowedRoles={['admin']}><AdminSettings /></RoleGate>} />
 
-        {/* Sales Routes */}
-        <Route path="/sales" element={<ProtectedRoute allowedRoles={['sales']}><SalesDashboard /></ProtectedRoute>} />
-        <Route path="/sales/create-order" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><CreateOrder /></ProtectedRoute>} />
-        <Route path="/sales/credit-note" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><CreditNote /></ProtectedRoute>} />
-        <Route path="/sales/my-orders" element={<ProtectedRoute allowedRoles={['sales']}><MyOrders /></ProtectedRoute>} />
-        <Route path="/sales/my-customers" element={<ProtectedRoute allowedRoles={['sales']}><MyCustomers /></ProtectedRoute>} />
-        <Route path="/sales/receipt" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><ReceiptEntry /></ProtectedRoute>} />
-        <Route path="/sales/my-collection" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><MyCollection /></ProtectedRoute>} />
-        <Route path="/sales/collection-status" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><CollectionStatus /></ProtectedRoute>} />
-        <Route path="/sales/back-orders" element={<ProtectedRoute allowedRoles={['sales', 'admin', 'accounts']}><BackOrders /></ProtectedRoute>} />
-        <Route path="/sales/approved-sales" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><ApprovedSales /></ProtectedRoute>} />
-        <Route path="/sales/price-list" element={<ProtectedRoute allowedRoles={['sales', 'admin']}><PriceList /></ProtectedRoute>} />
-        <Route path="/sales/more" element={<ProtectedRoute allowedRoles={['sales']}><SalesMore /></ProtectedRoute>} />
-        <Route path="/accounts/back-orders" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><BackOrders /></ProtectedRoute>} />
+          {/* Sales Routes */}
+          <Route path="/sales" element={<RoleGate allowedRoles={['sales']}><SalesDashboard /></RoleGate>} />
+          <Route path="/sales/create-order" element={<RoleGate allowedRoles={['sales', 'admin']}><CreateOrder /></RoleGate>} />
+          <Route path="/sales/credit-note" element={<RoleGate allowedRoles={['sales', 'admin']}><CreditNote /></RoleGate>} />
+          <Route path="/sales/my-orders" element={<RoleGate allowedRoles={['sales']}><MyOrders /></RoleGate>} />
+          <Route path="/sales/my-customers" element={<RoleGate allowedRoles={['sales']}><MyCustomers /></RoleGate>} />
+          <Route path="/sales/receipt" element={<RoleGate allowedRoles={['sales', 'admin']}><ReceiptEntry /></RoleGate>} />
+          <Route path="/sales/my-collection" element={<RoleGate allowedRoles={['sales', 'admin']}><MyCollection /></RoleGate>} />
+          <Route path="/sales/collection-status" element={<RoleGate allowedRoles={['sales', 'admin']}><CollectionStatus /></RoleGate>} />
+          <Route path="/sales/back-orders" element={<RoleGate allowedRoles={['sales', 'admin', 'accounts']}><BackOrders /></RoleGate>} />
+          <Route path="/sales/approved-sales" element={<RoleGate allowedRoles={['sales', 'admin']}><ApprovedSales /></RoleGate>} />
+          <Route path="/sales/price-list" element={<RoleGate allowedRoles={['sales', 'admin']}><PriceList /></RoleGate>} />
+          <Route path="/sales/more" element={<RoleGate allowedRoles={['sales']}><SalesMore /></RoleGate>} />
+          <Route path="/accounts/back-orders" element={<RoleGate allowedRoles={['accounts', 'admin']}><BackOrders /></RoleGate>} />
 
-        {/* Accounts Routes */}
-        <Route path="/accounts" element={<ProtectedRoute allowedRoles={['accounts']}><AccountsDashboard /></ProtectedRoute>} />
-        <Route path="/accounts/collection-status" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><CollectionStatus /></ProtectedRoute>} />
-        <Route path="/accounts/pending-orders" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><OrderReview /></ProtectedRoute>} />
-        <Route path="/accounts/billing" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><Billing /></ProtectedRoute>} />
-        <Route path="/accounts/sales" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><SalesRecords /></ProtectedRoute>} />
-        <Route path="/accounts/payments" element={<ProtectedRoute allowedRoles={['accounts', 'admin']}><Payments /></ProtectedRoute>} />
+          {/* Accounts Routes */}
+          <Route path="/accounts" element={<RoleGate allowedRoles={['accounts']}><AccountsDashboard /></RoleGate>} />
+          <Route path="/accounts/collection-status" element={<RoleGate allowedRoles={['accounts', 'admin']}><CollectionStatus /></RoleGate>} />
+          <Route path="/accounts/pending-orders" element={<RoleGate allowedRoles={['accounts', 'admin']}><OrderReview /></RoleGate>} />
+          <Route path="/accounts/billing" element={<RoleGate allowedRoles={['accounts', 'admin']}><Billing /></RoleGate>} />
+          <Route path="/accounts/sales" element={<RoleGate allowedRoles={['accounts', 'admin']}><SalesRecords /></RoleGate>} />
+          <Route path="/accounts/payments" element={<RoleGate allowedRoles={['accounts', 'admin']}><Payments /></RoleGate>} />
 
-        {/* Shared Routes */}
-        <Route path="/stock" element={<ProtectedRoute allowedRoles={['admin', 'accounts', 'sales', 'inventory', 'procurement']}><StockManagement /></ProtectedRoute>} />
+          {/* Shared Routes */}
+          <Route path="/stock" element={<RoleGate allowedRoles={['admin', 'accounts', 'sales', 'inventory', 'procurement']}><StockManagement /></RoleGate>} />
 
-        {/* Inventory Routes */}
-        <Route path="/inventory" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><InventoryDashboard /></ProtectedRoute>} />
-        <Route path="/inventory/stock" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><InventoryStock /></ProtectedRoute>} />
-        <Route path="/inventory/brands" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><Brands /></ProtectedRoute>} />
-        <Route path="/inventory/products" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><Products /></ProtectedRoute>} />
-        <Route path="/inventory/adjustment" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><StockAdjustment /></ProtectedRoute>} />
-        <Route path="/inventory/transfer" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><StockTransfer /></ProtectedRoute>} />
-        <Route path="/sales/stock-transfer" element={<ProtectedRoute allowedRoles={['sales', 'admin', 'inventory']}><StockTransfer /></ProtectedRoute>} />
-        <Route path="/inventory/reports" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><InventoryReports /></ProtectedRoute>} />
-        <Route path="/inventory/delivery" element={<ProtectedRoute allowedRoles={['inventory', 'admin']}><DeliveryManagement /></ProtectedRoute>} />
+          {/* Inventory Routes */}
+          <Route path="/inventory" element={<RoleGate allowedRoles={['inventory', 'admin']}><InventoryDashboard /></RoleGate>} />
+          <Route path="/inventory/stock" element={<RoleGate allowedRoles={['inventory', 'admin']}><InventoryStock /></RoleGate>} />
+          <Route path="/inventory/brands" element={<RoleGate allowedRoles={['inventory', 'admin']}><Brands /></RoleGate>} />
+          <Route path="/inventory/products" element={<RoleGate allowedRoles={['inventory', 'admin']}><Products /></RoleGate>} />
+          <Route path="/inventory/adjustment" element={<RoleGate allowedRoles={['inventory', 'admin']}><StockAdjustment /></RoleGate>} />
+          <Route path="/inventory/transfer" element={<RoleGate allowedRoles={['inventory', 'admin']}><StockTransfer /></RoleGate>} />
+          <Route path="/sales/stock-transfer" element={<RoleGate allowedRoles={['sales', 'admin', 'inventory']}><StockTransfer /></RoleGate>} />
+          <Route path="/inventory/reports" element={<RoleGate allowedRoles={['inventory', 'admin']}><InventoryReports /></RoleGate>} />
+          <Route path="/inventory/delivery" element={<RoleGate allowedRoles={['inventory', 'admin']}><DeliveryManagement /></RoleGate>} />
 
-        {/* Procurement Routes */}
-        <Route path="/procurement" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><ProcurementDashboard /></ProtectedRoute>} />
-        <Route path="/procurement/orders" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><PurchaseOrders /></ProtectedRoute>} />
-        <Route path="/procurement/history" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><PurchaseHistory /></ProtectedRoute>} />
-        <Route path="/procurement/suppliers" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><Suppliers /></ProtectedRoute>} />
-        <Route path="/procurement/grn" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><GRN /></ProtectedRoute>} />
-        <Route path="/procurement/reports" element={<ProtectedRoute allowedRoles={['procurement', 'admin']}><ProcurementReports /></ProtectedRoute>} />
+          {/* Procurement Routes */}
+          <Route path="/procurement" element={<RoleGate allowedRoles={['procurement', 'admin']}><ProcurementDashboard /></RoleGate>} />
+          <Route path="/procurement/orders" element={<RoleGate allowedRoles={['procurement', 'admin']}><PurchaseOrders /></RoleGate>} />
+          <Route path="/procurement/history" element={<RoleGate allowedRoles={['procurement', 'admin']}><PurchaseHistory /></RoleGate>} />
+          <Route path="/procurement/suppliers" element={<RoleGate allowedRoles={['procurement', 'admin']}><Suppliers /></RoleGate>} />
+          <Route path="/procurement/grn" element={<RoleGate allowedRoles={['procurement', 'admin']}><GRN /></RoleGate>} />
+          <Route path="/procurement/reports" element={<RoleGate allowedRoles={['procurement', 'admin']}><ProcurementReports /></RoleGate>} />
+        </Route>
 
         {/* 404 */}
         <Route path="*" element={<Navigate to="/" replace />} />

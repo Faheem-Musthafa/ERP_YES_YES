@@ -274,7 +274,7 @@ export const BackOrders = () => {
                 </div>
 
                 {/* Mobile back-order lines */}
-                <ul className="lg:hidden divide-y divide-border sa-font-body" aria-label={`Back-order lines for order ${g.orderNumber}`}>
+                <ul className="lg:hidden divide-y divide-border sm-font" aria-label={`Back-order lines for order ${g.orderNumber}`}>
                   {g.rows.map((r) => (
                     <li key={r.id} className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-3">
@@ -383,41 +383,43 @@ export const BackOrders = () => {
                           : 'border-border bg-card'
                       }`}
                     >
-                      <label className="flex items-start gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={sel.checked}
-                          onChange={(e) => setSelected((prev) => ({ ...prev, [r.id]: { checked: e.target.checked, qty: prev[r.id]?.qty ?? r.pending_qty } }))}
-                          className="h-5 w-5 rounded accent-emerald-600 mt-0.5 shrink-0"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-foreground">{r.products?.name ?? '—'}</p>
-                          <div className="mt-2.5 flex items-center justify-between gap-3">
-                            <div className="text-[11px] text-muted-foreground">
+                      <div className="flex items-start gap-3">
+                        <label className="flex items-start gap-3 cursor-pointer flex-1 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={sel.checked}
+                            onChange={(e) => setSelected((prev) => ({ ...prev, [r.id]: { checked: e.target.checked, qty: prev[r.id]?.qty ?? r.pending_qty } }))}
+                            className="h-5 w-5 rounded accent-emerald-600 mt-0.5 shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-foreground">{r.products?.name ?? '—'}</p>
+                            <div className="mt-2.5 text-[11px] text-muted-foreground">
                               <span>Pending: </span>
                               <span className="font-mono font-bold text-foreground">{r.pending_qty}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] text-muted-foreground font-semibold">Release:</span>
-                              <Input
-                                type="number"
-                                min={1}
-                                max={r.pending_qty}
-                                value={sel.qty}
-                                disabled={!sel.checked}
-                                onChange={(e) => setSelected((prev) => ({ ...prev, [r.id]: { checked: prev[r.id]?.checked ?? true, qty: Math.max(0, Math.min(r.pending_qty, Math.floor(Number(e.target.value) || 0))) } }))}
-                                className="h-8 w-20 rounded-lg font-mono text-center text-xs px-1"
-                              />
-                            </div>
+                          </div>
+                        </label>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-muted-foreground font-semibold">Release:</span>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={r.pending_qty}
+                              value={sel.qty}
+                              disabled={!sel.checked}
+                              onChange={(e) => setSelected((prev) => ({ ...prev, [r.id]: { checked: prev[r.id]?.checked ?? true, qty: Math.max(1, Math.min(r.pending_qty, Math.floor(Number(e.target.value) || 1))) } }))}
+                              className="h-8 w-20 rounded-lg font-mono text-center text-xs px-1"
+                            />
                           </div>
                           {sel.checked && (
-                            <div className="mt-2 pt-2 border-t border-dashed border-border flex justify-between items-center text-xs">
-                              <span className="text-muted-foreground font-semibold">Line Value:</span>
+                            <div className="text-xs flex items-center gap-2">
+                              <span className="text-muted-foreground font-semibold">Line:</span>
                               <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(lineAmt)}</span>
                             </div>
                           )}
                         </div>
-                      </label>
+                      </div>
                     </div>
                   );
                 })}

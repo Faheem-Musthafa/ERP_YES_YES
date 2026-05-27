@@ -532,7 +532,7 @@ export const StaffManagement = () => {
                     ) : (
                         <>
                             {/* Mobile card view */}
-                            <ul className="lg:hidden divide-y divide-border sa-font-body" aria-label="Staff members">
+                            <ul className="lg:hidden divide-y divide-border sm-font" aria-label="Staff members">
                                 {paginated.map((u) => (
                                     <li key={u.id} className="p-4 space-y-3.5">
                                         <div className="flex items-start justify-between gap-3">
@@ -627,7 +627,7 @@ export const StaffManagement = () => {
                                                 size="sm"
                                                 variant="outline"
                                                 onClick={() => openEdit(u)}
-                                                className="sa-tap h-8 px-3 text-xs gap-1"
+                                                className="sm-tap h-8 px-3 text-xs gap-1"
                                             >
                                                 <Pencil size={12} /> Edit Details
                                             </Button>
@@ -637,7 +637,7 @@ export const StaffManagement = () => {
                                                         size="sm"
                                                         variant="destructive"
                                                         onClick={() => setDeleteTarget(u)}
-                                                        className="sa-tap h-8 px-3 text-xs gap-1"
+                                                        className="sm-tap h-8 px-3 text-xs gap-1"
                                                     >
                                                         <Archive size={12} /> Archive
                                                     </Button>
@@ -646,7 +646,7 @@ export const StaffManagement = () => {
                                                         size="sm"
                                                         variant="outline"
                                                         onClick={() => void handleRestoreStaff(u)}
-                                                        className="sa-tap h-8 px-3 text-xs gap-1 text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
+                                                        className="sm-tap h-8 px-3 text-xs gap-1 text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
                                                     >
                                                         <RotateCcw size={12} /> Restore
                                                     </Button>

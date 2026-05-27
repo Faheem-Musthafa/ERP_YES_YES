@@ -161,7 +161,7 @@ export const MyCustomers = () => {
     useEffect(() => { void fetchData(); }, [user?.id]);
 
     const filtered = customers.filter(c => {
-        const matchSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search);
+        const matchSearch = !search || (c.name?.toLowerCase().includes(search.toLowerCase()) ?? false) || (c.phone?.includes(search) ?? false);
         const matchLocation = locationFilter === 'all' || c.location === locationFilter;
         return matchSearch && matchLocation;
     });
@@ -415,7 +415,7 @@ export const MyCustomers = () => {
 
             {/* Location filter chips */}
             {locationOptions.length > 0 && (
-              <div className="sm-rise sm-rise-2 -mx-1 overflow-x-auto" role="tablist" aria-label="Location filter">
+              <div className="sm-rise sm-rise-2 -mx-1 overflow-x-auto" role="group" aria-label="Location filter">
                 <div className="flex gap-2 px-1 pb-1">
                   <button
                     type="button"
@@ -468,7 +468,7 @@ export const MyCustomers = () => {
                           className="sm-tap w-full flex items-start gap-3 text-left"
                         >
                           <span className="shrink-0 h-10 w-10 sm-pill sm-gradient text-white flex items-center justify-center font-bold">
-                            {c.name.charAt(0).toUpperCase()}
+                            {c.name?.charAt(0).toUpperCase() || 'C'}
                           </span>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-2">
@@ -706,8 +706,8 @@ export const MyCustomers = () => {
                                                 ) : '—'}
                                             </StyledTd>
                                             <StyledTd right className="font-semibold">{c.totalOrders}</StyledTd>
-                                            <StyledTd right mono> {c.totalRevenue.toLocaleString('en-IN')}</StyledTd>
-                                            <StyledTd right mono> {Math.round(c.averageOrderValue).toLocaleString('en-IN')}</StyledTd>
+                                            <StyledTd right mono>₹ {c.totalRevenue.toLocaleString('en-IN')}</StyledTd>
+                                            <StyledTd right mono>₹ {Math.round(c.averageOrderValue).toLocaleString('en-IN')}</StyledTd>
                                             <StyledTd className="text-xs text-muted-foreground">
                                                 {c.lastOrderDate ? new Date(c.lastOrderDate).toLocaleDateString('en-IN') : '—'}
                                             </StyledTd>
@@ -716,13 +716,15 @@ export const MyCustomers = () => {
                                 </tbody>
                             </table>
                         </div>
-                        <TablePagination
-                            totalItems={filtered.length}
-                            currentPage={page}
-                            pageSize={pageSize}
-                            onPageChange={setCurrentPage}
-                            itemLabel="customers"
-                        />
+                        <div className="hidden lg:block">
+                            <TablePagination
+                                totalItems={filtered.length}
+                                currentPage={page}
+                                pageSize={pageSize}
+                                onPageChange={setCurrentPage}
+                                itemLabel="customers"
+                            />
+                        </div>
                     </>
                 )}
             </DataCard>
@@ -809,7 +811,7 @@ export const MyCustomers = () => {
                                             : totalOb < 0
                                                 ? 'Advance held'
                                                 : 'Settled';
-                                        const formatAmount = (n: number) => `${n < 0 ? '-' : ''} ${Math.abs(n).toLocaleString('en-IN')}`;
+                                        const formatAmount = (n: number) => `${n < 0 ? '-' : ''}₹ ${Math.abs(n).toLocaleString('en-IN')}`;
                                         return (
                                             <div className="p-4 rounded-xl bg-card border border-border/50 shadow-sm flex flex-col justify-between group hover:border-primary/20 transition-colors">
                                                 <div className="flex items-center justify-between">
@@ -850,7 +852,7 @@ export const MyCustomers = () => {
                                             <div className="p-2 rounded-md bg-emerald-500/10 text-emerald-500 group-hover:bg-emerald-500/20 transition-colors"><FileText size={16} /></div>
                                         </div>
                                         <span className="text-2xl font-bold mt-3 font-mono text-emerald-600 dark:text-emerald-400">
-                                             {customerBills.reduce((acc, b) => acc + (b.grand_total || 0), 0).toLocaleString('en-IN')}
+                                            ₹ {customerBills.reduce((acc, b) => acc + (b.grand_total || 0), 0).toLocaleString('en-IN')}
                                         </span>
                                     </div>
                                     <div className="p-4 rounded-xl bg-card border border-border/50 shadow-sm flex flex-col justify-between group hover:border-primary/20 transition-colors">
@@ -866,7 +868,7 @@ export const MyCustomers = () => {
                                             <div className="p-2 rounded-md bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors"><IndianRupee size={16} /></div>
                                         </div>
                                         <span className="text-2xl font-bold mt-3 font-mono text-amber-600 dark:text-amber-400">
-                                             {customerTransactions.reduce((acc, t) => acc + (t.amount || 0), 0).toLocaleString('en-IN')}
+                                            ₹ {customerTransactions.reduce((acc, t) => acc + (t.amount || 0), 0).toLocaleString('en-IN')}
                                         </span>
                                     </div>
                                 </div>
@@ -950,7 +952,7 @@ export const MyCustomers = () => {
                                                                     <StyledTd><StatusBadge status={bill.status ?? 'Pending'} /></StyledTd>
                                                                     <StyledTd className="text-muted-foreground">{bill.company ?? '—'}</StyledTd>
                                                                     <StyledTd mono className="text-muted-foreground">{new Date(bill.created_at).toLocaleDateString('en-IN')}</StyledTd>
-                                                                    <StyledTd right mono className="font-bold text-base pr-6">{(bill.grand_total ?? 0).toLocaleString('en-IN')}</StyledTd>
+                                                                    <StyledTd right mono className="font-bold text-base pr-6">₹ {(bill.grand_total ?? 0).toLocaleString('en-IN')}</StyledTd>
                                                                 </StyledTr>
                                                             ))}
                                                         </tbody>
@@ -983,7 +985,7 @@ export const MyCustomers = () => {
                                                                     <StyledTd className="text-muted-foreground">{order.company ?? '—'}</StyledTd>
                                                                     <StyledTd mono className="text-muted-foreground">{new Date(order.created_at).toLocaleDateString('en-IN')}</StyledTd>
                                                                     <StyledTd mono className="text-muted-foreground">{order.delivery_date ? new Date(order.delivery_date).toLocaleDateString('en-IN') : '—'}</StyledTd>
-                                                                    <StyledTd right mono className="font-bold text-base pr-6">{(order.grand_total ?? 0).toLocaleString('en-IN')}</StyledTd>
+                                                                    <StyledTd right mono className="font-bold text-base pr-6">₹ {(order.grand_total ?? 0).toLocaleString('en-IN')}</StyledTd>
                                                                 </StyledTr>
                                                             ))}
                                                         </tbody>

@@ -891,7 +891,7 @@ export const CreateOrder = () => {
           {/* ══ RIGHT: Sticky Action/Summary Bar ══ */}
           <div className="xl:w-[320px] shrink-0">
             {/* Using bottom-0 fixed on mobile, and sticky top-4 on desktop */}
-            <div className="fixed bottom-[88px] left-2 right-2 z-40 bg-white border border-slate-200 rounded-2xl p-3 shadow-[0_-12px_28px_-12px_rgba(15,23,42,0.18)] xl:static xl:bottom-auto xl:left-auto xl:right-auto xl:sticky xl:top-4 xl:bg-transparent xl:border-none xl:p-0 xl:shadow-none xl:rounded-none">
+            <div className="fixed bottom-[88px] left-2 right-2 z-40 bg-white border border-slate-200 rounded-2xl p-3 shadow-[0_-12px_28px_-12px_rgba(15,23,42,0.18)] xl:sticky xl:top-4 xl:left-auto xl:right-auto xl:bottom-auto xl:bg-transparent xl:border-none xl:p-0 xl:shadow-none xl:rounded-none">
               <div className="xl:panel-surface-strong xl:p-5 space-y-4 max-w-7xl mx-auto flex flex-col">
                 
                 <p className="hidden xl:block text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">Checkout Summary</p>

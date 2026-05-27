@@ -229,7 +229,7 @@ export const MyCollection = () => {
         ) : (
           <>
             {/* Mobile list */}
-            <ul className="lg:hidden divide-y divide-border sa-font-body" aria-label="Collections list">
+            <ul className="lg:hidden divide-y divide-border sm-font" aria-label="Collections list">
               {paginated.map(r => {
                 const invoiceNo = r.orders?.invoice_number ?? r.orders?.order_number ?? '—';
                 const statusOptions = RECEIPT_STATUS_OPTIONS_BY_MODE[r.payment_mode] ?? [];
@@ -245,14 +245,14 @@ export const MyCollection = () => {
                             ₹ {r.amount?.toLocaleString('en-IN')}
                           </p>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        <div className="text-xs text-muted-foreground truncate mt-0.5">
                           {(() => {
                             const name = r.orders?.customers?.name ?? r.customers?.name ?? null;
                             const cid = r.orders?.customer_id ?? r.customer_id ?? null;
                             if (!name) return '—';
                             return <CustomerNameLink customerId={cid}>{name}</CustomerNameLink>;
                           })()}
-                        </p>
+                        </div>
                         
                         <div className="mt-2.5 flex items-center justify-between">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${MODE_COLORS[r.payment_mode] ?? 'bg-muted text-muted-foreground'}`}>
@@ -278,7 +278,10 @@ export const MyCollection = () => {
                               onValueChange={(v: string) => void updateStatus(r.id, v)}
                               disabled={savingStatus === r.id}
                             >
-                              <SelectTrigger className="h-7 text-[10px] w-28 rounded-lg border-border bg-card">
+                              <SelectTrigger
+                                className="h-7 text-[10px] w-28 rounded-lg border-border bg-card"
+                                aria-label={`Update status for receipt ${r.receipt_number}`}
+                              >
                                 <SelectValue placeholder="Update…" />
                               </SelectTrigger>
                               <SelectContent className="rounded-lg">
