@@ -15,7 +15,7 @@ import {
   BarChart3, FileText, DollarSign, FileCheck, Boxes,
   Plus, Receipt, Wallet, ClipboardCheck, Truck, Car,
   UserCircle, Activity, Settings, PackageOpen, Tags,
-  RotateCcw, FileBarChart, ArrowRightLeft,
+  RotateCcw, FileBarChart, ArrowRightLeft, FileSpreadsheet,
 } from 'lucide-react';
 
 export type Role = 'admin' | 'sales' | 'accounts' | 'inventory' | 'procurement';
@@ -66,6 +66,8 @@ export const PROTECTED_ROUTES: RouteDef[] = [
     sidebar: { byRole: { admin: { group: 'Inventory', label: 'Products', icon: Boxes, order: 1 } } } },
   { path: '/admin/sales', allowedRoles: ['admin'],
     sidebar: { byRole: { admin: { group: 'Sales & Finance', label: 'All Orders', icon: ShoppingCart, order: 1 } } } },
+  { path: '/admin/bulk-bills', allowedRoles: ['admin'],
+    sidebar: { byRole: { admin: { group: 'Sales & Finance', label: 'Bulk Bills', icon: FileSpreadsheet, order: 4 } } } },
   { path: '/admin/reports', allowedRoles: ['admin'],
     sidebar: { byRole: { admin: { group: 'Sales & Finance', label: 'Reports', icon: FileText, order: 9 } } } },
   { path: '/admin/drivers', allowedRoles: ['admin'],

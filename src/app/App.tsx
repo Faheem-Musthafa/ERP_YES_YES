@@ -40,6 +40,7 @@ const AdminReports = lazy(() => import('@/app/pages/admin/AdminReports').then(m 
 const DeliveryDrivers = lazy(() => import('@/app/pages/admin/DeliveryDrivers').then(m => ({ default: m.DeliveryDrivers })));
 const ActivityLog = lazy(() => import('@/app/pages/admin/ActivityLog').then(m => ({ default: m.ActivityLog })));
 const AdminSettings = lazy(() => import('@/app/pages/admin/Settings').then(m => ({ default: m.AdminSettings })));
+const BulkBillUpload = lazy(() => import('@/app/pages/admin/BulkBillUpload').then(m => ({ default: m.BulkBillUpload })));
 
 // Sales
 const SalesDashboard = lazy(() => import('@/app/pages/sales/Dashboard').then(m => ({ default: m.SalesDashboard })));
@@ -167,6 +168,7 @@ const COMPONENTS_BY_PATH: Record<string, React.ComponentType> = {
   '/admin/brands': Brands,
   '/admin/products': Products,
   '/admin/sales': SalesRecords,
+  '/admin/bulk-bills': BulkBillUpload,
   '/admin/reports': AdminReports,
   '/admin/drivers': DeliveryDrivers,
   '/admin/activity': ActivityLog,
