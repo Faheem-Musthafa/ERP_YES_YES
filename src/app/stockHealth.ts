@@ -1,5 +1,7 @@
 import { supabase } from '@/app/supabase';
 
+export const LOW_STOCK_THRESHOLD = 5;
+
 export interface StockHealthItem {
   id: string;
   name: string;
@@ -27,7 +29,7 @@ interface StockRow {
 }
 
 export const loadStockHealthSummary = async (
-  threshold = 5,
+  threshold = LOW_STOCK_THRESHOLD,
   lowStockLimit = 10,
 ): Promise<StockHealthSummary> => {
   const { data: products, error: productsError } = await supabase

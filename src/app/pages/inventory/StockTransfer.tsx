@@ -13,6 +13,7 @@ import type { CompanyEnum, GodownEnum } from '@/app/types/database';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
 import { COMPANY_LIST } from '@/app/companyProfiles';
 import { LIMITS, sanitizeMultilineText, sanitizeNonNegativeInteger, validatePositiveAmount, validateRequired } from '@/app/validation';
+import { LOW_STOCK_THRESHOLD } from '@/app/stockHealth';
 
 interface ProductWithStock {
   id: string;
@@ -38,7 +39,7 @@ export const StockTransfer = () => {
   const { user } = useAuth();
   const [products, setProducts] = useState<ProductWithStock[]>([]);
   const [recentTransfers, setRecentTransfers] = useState<TransferRow[]>([]);
-  const [company, setCompany] = useState<CompanyEnum>('LLP');
+  const [company, setCompany] = useState<CompanyEnum>(COMPANY_LIST[0]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [fromLocation, setFromLocation] = useState('');
   const [toLocation, setToLocation] = useState('');
@@ -443,7 +444,7 @@ export const StockTransfer = () => {
                             <td
                               key={location}
                               className={`px-3 py-2 text-right font-bold text-xs ${
-                                locationQty <= 5 ? 'text-amber-600' : ''
+                                locationQty <= LOW_STOCK_THRESHOLD ? 'text-amber-600' : ''
                               }`}
                             >
                               {locationQty}

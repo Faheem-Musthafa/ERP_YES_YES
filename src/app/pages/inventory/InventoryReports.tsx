@@ -3,8 +3,9 @@ import { BarChart2, Package, AlertTriangle, TrendingDown } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import {
   PageHeader, DataCard, StyledThead, StyledTh, StyledTr, StyledTd,
-  Spinner, EmptyState, StatusBadge, ErrorState,
+  Spinner, EmptyState, ErrorState,
 } from '@/app/components/ui/primitives';
+import { LOW_STOCK_THRESHOLD } from '@/app/stockHealth';
 
 export const InventoryReports = () => {
   const [stats, setStats] = useState({ totalProducts: 0, totalStock: 0, lowStock: 0, outOfStock: 0, totalBrands: 0, adjustments: 0 });
@@ -41,7 +42,7 @@ export const InventoryReports = () => {
       setStats({
         totalProducts: products.length,
         totalStock: productQtys.reduce((s, q) => s + q, 0),
-        lowStock: productQtys.filter((q) => q > 0 && q <= 5).length,
+        lowStock: productQtys.filter((q) => q > 0 && q <= LOW_STOCK_THRESHOLD).length,
         outOfStock: productQtys.filter((q) => q === 0).length,
         totalBrands: (brands ?? []).length,
         adjustments: (adjustments ?? []).length,
@@ -103,7 +104,9 @@ export const InventoryReports = () => {
                       <StyledTr key={a.id}>
                         <StyledTd className="font-semibold">{(a.products as { name: string } | null)?.name}</StyledTd>
                         <StyledTd center>
-                          <StatusBadge status={a.type === 'Addition' ? 'Approved' : 'Rejected'} className="capitalize" />
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${a.type === 'Addition' ? 'bg-emerald-100 text-emerald-900 border-emerald-300/80' : 'bg-red-100 text-red-900 border-red-300/80'}`}>
+                            {a.type}
+                          </span>
                         </StyledTd>
                         <StyledTd right mono className="font-bold">{a.type === 'Addition' ? '+' : '-'}{a.quantity}</StyledTd>
                         <StyledTd mono className="text-xs text-muted-foreground">{new Date(a.created_at).toLocaleDateString()}</StyledTd>

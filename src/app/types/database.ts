@@ -27,6 +27,7 @@ export type PoStatusEnum = 'Draft' | 'Pending' | 'Approved' | 'Received' | 'Canc
 export type GrnStatusEnum = 'Pending' | 'Verified' | 'Completed';
 export type ReceiptAllocationKindEnum = 'order' | 'opening_invoice' | 'opening_delivery_challan' | 'advance';
 export type BackOrderStatusEnum = 'Pending' | 'Released' | 'Cancelled';
+export type StockReservationStatusEnum = 'Pending' | 'Consumed' | 'Released';
 export type DistrictEnum = string;
 export type VehicleTypeEnum = string;
 export type GodownEnum = string;
@@ -881,7 +882,7 @@ export interface Database {
           product_id: string;
           quantity: number;
           type: StockAdjustmentTypeEnum;
-          reason: string;
+          reason: string | null;
           location: GodownEnum | null;
           adjusted_by: string | null;
           created_at: string;
@@ -893,7 +894,7 @@ export interface Database {
           product_id: string;
           quantity: number;
           type: StockAdjustmentTypeEnum;
-          reason: string;
+          reason?: string | null;
           location?: GodownEnum | null;
           adjusted_by?: string | null;
           invoice_no?: string | null;
@@ -904,7 +905,7 @@ export interface Database {
           product_id: string;
           quantity: number;
           type: StockAdjustmentTypeEnum;
-          reason: string;
+          reason?: string | null;
           location?: GodownEnum | null;
           adjusted_by?: string | null;
           invoice_no?: string | null;
@@ -1289,6 +1290,71 @@ export interface Database {
           }
         ]
       >;
+      product_price_tiers: TableDef<
+        {
+          id: string;
+          product_id: string;
+          tier_code: string;
+          price: number;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          product_id: string;
+          tier_code: string;
+          price: number;
+        },
+        Partial<{
+          product_id: string;
+          tier_code: string;
+          price: number;
+        }>,
+        [
+          {
+            foreignKeyName: 'product_price_tiers_product_id_fkey';
+            columns: ['product_id'];
+            isOneToOne: false;
+            referencedRelation: 'products';
+            referencedColumns: ['id'];
+          }
+        ]
+      >;
+      salesperson_product_notes: TableDef<
+        {
+          id: string;
+          product_id: string;
+          user_id: string;
+          note: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          product_id: string;
+          user_id: string;
+          note: string;
+        },
+        Partial<{
+          product_id: string;
+          user_id: string;
+          note: string;
+        }>,
+        [
+          {
+            foreignKeyName: 'salesperson_product_notes_product_id_fkey';
+            columns: ['product_id'];
+            isOneToOne: false;
+            referencedRelation: 'products';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'salesperson_product_notes_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          }
+        ]
+      >;
       settings: TableDef<
         {
           id: string;
@@ -1419,8 +1485,74 @@ export interface Database {
           }
         ]
       >;
+      stock_reservations: TableDef<
+        {
+          id: string;
+          order_id: string;
+          order_item_id: string;
+          product_id: string;
+          location: GodownEnum;
+          qty: number;
+          status: StockReservationStatusEnum;
+          created_at: string;
+          resolved_at: string | null;
+          resolved_reason: string | null;
+        },
+        {
+          order_id: string;
+          order_item_id: string;
+          product_id: string;
+          location: GodownEnum;
+          qty: number;
+          status?: StockReservationStatusEnum;
+        },
+        Partial<{
+          order_id: string;
+          order_item_id: string;
+          product_id: string;
+          location: GodownEnum;
+          qty: number;
+          status?: StockReservationStatusEnum;
+          resolved_at?: string | null;
+          resolved_reason?: string | null;
+        }>,
+        [
+          {
+            foreignKeyName: 'stock_reservations_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'stock_reservations_order_item_id_fkey';
+            columns: ['order_item_id'];
+            isOneToOne: true;
+            referencedRelation: 'order_items';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'stock_reservations_product_id_fkey';
+            columns: ['product_id'];
+            isOneToOne: false;
+            referencedRelation: 'products';
+            referencedColumns: ['id'];
+          }
+        ]
+      >;
     };
-    Views: Record<string, never>;
+    Views: {
+      v_available_stock: {
+        Row: {
+          product_id: string;
+          location: GodownEnum;
+          stock_qty: number;
+          reserved_qty: number;
+          available_qty: number;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
       get_invoice_sequences_for_fy: {
         Args: { p_fy?: string | null };
@@ -1529,6 +1661,13 @@ export interface Database {
         Args: {
           p_order_id: string;
           p_rejected_by: string;
+          p_reason?: string | null;
+        };
+        Returns: boolean;
+      };
+      void_order: {
+        Args: {
+          p_order_id: string;
           p_reason?: string | null;
         };
         Returns: boolean;

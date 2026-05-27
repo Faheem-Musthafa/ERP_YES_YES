@@ -7,7 +7,7 @@ import {
   BarChart3, FileText, LogOut, DollarSign, FileCheck, Boxes,
   Plus, Receipt, Wallet, ClipboardCheck, Truck, Car,
   UserCircle, ChevronRight, ChevronDown, X, PanelLeftClose, PanelLeftOpen,
-  Activity, Settings, PackageOpen,
+  Activity, Settings, PackageOpen, Tags,
 } from 'lucide-react';
 
 interface NavItem { label: string; path: string; icon: React.ReactNode; }
@@ -88,6 +88,7 @@ const useNavGroups = (role: string | undefined): NavGroup[] => {
     {
       title: 'Inventory',
       items: [
+        { label: 'Price List', path: '/sales/price-list', icon: <Tags size={16} /> },
         { label: 'Stock View', path: '/stock', icon: <BarChart3 size={16} /> },
       ],
     },

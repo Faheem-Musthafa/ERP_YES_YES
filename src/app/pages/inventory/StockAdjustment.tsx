@@ -13,6 +13,10 @@ import { DataCard, EmptyState, FormSection, PageHeader, SearchBar } from '@/app/
 import type { CompanyEnum, GodownEnum } from '@/app/types/database';
 import { COMPANY_LIST, isCompanyEnum } from '@/app/companyProfiles';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
+import { LOW_STOCK_THRESHOLD } from '@/app/stockHealth';
+import { restoreRecoverableRecord } from '@/app/recovery';
+
+const MAX_IMPORT_QTY_PER_CELL = 1_000_000;
 import {
   LIMITS,
   sanitizeMultilineText,
@@ -276,7 +280,6 @@ export const StockAdjustment = () => {
       validateRequired(invoiceDate, 'Invoice Date');
       validateRequired(company, 'Company');
       normalizedReason = sanitizeMultilineText(reason, LIMITS.reason);
-      validateRequired(normalizedReason, 'Reason');
       qty = Number(quantity);
       validatePositiveAmount(qty, 'Quantity');
     } catch (err: any) {
@@ -295,7 +298,7 @@ export const StockAdjustment = () => {
         p_location: selectedLocation as GodownEnum,
         p_quantity: qty,
         p_type: type,
-        p_reason: normalizedReason,
+        p_reason: normalizedReason || null,
         p_user_id: user?.id ?? null,
         p_invoice_no: normalizedInvoiceNo,
         p_invoice_date: invoiceDate,
@@ -341,7 +344,6 @@ export const StockAdjustment = () => {
         newReason || `Initial stock from invoice ${normalizedInvoiceNo}`,
         LIMITS.reason,
       );
-      validateRequired(normalizedReason, 'Reason');
     } catch (err: any) {
       toast.error(err?.message || 'Invalid product details');
       return;
@@ -393,7 +395,7 @@ export const StockAdjustment = () => {
         p_location: newLocation as GodownEnum,
         p_quantity: qty,
         p_type: 'Addition',
-        p_reason: normalizedReason,
+        p_reason: normalizedReason || null,
         p_user_id: user?.id ?? null,
         p_invoice_no: normalizedInvoiceNo,
         p_invoice_date: newInvoiceDate,
@@ -426,7 +428,22 @@ export const StockAdjustment = () => {
       const allRows = parseCSV(text);
       if (allRows.length < 2) throw new Error('CSV needs a header row plus at least one data row');
 
-      const headers = allRows[0].map(normalizeHeader);
+      const rawHeaders = allRows[0];
+      const headers = rawHeaders.map(normalizeHeader);
+
+      const headerGroups = new Map<string, string[]>();
+      headers.forEach((h, i) => {
+        if (!h) return;
+        const group = headerGroups.get(h) ?? [];
+        group.push(rawHeaders[i]);
+        headerGroups.set(h, group);
+      });
+      const duplicates = Array.from(headerGroups.entries()).filter(([, raws]) => raws.length > 1);
+      if (duplicates.length > 0) {
+        const summary = duplicates.map(([, raws]) => raws.map(r => `"${r}"`).join(' / ')).join('; ');
+        throw new Error(`Duplicate column headers after normalisation: ${summary}. Rename so headers don't collide.`);
+      }
+
       const findIndex = (...candidates: string[]) => headers.findIndex(h => candidates.includes(h));
 
       const companyIdx = findIndex('company', 'supplier', 'suppliername', 'companyname');
@@ -446,6 +463,8 @@ export const StockAdjustment = () => {
         throw new Error(`CSV must include at least one godown column (${locationOptions.join(', ')})`);
       }
 
+      let truncatedCells = 0;
+      let cappedCells = 0;
       const parsed: ImportRow[] = allRows.slice(1).map((cols, i) => {
         const companyRaw = sanitizeText(cols[companyIdx] || '', LIMITS.longText);
         const matchedCompany = COMPANY_LIST.find(
@@ -457,7 +476,17 @@ export const StockAdjustment = () => {
         let totalQty = 0;
         godownIndices.forEach(({ name, idx }) => {
           const q = Number((cols[idx] || '').replace(/[^0-9.\-]/g, ''));
-          const safe = Number.isFinite(q) && q > 0 ? Math.floor(q) : 0;
+          let safe = 0;
+          if (Number.isFinite(q) && q > 0) {
+            const floored = Math.floor(q);
+            if (floored !== q) truncatedCells += 1;
+            if (floored > MAX_IMPORT_QTY_PER_CELL) {
+              safe = MAX_IMPORT_QTY_PER_CELL;
+              cappedCells += 1;
+            } else {
+              safe = floored;
+            }
+          }
           godownQty[name] = safe;
           totalQty += safe;
         });
@@ -485,6 +514,12 @@ export const StockAdjustment = () => {
       const skipped = parsed.length - valid;
       if (skipped > 0) toast.warning(`${parsed.length} rows parsed — ${valid} ready, ${skipped} need attention`);
       else toast.success(`${parsed.length} rows ready to import`);
+      if (truncatedCells > 0) {
+        toast.warning(`${truncatedCells} cell${truncatedCells === 1 ? '' : 's'} had decimal qty truncated to integer`);
+      }
+      if (cappedCells > 0) {
+        toast.warning(`${cappedCells} cell${cappedCells === 1 ? '' : 's'} exceeded ${MAX_IMPORT_QTY_PER_CELL.toLocaleString('en-IN')} and were capped`);
+      }
     } catch (err: any) {
       toast.error(err?.message || 'CSV parse failed');
       setImportRows([]);
@@ -527,19 +562,41 @@ export const StockAdjustment = () => {
       try {
         if (!row.company) throw new Error(`invalid company "${row.companyRaw}"`);
 
-        // Brand: lookup or create (if provided)
+        // Brand: lookup (active or archived) or create. Restore archived match to
+        // avoid unique-name violation when re-importing a previously archived brand.
         let resolvedBrandId: string | null = null;
         if (row.brand) {
           const brandKey = row.brand.trim().toLowerCase();
           resolvedBrandId = brandCache.get(brandKey) ?? null;
           if (!resolvedBrandId) {
-            const { data, error } = await supabase
+            const { data: existing, error: lookupErr } = await supabase
               .from('brands')
-              .insert({ name: row.brand, is_active: true })
-              .select('id')
-              .single();
-            if (error) throw new Error(`brand "${row.brand}": ${error.message}`);
-            resolvedBrandId = data!.id;
+              .select('id, name, is_active')
+              .ilike('name', row.brand.trim())
+              .maybeSingle();
+            if (lookupErr) throw new Error(`brand "${row.brand}": ${lookupErr.message}`);
+            if (existing) {
+              if (!existing.is_active) {
+                try {
+                  await restoreRecoverableRecord({
+                    table: 'brands',
+                    id: existing.id,
+                    entityLabel: existing.name,
+                  });
+                } catch (restoreErr: any) {
+                  throw new Error(`brand "${row.brand}" archived; restore failed: ${restoreErr?.message ?? 'unknown'}`);
+                }
+              }
+              resolvedBrandId = existing.id;
+            } else {
+              const { data, error } = await supabase
+                .from('brands')
+                .insert({ name: row.brand, is_active: true })
+                .select('id')
+                .single();
+              if (error) throw new Error(`brand "${row.brand}": ${error.message}`);
+              resolvedBrandId = data!.id;
+            }
             brandCache.set(brandKey, resolvedBrandId);
           }
         }
@@ -744,8 +801,8 @@ export const StockAdjustment = () => {
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label>Reason *</Label>
-                      <Textarea value={reason} onChange={e => setReason(sanitizeMultilineText(e.target.value, LIMITS.reason))} placeholder="Reason for adjustment" rows={3} maxLength={LIMITS.reason} required />
+                      <Label>Reason</Label>
+                      <Textarea value={reason} onChange={e => setReason(sanitizeMultilineText(e.target.value, LIMITS.reason))} placeholder="Reason for adjustment (optional)" rows={3} maxLength={LIMITS.reason} />
                     </div>
                     <div className="border-t border-gray-100 pt-4 flex flex-col sm:flex-row gap-3">
                       <Button type="submit" className={`w-full sm:w-auto rounded-xl ${type === 'Subtraction' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#34b0a7] hover:bg-[#2a9d94]'}`} disabled={saving}>
@@ -997,10 +1054,10 @@ export const StockAdjustment = () => {
                         {locationOptions.map((location) => {
                           const locationQty = getLocationStock(p, location);
                           return (
-                            <td key={location} className={`px-3 py-2 text-right font-bold text-xs ${locationQty <= 5 ? 'text-amber-600' : ''}`}>{locationQty}</td>
+                            <td key={location} className={`px-3 py-2 text-right font-bold text-xs ${locationQty <= LOW_STOCK_THRESHOLD ? 'text-amber-600' : ''}`}>{locationQty}</td>
                           );
                         })}
-                        <td className={`px-3 py-2 text-right font-bold text-xs ${p.total_stock <= 5 ? 'text-amber-600' : 'text-emerald-700'}`}>{p.total_stock}</td>
+                        <td className={`px-3 py-2 text-right font-bold text-xs ${p.total_stock <= LOW_STOCK_THRESHOLD ? 'text-amber-600' : 'text-emerald-700'}`}>{p.total_stock}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1042,7 +1099,7 @@ export const StockAdjustment = () => {
                     <td className="px-4 py-3 text-center">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${a.type === 'Addition' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{a.type}</span>
                     </td>
-                    <td className="px-4 py-3 text-right font-bold">{a.quantity}</td>
+                    <td className={`px-4 py-3 text-right font-bold ${a.type === 'Addition' ? 'text-emerald-700' : 'text-red-700'}`}>{a.type === 'Addition' ? '+' : '-'}{a.quantity}</td>
                     <td className="px-4 py-3 text-gray-700 text-xs font-mono">{a.invoice_no ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-700 text-xs">{a.invoice_date ? new Date(a.invoice_date).toLocaleDateString() : '—'}</td>
                     <td className="px-4 py-3 text-gray-600 text-xs">{a.reason}</td>

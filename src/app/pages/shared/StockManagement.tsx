@@ -8,6 +8,7 @@ import {
   EmptyState, Spinner, ErrorState, TablePagination,
 } from '@/app/components/ui/primitives';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
+import { LOW_STOCK_THRESHOLD } from '@/app/stockHealth';
 
 interface ProductWithStock {
   id: string;
@@ -16,7 +17,9 @@ interface ProductWithStock {
   dealer_price: number;
   brands: { id: string; name: string } | null;
   locationStocks: Record<string, number>;
+  locationReserved: Record<string, number>;
   total_stock: number;
+  total_reserved: number;
 }
 
 export const StockManagement = () => {
@@ -48,8 +51,8 @@ export const StockManagement = () => {
 
       const productIds = (prod ?? []).map(p => p.id);
       const { data: stockData, error: stockError } = await supabase
-        .from('product_stock_locations')
-        .select('product_id, location, stock_qty')
+        .from('v_available_stock')
+        .select('product_id, location, stock_qty, reserved_qty')
         .in('product_id', productIds);
 
       if (stockError) throw stockError;
@@ -70,25 +73,36 @@ export const StockManagement = () => {
       setLocationOptions(nextLocationOptions);
 
       const stockByProduct = new Map<string, Record<string, number>>();
+      const reservedByProduct = new Map<string, Record<string, number>>();
       (stockData ?? []).forEach((row: any) => {
         const location = typeof row.location === 'string' ? row.location.trim() : '';
         if (!location) return;
-        const existing = stockByProduct.get(row.product_id) ?? {};
-        existing[location] = row.stock_qty ?? 0;
-        stockByProduct.set(row.product_id, existing);
+        const existingStock = stockByProduct.get(row.product_id) ?? {};
+        existingStock[location] = row.stock_qty ?? 0;
+        stockByProduct.set(row.product_id, existingStock);
+        const existingReserved = reservedByProduct.get(row.product_id) ?? {};
+        existingReserved[location] = row.reserved_qty ?? 0;
+        reservedByProduct.set(row.product_id, existingReserved);
       });
 
       const productsWithStock: ProductWithStock[] = (prod ?? []).map(p => {
         const locationStocks = stockByProduct.get(p.id) ?? {};
+        const locationReserved = reservedByProduct.get(p.id) ?? {};
         const total_stock = nextLocationOptions.reduce(
           (sum, location) => sum + (locationStocks[location] ?? 0),
           0,
         );
-        
+        const total_reserved = nextLocationOptions.reduce(
+          (sum, location) => sum + (locationReserved[location] ?? 0),
+          0,
+        );
+
         return {
           ...p,
           locationStocks,
+          locationReserved,
           total_stock,
+          total_reserved,
         };
       });
 
@@ -121,8 +135,8 @@ export const StockManagement = () => {
         : (p.locationStocks[locationFilter] ?? 0);
       
       if (stockFilter === 'out') matchStock = relevantStock === 0;
-      else if (stockFilter === 'low') matchStock = relevantStock > 0 && relevantStock <= 5;
-      else if (stockFilter === 'ok') matchStock = relevantStock > 5;
+      else if (stockFilter === 'low') matchStock = relevantStock > 0 && relevantStock <= LOW_STOCK_THRESHOLD;
+      else if (stockFilter === 'ok') matchStock = relevantStock > LOW_STOCK_THRESHOLD;
     }
     
     return matchSearch && matchBrand && matchStock;
@@ -134,7 +148,7 @@ export const StockManagement = () => {
 
   const stockStatus = (qty: number) => {
     if (qty === 0) return { label: 'Out of Stock', cls: 'bg-red-100 text-red-900 border border-red-300/80' };
-    if (qty <= 5) return { label: 'Low Stock', cls: 'bg-amber-100 text-amber-900 border border-amber-300/80' };
+    if (qty <= LOW_STOCK_THRESHOLD) return { label: 'Low Stock', cls: 'bg-amber-100 text-amber-900 border border-amber-300/80' };
     return { label: 'In Stock', cls: 'bg-emerald-100 text-emerald-900 border border-emerald-300/80' };
   };
 
@@ -142,17 +156,21 @@ export const StockManagement = () => {
     if (!location || location === 'all') return p.total_stock;
     return p.locationStocks[location] ?? 0;
   };
+  const getLocationReserved = (p: ProductWithStock, location: string) => {
+    if (!location || location === 'all') return p.total_reserved;
+    return p.locationReserved[location] ?? 0;
+  };
 
   const stockClassName = (qty: number) => {
     if (qty === 0) return 'text-red-600';
-    if (qty <= 5) return 'text-amber-600';
+    if (qty <= LOW_STOCK_THRESHOLD) return 'text-amber-600';
     return 'text-foreground';
   };
 
   const lowCount = products.filter(p => {
     const relevantStock = getLocationStock(p, locationFilter);
     // Strictly > 0 so Out-of-Stock items are not double-counted in Low.
-    return relevantStock > 0 && relevantStock <= 5;
+    return relevantStock > 0 && relevantStock <= LOW_STOCK_THRESHOLD;
   }).length;
 
   const outOfStockCount = products.filter(p => {
@@ -270,6 +288,7 @@ export const StockManagement = () => {
                   ) : (
                     <StyledTh right>Stock Qty</StyledTh>
                   )}
+                  <StyledTh right>Reserved</StyledTh>
                   <StyledTh right>Stock Value (₹)</StyledTh>
                   <StyledTh center>Status</StyledTh>
                 </tr>
@@ -295,15 +314,25 @@ export const StockManagement = () => {
                               </StyledTd>
                             );
                           })}
-                          <StyledTd right mono className={`font-bold ${p.total_stock === 0 ? 'text-red-600' : p.total_stock <= 5 ? 'text-amber-600' : 'text-emerald-700'}`}>
+                          <StyledTd right mono className={`font-bold ${p.total_stock === 0 ? 'text-red-600' : p.total_stock <= LOW_STOCK_THRESHOLD ? 'text-amber-600' : 'text-emerald-700'}`}>
                             {p.total_stock}
                           </StyledTd>
                         </>
                       ) : (
-                        <StyledTd right mono className={`font-bold ${relevantStock === 0 ? 'text-red-600' : relevantStock <= 5 ? 'text-amber-600' : 'text-foreground'}`}>
+                        <StyledTd right mono className={`font-bold ${relevantStock === 0 ? 'text-red-600' : relevantStock <= LOW_STOCK_THRESHOLD ? 'text-amber-600' : 'text-foreground'}`}>
                           {relevantStock}
                         </StyledTd>
                       )}
+                      <StyledTd right mono>
+                        {(() => {
+                          const reserved = getLocationReserved(p, locationFilter);
+                          return reserved > 0 ? (
+                            <span className="font-semibold text-amber-700">{reserved}</span>
+                          ) : (
+                            <span className="text-muted-foreground/50">—</span>
+                          );
+                        })()}
+                      </StyledTd>
                       <StyledTd right mono className="font-bold text-emerald-700">₹ {val.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</StyledTd>
                       <StyledTd center><span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${s.cls}`}>{s.label}</span></StyledTd>
                     </StyledTr>

@@ -40,24 +40,46 @@ export const Brands = () => {
         .order('name');
       if (brandError) throw brandError;
 
-      let products: any[] = [];
+      let products: { id: string; brand_id: string | null; dealer_price: number | null }[] = [];
+      const liveStockByProduct = new Map<string, number>();
       const { data: productData, error: productError } = await supabase
         .from('products')
-        .select('brand_id, dealer_price, stock_qty')
+        .select('id, brand_id, dealer_price')
         .eq('is_active', true);
 
       if (productError) {
         toast.warning('Brands loaded, but product metrics are unavailable right now.');
       } else {
-        products = productData ?? [];
+        products = (productData ?? []) as typeof products;
+        const productIds = products.map((p) => p.id);
+        if (productIds.length > 0) {
+          const { data: stockRows, error: stockError } = await supabase
+            .from('product_stock_locations')
+            .select('product_id, stock_qty')
+            .in('product_id', productIds);
+          if (stockError) {
+            toast.warning('Brands loaded, but live stock totals are unavailable right now.');
+          } else {
+            ((stockRows ?? []) as { product_id: string; stock_qty: number | null }[])
+              .forEach((row) => {
+                liveStockByProduct.set(
+                  row.product_id,
+                  (liveStockByProduct.get(row.product_id) ?? 0) + (row.stock_qty ?? 0),
+                );
+              });
+          }
+        }
       }
 
       const enriched = (brandData ?? []).map((b: any) => {
-        const brandProducts = products.filter((p: any) => p.brand_id === b.id);
+        const brandProducts = products.filter((p) => p.brand_id === b.id);
         return {
           ...b,
           productCount: brandProducts.length,
-          stockValue: brandProducts.reduce((sum: number, p: any) => sum + ((p.dealer_price ?? 0) * (p.stock_qty ?? 0)), 0),
+          stockValue: brandProducts.reduce(
+            (sum, p) => sum + ((p.dealer_price ?? 0) * (liveStockByProduct.get(p.id) ?? 0)),
+            0,
+          ),
         };
       });
       setBrands(enriched);

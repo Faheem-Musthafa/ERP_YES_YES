@@ -22,11 +22,17 @@ import { addMoney, computeLineAmount, mulMoney, pctMoney, roundMoney, toMoney, t
 
 interface OrderItem {
   id: string; productId: string; product: string; brand: string; sku: string;
-  stock: number; quantity: string; dp: number; mrp: number; discount: string; amount: string;
+  stock: number; reserved: number; available: number;
+  quantity: string; dp: number; mrp: number; discount: string; amount: string;
   lastEdited?: 'discount' | 'amount' | 'quantity' | 'dp';
 }
 interface Customer { id: string; name: string; phone: string | null; address: string; gst_pan: string | null; }
-interface Product { id: string; name: string; sku: string; dealer_price: number; mrp: number; brand_name: string; locationStocks: Record<string, number>; searchStr: string; }
+interface Product {
+  id: string; name: string; sku: string; dealer_price: number; mrp: number; brand_name: string;
+  locationStocks: Record<string, number>;
+  locationReserved: Record<string, number>;
+  searchStr: string;
+}
 interface Salesperson { id: string; full_name: string; employee_id: string | null; }
 
 export const CreateOrder = () => {
@@ -65,7 +71,7 @@ export const CreateOrder = () => {
   const [gstAutoFilled, setGstAutoFilled] = useState(false);
   
   const [orderItems, setOrderItems] = useState<OrderItem[]>([
-    { id: '1', productId: '', product: '', brand: '', sku: '', stock: 0, quantity: '', dp: 0, mrp: 0, discount: '', amount: '' }
+    { id: '1', productId: '', product: '', brand: '', sku: '', stock: 0, reserved: 0, available: 0, quantity: '', dp: 0, mrp: 0, discount: '', amount: '' }
   ]);
   const [siteAddress, setSiteAddress] = useState('');
   const [isSiteOrder, setIsSiteOrder] = useState<'yes' | 'no'>('no');
@@ -77,6 +83,12 @@ export const CreateOrder = () => {
     if (!product || !location) return 0;
     return product.locationStocks[location] ?? 0;
   };
+  const getReservedAtLocation = (product: Product | undefined, location: string) => {
+    if (!product || !location) return 0;
+    return product.locationReserved[location] ?? 0;
+  };
+  const getAvailableAtLocation = (product: Product | undefined, location: string) =>
+    Math.max(0, getStockAtLocation(product, location) - getReservedAtLocation(product, location));
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,7 +96,7 @@ export const CreateOrder = () => {
         const [{ data: custData, error: custError }, { data: prodData, error: prodError }, { data: stockData, error: stockError }, { data: salesData, error: salesError }, profiles, orderSettings] = await Promise.all([
           supabase.from('customers').select('id, name, phone, address, gst_pan').eq('is_active', true).order('name'),
           supabase.from('products').select('id, name, sku, dealer_price, mrp, brands(name)').eq('is_active', true).order('name'),
-          supabase.from('product_stock_locations').select('product_id, location, stock_qty'),
+          supabase.from('v_available_stock').select('product_id, location, stock_qty, reserved_qty'),
           supabase.from('users').select('id, full_name, employee_id').eq('role', 'sales').eq('is_active', true).is('deleted_at', null).order('full_name'),
           loadCompanyProfiles().catch(() => null),
           loadOrderFormSettings().catch(() => null),
@@ -133,12 +145,16 @@ export const CreateOrder = () => {
           toast.error('Could not load products');
         } else if (prodData) {
           const stockMap = new Map<string, Record<string, number>>();
+          const reservedMap = new Map<string, Record<string, number>>();
           (stockData ?? []).forEach((s: any) => {
             const location = typeof s.location === 'string' ? s.location.trim() : '';
             if (!location) return;
-            const existing = stockMap.get(s.product_id) || {};
-            existing[location] = s.stock_qty ?? 0;
-            stockMap.set(s.product_id, existing);
+            const existingStock = stockMap.get(s.product_id) || {};
+            existingStock[location] = s.stock_qty ?? 0;
+            stockMap.set(s.product_id, existingStock);
+            const existingReserved = reservedMap.get(s.product_id) || {};
+            existingReserved[location] = s.reserved_qty ?? 0;
+            reservedMap.set(s.product_id, existingReserved);
           });
 
           const detectedLocations = Array.from(
@@ -171,6 +187,7 @@ export const CreateOrder = () => {
             id: p.id, name: p.name, sku: p.sku, dealer_price: p.dealer_price, mrp: p.mrp ?? 0,
             brand_name: p.brands?.name ?? '',
             locationStocks: stockMap.get(p.id) ?? {},
+            locationReserved: reservedMap.get(p.id) ?? {},
             searchStr: `${p.name} ${p.brands?.name ?? ''} ${p.sku}`.toLowerCase()
           })));
         }
@@ -208,12 +225,14 @@ export const CreateOrder = () => {
   const handleProductChange = (id: string, productId: string) => {
     const p = products.find(pr => pr.id === productId);
     const stock = getStockAtLocation(p, Godown);
+    const reserved = getReservedAtLocation(p, Godown);
+    const available = getAvailableAtLocation(p, Godown);
     setOrderItems(items => items.map(item =>
-      item.id === id ? { ...item, productId, product: p?.name ?? '', brand: p?.brand_name ?? '', sku: p?.sku ?? '', stock, dp: p?.dealer_price ?? 0, mrp: p?.mrp ?? 0, amount: '', discount: '' } : item
+      item.id === id ? { ...item, productId, product: p?.name ?? '', brand: p?.brand_name ?? '', sku: p?.sku ?? '', stock, reserved, available, dp: p?.dealer_price ?? 0, mrp: p?.mrp ?? 0, amount: '', discount: '' } : item
     ));
   };
 
-  const handleAddItem = () => setOrderItems(prev => [...prev, { id: String(Date.now()), productId: '', product: '', brand: '', sku: '', stock: 0, quantity: '', dp: 0, mrp: 0, discount: '', amount: '' }]);
+  const handleAddItem = () => setOrderItems(prev => [...prev, { id: String(Date.now()), productId: '', product: '', brand: '', sku: '', stock: 0, reserved: 0, available: 0, quantity: '', dp: 0, mrp: 0, discount: '', amount: '' }]);
   const handleRemoveItem = (id: string) => {
     if (window.confirm('Remove this line item from the order?')) {
       setOrderItems(prev => prev.filter(i => i.id !== id));
@@ -225,7 +244,9 @@ export const CreateOrder = () => {
       if (!item.productId) return item;
       const p = products.find(pr => pr.id === item.productId);
       const stock = getStockAtLocation(p, Godown);
-      return { ...item, stock };
+      const reserved = getReservedAtLocation(p, Godown);
+      const available = getAvailableAtLocation(p, Godown);
+      return { ...item, stock, reserved, available };
     }));
   }, [Godown, products]);
 
@@ -296,8 +317,11 @@ export const CreateOrder = () => {
     if (!salespersonId) { toast.error('Select Sale Made By'); return; }
     const validItems = orderItems.filter(i => i.productId && i.quantity);
     if (validItems.length === 0) { toast.error('Add at least one product'); return; }
-    const stockErrors = validItems.filter(i => Number(i.quantity) > i.stock);
-    if (stockErrors.length > 0) { toast.error(`Insufficient stock: ${stockErrors.map(i => i.product).join(', ')}`); return; }
+    const stockErrors = validItems.filter(i => Number(i.quantity) > i.available);
+    if (stockErrors.length > 0) {
+      toast.error(`Insufficient available stock (some units are on hold for other pending orders): ${stockErrors.map(i => i.product).join(', ')}`);
+      return;
+    }
     
     setLoading(true);
     try {
@@ -388,7 +412,17 @@ export const CreateOrder = () => {
         if (legacyItemsErr) {
           // Mark as Voided rather than hard-delete so the allocated sequence
           // number is preserved (GSTR-1 requires no gaps in invoice numbering).
-          await supabase.from('orders').update({ status: 'Voided' }).eq('id', legacyOrder.id);
+          // void_order also releases any stock_reservations atomically.
+          const { error: voidErr } = await supabase.rpc('void_order', {
+            p_order_id: legacyOrder.id,
+            p_reason: 'order_items insert failed',
+          });
+          if (voidErr) {
+            const rpcMissing = voidErr.code === 'PGRST202' || voidErr.message?.toLowerCase().includes('could not find the function');
+            if (rpcMissing) {
+              await supabase.from('orders').update({ status: 'Voided' }).eq('id', legacyOrder.id);
+            }
+          }
           throw legacyItemsErr;
         }
         resolvedOrderId = legacyOrder.id;
@@ -648,7 +682,7 @@ export const CreateOrder = () => {
               <div className="space-y-4">
                 {orderItems.map((item, index) => {
                   const qtyNum = Number(item.quantity) || 0;
-                  const isOverStock = qtyNum > item.stock;
+                  const isOverStock = qtyNum > item.available;
                   
                   return (
                     <div key={item.id} className="relative rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden group">
@@ -700,8 +734,18 @@ export const CreateOrder = () => {
                                   <span className="text-gray-300">|</span>
                                   <span className="text-gray-500">Brand: <span className="font-medium text-gray-700">{item.brand}</span></span>
                                </div>
-                               <div className={cn("text-xs font-medium flex items-center gap-1", isOverStock ? "text-red-600" : "text-emerald-600")}>
-                                  <Package size={12} /> Stock: <span className="font-mono">{item.stock}</span>
+                               <div className="flex items-center gap-2 text-xs font-medium">
+                                  <span className="flex items-center gap-1 text-gray-600">
+                                    <Package size={12} /> Stock <span className="font-mono">{item.stock}</span>
+                                  </span>
+                                  {item.reserved > 0 && (
+                                    <span className="font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">
+                                      On hold {item.reserved}
+                                    </span>
+                                  )}
+                                  <span className={cn("font-mono font-semibold", isOverStock ? "text-red-600" : item.available === 0 ? "text-red-600" : "text-emerald-600")}>
+                                    Available {item.available}
+                                  </span>
                                </div>
                             </div>
                           )}
@@ -741,7 +785,7 @@ export const CreateOrder = () => {
                       {/* Inline Validation State */}
                       {isOverStock && qtyNum > 0 && (
                         <div className="bg-red-50 px-4 py-2 text-xs text-red-600 font-medium border-t border-red-100 flex items-center justify-center gap-2">
-                          <AlertTriangle size={14} /> Quantity ({qtyNum}) exceeds current stock limit of {item.stock}.
+                          <AlertTriangle size={14} /> Quantity ({qtyNum}) exceeds available {item.available}{item.reserved > 0 ? ` (${item.reserved} on hold for other pending orders)` : ''}.
                         </div>
                       )}
                     </div>

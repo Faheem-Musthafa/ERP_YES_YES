@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { DEFAULT_MASTER_DATA_SETTINGS, loadMasterDataSettings } from '@/app/settings';
 import { archiveRecoverableRecord, restoreRecoverableRecord } from '@/app/recovery';
 import { LIMITS, sanitizeNonNegativeDecimal, sanitizeNonNegativeInteger, sanitizeSku, sanitizeText, validateNonNegativeAmount, validateRequired, validateSku } from '@/app/validation';
+import { LOW_STOCK_THRESHOLD } from '@/app/stockHealth';
 import {
   PageHeader, SearchBar, DataCard, FilterBar, FilterField,
   StyledThead, StyledTh, StyledTr, StyledTd,
@@ -269,8 +270,8 @@ export const Products = () => {
                         <StyledTd right mono>₹{p.dealer_price?.toLocaleString('en-IN')}</StyledTd>
                         <StyledTd right mono>
                           <span
-                            title={p.live_stock_qty === 0 ? 'Out of stock' : p.live_stock_qty <= 5 ? 'Low stock' : 'In stock'}
-                            className={`font-bold ${p.live_stock_qty === 0 ? 'text-red-600' : p.live_stock_qty <= 5 ? 'text-amber-600' : 'text-foreground'}`}
+                            title={p.live_stock_qty === 0 ? 'Out of stock' : p.live_stock_qty <= LOW_STOCK_THRESHOLD ? 'Low stock' : 'In stock'}
+                            className={`font-bold ${p.live_stock_qty === 0 ? 'text-red-600' : p.live_stock_qty <= LOW_STOCK_THRESHOLD ? 'text-amber-600' : 'text-foreground'}`}
                           >
                             {p.live_stock_qty}
                           </span>
