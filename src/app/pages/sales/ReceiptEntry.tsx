@@ -3,8 +3,11 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/app/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/app/components/ui/popover';
+import { cn } from '@/app/components/ui/utils';
 import { useNavigate } from 'react-router';
-import { ArrowLeft, Info, Check, AlertTriangle, IndianRupee, Tag, User, ReceiptText, Building2, Calendar, FileText, ChevronRight, Trash2 } from 'lucide-react';
+import { ArrowLeft, Info, Check, AlertTriangle, IndianRupee, Tag, User, ReceiptText, Building2, Calendar, FileText, ChevronRight, ChevronsUpDown, Trash2 } from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -63,6 +66,7 @@ export const ReceiptEntry = () => {
   const [brand, setBrand] = useState('');
   const [otherBrand, setOtherBrand] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [customerOpen, setCustomerOpen] = useState(false);
   const [receivedAmount, setReceivedAmount] = useState('');
   const [receivedDate, setReceivedDate] = useState(todayLocalISO());
   const [chequeNumber, setChequeNumber] = useState('');
@@ -78,6 +82,7 @@ export const ReceiptEntry = () => {
   const [allocations, setAllocations] = useState<AllocationLine[]>([]);
 
   const selectedCustomer = customers.find((c) => c.id === selectedCustomerId) || null;
+  const selectedCustomerLabel = selectedCustomer ? `${selectedCustomer.name}${selectedCustomer.phone ? ` (${selectedCustomer.phone})` : ''}` : 'Search by name, phone or company...';
 
   useEffect(() => {
     (async () => {
@@ -561,10 +566,57 @@ export const ReceiptEntry = () => {
           <div className="p-4 md:p-8 animate-in fade-in duration-300">
             <div className="space-y-3 group max-w-xl">
               <Label className="text-xs uppercase tracking-wider text-slate-500 font-bold group-focus-within:text-primary transition-colors">Lookup Directory <span className="text-rose-500">*</span></Label>
-              <Select value={selectedCustomerId} onValueChange={handleCustomerSelect}>
-                <SelectTrigger className="h-14 rounded-2xl bg-white dark:bg-slate-900 shadow-sm border-slate-200 dark:border-slate-700 text-base"><SelectValue placeholder="Search by name or phone..." /></SelectTrigger>
-                <SelectContent className="rounded-2xl max-h-[300px]">{customers.map(c => <SelectItem key={c.id} value={c.id} className="py-3 font-medium"><span className="inline-flex items-center gap-2">{c.name} {c.company && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">{c.company}</span>}<span className="text-slate-400 text-xs font-mono">({c.phone})</span></span></SelectItem>)}</SelectContent>
-              </Select>
+              <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={customerOpen}
+                    className="w-full h-14 justify-between rounded-2xl bg-white dark:bg-slate-900 shadow-sm border-slate-200 dark:border-slate-700 text-base text-left font-normal hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
+                    <span className={cn("truncate", !selectedCustomerId && "text-muted-foreground")}>{selectedCustomerLabel}</span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-2xl max-h-[320px]" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search name, phone or company..." className="h-11" />
+                    <CommandList>
+                      <CommandEmpty>No customer found.</CommandEmpty>
+                      <CommandGroup heading="Verified Customers">
+                        {customers.map((c) => {
+                          const mismatch = !!company && !!c.company && c.company !== company;
+                          return (
+                            <CommandItem
+                              key={c.id}
+                              value={`${c.name} ${c.phone ?? ''} ${c.company ?? ''}`}
+                              onSelect={() => { handleCustomerSelect(c.id); setCustomerOpen(false); }}
+                            >
+                              <Building2 className="mr-2 h-4 w-4 text-gray-400 shrink-0" />
+                              <span className="flex-1 truncate">{c.name}</span>
+                              {c.company ? (
+                                <span
+                                  className={cn(
+                                    "ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0",
+                                    mismatch ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-teal-50 text-teal-700 border-teal-200",
+                                  )}
+                                  title={mismatch ? `Belongs to ${c.company} — receipt is for ${company}` : c.company}
+                                >
+                                  {c.company}
+                                </span>
+                              ) : (
+                                <span className="ml-2 text-[10px] italic text-amber-600 shrink-0">unassigned</span>
+                              )}
+                              {c.phone && <span className="ml-2 text-slate-400 text-xs font-mono shrink-0">{c.phone}</span>}
+                              <Check className={cn("ml-2 h-4 w-4 text-teal-500 shrink-0", selectedCustomerId === c.id ? "opacity-100" : "opacity-0")} />
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>
