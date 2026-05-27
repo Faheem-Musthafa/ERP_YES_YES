@@ -2,10 +2,14 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { useNavigate } from 'react-router';
 import { Download, FileText, Plus, Search, X } from 'lucide-react';
-import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Button } from '@/app/components/ui/button';
-import { downloadCSV } from '@/app/utils';
+import { downloadCSV, STATUS_STRIPE } from '@/app/utils';
+import { ordersQuery, type OrderListRow } from '@/app/lib/api/orders';
+import { usePagedQuery } from '@/app/lib/queries/usePagedQuery';
+import { useDebounced } from '@/app/hooks/useDebounced';
+
+const STATUSES = ['all', 'Pending', 'Approved', 'Billed', 'Delivered', 'Rejected'];
 import { cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import {
   PageHeader, SearchBar, DataCard, FilterBar, FilterField,
@@ -17,27 +21,22 @@ import { CustomerNameLink } from '@/app/components/CustomerNameLink';
 export const MyOrders = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [orders, setOrders] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
   const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
   const pageSize = 10;
+  const debouncedSearch = useDebounced(search, 250);
 
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from('orders')
-        .select('id, order_number, status, company, invoice_type, grand_total, delivery_date, created_at, customer_id, customers(name)')
-        .eq('created_by', user.id)
-        .order('created_at', { ascending: false });
-      setOrders(data ?? []);
-      setLoading(false);
-    })();
-  }, [user?.id]);
+  const { rows: paginated, totalItems, isLoading: loading, page, setPage } = usePagedQuery<OrderListRow>({
+    key: ['my-orders', user?.id ?? '', debouncedSearch, statusFilter],
+    pageSize,
+    enabled: !!user?.id,
+    buildQuery: () => ordersQuery({
+      createdBy: user?.id,
+      status: statusFilter && statusFilter !== 'all' ? statusFilter : undefined,
+      search: debouncedSearch || undefined,
+    }),
+  });
 
   useEffect(() => {
     void loadCompanyProfiles()
@@ -45,18 +44,10 @@ export const MyOrders = () => {
       .catch(() => undefined);
   }, []);
 
-  const filtered = orders.filter(o => {
-    const matchSearch = !search || o.order_number.toLowerCase().includes(search.toLowerCase()) || (o.customers?.name ?? '').toLowerCase().includes(search.toLowerCase());
-    const matchStatus = !statusFilter || statusFilter === 'all' || o.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
-  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, orders.length]);
-  const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
   const exportOrders = () => {
     downloadCSV(
       ['Order No', 'Customer', 'Company', 'Invoice Type', 'Grand Total', 'Delivery Date', 'Status', 'Created'],
-      filtered.map((order) => [
+      paginated.map((order) => [
         order.order_number,
         order.customers?.name ?? '—',
         getCompanyDisplayName(order.company, companyProfiles),
@@ -66,18 +57,10 @@ export const MyOrders = () => {
         order.status ?? '—',
         order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN') : '—',
       ]),
-      `my-orders-${new Date().toISOString().slice(0, 10)}.csv`,
+      `my-orders-page${page}-${new Date().toISOString().slice(0, 10)}.csv`,
     );
   };
 
-  const STATUS_STRIPE: Record<string, string> = {
-    Pending: 'bg-amber-400',
-    Approved: 'bg-emerald-500',
-    Rejected: 'bg-rose-500',
-    Billed: 'bg-blue-500',
-    Delivered: 'bg-violet-500',
-  };
-  const STATUSES = ['all', 'Pending', 'Approved', 'Billed', 'Delivered', 'Rejected'];
 
   return (
     <>
@@ -199,13 +182,13 @@ export const MyOrders = () => {
                 ))}
               </ul>
             )}
-            {filtered.length > pageSize && (
+            {totalItems > pageSize && (
               <div className="border-t border-[var(--sm-border)]">
                 <TablePagination
-                  totalItems={filtered.length}
+                  totalItems={totalItems}
                   currentPage={page}
                   pageSize={pageSize}
-                  onPageChange={setCurrentPage}
+                  onPageChange={setPage}
                   itemLabel="orders"
                 />
               </div>
@@ -255,7 +238,7 @@ export const MyOrders = () => {
       </FilterBar>
 
       <DataCard>
-        {loading ? <Spinner /> : filtered.length === 0 ? (
+        {loading ? <Spinner /> : totalItems === 0 ? (
           <EmptyState icon={FileText} message="No orders found" sub="Submit your first order to see it here" action={<Button onClick={() => navigate('/sales/create-order')} variant="outline" size="sm" className="mt-4">Create Order</Button>} />
         ) : (
           <div className="overflow-x-auto">
@@ -292,10 +275,10 @@ export const MyOrders = () => {
               </tbody>
             </table>
             <TablePagination
-              totalItems={filtered.length}
+              totalItems={totalItems}
               currentPage={page}
               pageSize={pageSize}
-              onPageChange={setCurrentPage}
+              onPageChange={setPage}
               itemLabel="orders"
             />
           </div>

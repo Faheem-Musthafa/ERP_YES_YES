@@ -108,14 +108,17 @@ export const MyCollection = () => {
     }
 
     setSavingStatus(receiptId);
-    const { error: updateError } = await supabase
+    const { data, error: updateError } = await supabase
       .from('receipts')
       .update({ payment_status: status, bounce_reason: null })
       .eq('id', receiptId)
-      .eq('recorded_by', user?.id ?? '');
+      .eq('recorded_by', user?.id ?? '')
+      .select('id');
 
     if (updateError) {
       toast.error(updateError.message || 'Failed to update status');
+    } else if (!data || data.length === 0) {
+      toast.error('Status not updated — receipt may have been changed by another user');
     } else {
       toast.success('Status updated');
       await fetchReceipts();
@@ -131,14 +134,17 @@ export const MyCollection = () => {
     }
 
     setSavingStatus(bounceTargetId);
-    const { error: updateError } = await supabase
+    const { data, error: updateError } = await supabase
       .from('receipts')
       .update({ payment_status: 'Bounced', bounce_reason: bounceReason.trim() })
       .eq('id', bounceTargetId)
-      .eq('recorded_by', user?.id ?? '');
+      .eq('recorded_by', user?.id ?? '')
+      .select('id');
 
     if (updateError) {
       toast.error(updateError.message || 'Failed to update status');
+    } else if (!data || data.length === 0) {
+      toast.error('Status not updated — receipt may have been changed by another user');
     } else {
       toast.success('Marked as Bounced');
       await fetchReceipts();

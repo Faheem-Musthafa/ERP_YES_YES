@@ -170,7 +170,7 @@ export const AdminDashboard = () => {
         supabase.from('receipts').select('id, amount, payment_status').or('payment_status.is.null,payment_status.neq.Voided').gte('created_at', monthStart),
         supabase.from('receipts').select('id, amount, payment_status, created_at').or('payment_status.is.null,payment_status.neq.Voided').gte('created_at', chartStart),
         supabase.from('users').select('id, full_name, role, is_active'),
-        supabase.from('customers').select('id', { count: 'exact' }),
+        supabase.from('customers').select('id', { count: 'exact', head: true }),
         loadStockHealthSummary(5, 6),
       ]);
       const fetchError = allOrdersError || monthOrdersError || prevMonthOrdersError || allReceiptsError || monthReceiptsError || chartReceiptsError || allUsersError || customersError;

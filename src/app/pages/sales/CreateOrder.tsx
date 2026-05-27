@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Textarea } from '@/app/components/ui/textarea';
@@ -44,6 +44,9 @@ export const CreateOrder = () => {
   const [salespeople, setSalespeople] = useState<Salesperson[]>([]);
   const [salespersonId, setSalespersonId] = useState('');
   const [loading, setLoading] = useState(false);
+  // Synchronous double-submit guard — React state update is async so a fast
+  // double-Enter could otherwise read `loading=false` in both invocations.
+  const submittingRef = useRef(false);
   const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
   const [GodownOptions, setGodownOptions] = useState<string[]>(DEFAULT_ORDER_FORM_SETTINGS.Godowns);
   const [maxDiscountPercentage, setMaxDiscountPercentage] = useState(DEFAULT_ORDER_FORM_SETTINGS.maxDiscountPercentage);
@@ -312,18 +315,31 @@ export const CreateOrder = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!company || !invoiceType) { toast.error('Select company and invoice type'); return; }
-    if (!Godown) { toast.error('Select Godown'); return; }
-    if (!salespersonId) { toast.error('Select Sale Made By'); return; }
+    // Guard double-submit. setLoading runs synchronously inside React
+    // batching but `loading` checked here closes over the latest render, so
+    // a second handler invocation in the same tick will read false. Defend
+    // with a ref too — see submittingRef below.
+    if (loading || submittingRef.current) return;
+    submittingRef.current = true;
+    setLoading(true);
+    const finish = () => { submittingRef.current = false; setLoading(false); };
+    if (!company || !invoiceType) { toast.error('Select company and invoice type'); finish(); return; }
+    if (!Godown) { toast.error('Select Godown'); finish(); return; }
+    if (!salespersonId) { toast.error('Select Sale Made By'); finish(); return; }
     const validItems = orderItems.filter(i => i.productId && i.quantity);
-    if (validItems.length === 0) { toast.error('Add at least one product'); return; }
+    if (validItems.length === 0) { toast.error('Add at least one product'); finish(); return; }
     const stockErrors = validItems.filter(i => Number(i.quantity) > i.available);
     if (stockErrors.length > 0) {
       toast.error(`Insufficient available stock (some units are on hold for other pending orders): ${stockErrors.map(i => i.product).join(', ')}`);
+      finish();
       return;
     }
-    
-    setLoading(true);
+    const zeroPrice = validItems.filter(i => !Number.isFinite(Number(i.dp)) || Number(i.dp) <= 0);
+    if (zeroPrice.length > 0) {
+      toast.error(`Dealer price must be greater than 0: ${zeroPrice.map(i => i.product).join(', ')}`);
+      finish();
+      return;
+    }
     try {
       let customerId: string | null = null;
       if (customerType === 'new') {
@@ -436,7 +452,7 @@ export const CreateOrder = () => {
 
       toast.success(orderNumber ? `Order ${orderNumber} created!` : 'Order created!');
       navigate('/sales/my-orders');
-    } catch (err: any) { toast.error(err.message || 'Failed'); } finally { setLoading(false); }
+    } catch (err: any) { toast.error(err.message || 'Failed'); } finally { submittingRef.current = false; setLoading(false); }
   };
 
   const Pill = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (

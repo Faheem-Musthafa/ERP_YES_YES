@@ -13,7 +13,7 @@ import {
 } from '@/app/components/ui/primitives';
 import { CustomerNameLink } from '@/app/components/CustomerNameLink';
 import { cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
-import { downloadCSV } from '@/app/utils';
+import { downloadCSV, STATUS_STRIPE } from '@/app/utils';
 import { todayLocalISO, localRangeToUTC, validateDateRange } from '@/app/dates';
 import type { OrderStatusEnum } from '@/app/types/database';
 
@@ -52,6 +52,7 @@ export const ApprovedSales = () => {
 
   useEffect(() => {
     if (!user?.id) return;
+    let cancelled = false;
     (async () => {
       setLoading(true);
       try {
@@ -66,14 +67,16 @@ export const ApprovedSales = () => {
         if (gte) query = query.gte('approved_at', gte);
         if (lt) query = query.lt('approved_at', lt);
         const { data, error } = await query;
+        if (cancelled) return;
         if (error) throw error;
         setRows((data ?? []) as ApprovedOrderRow[]);
       } catch (err: any) {
-        toast.error(err.message || 'Failed to load approved sales');
+        if (!cancelled) toast.error(err.message || 'Failed to load approved sales');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [user?.id, dateFrom, dateTo]);
 
   const filtered = useMemo(() => {
@@ -248,15 +251,10 @@ export const ApprovedSales = () => {
           {/* Mobile cards */}
           <ul className="lg:hidden divide-y divide-border sm-font" aria-label="Approved sales">
             {paginated.map((o) => {
-              const stripeMap: Record<string, string> = {
-                Approved:  'bg-emerald-500',
-                Billed:    'bg-blue-500',
-                Delivered: 'bg-violet-500',
-              };
               return (
                 <li key={o.id}>
                   <div className="w-full flex items-stretch gap-3 px-4 py-3.5">
-                    <span className={`w-1 rounded-full ${stripeMap[o.status] ?? 'bg-slate-300'}`} aria-hidden />
+                    <span className={`w-1 rounded-full ${STATUS_STRIPE[o.status] ?? 'bg-slate-300'}`} aria-hidden />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-bold text-foreground truncate">{o.order_number}</p>

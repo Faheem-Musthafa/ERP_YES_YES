@@ -111,8 +111,13 @@ export const CollectionStatus = () => {
       return;
     }
     setSavingStatus(receiptId);
-    const { error } = await supabase.from('receipts').update({ payment_status: status, bounce_reason: null }).eq('id', receiptId);
+    const { data, error } = await supabase
+      .from('receipts')
+      .update({ payment_status: status, bounce_reason: null })
+      .eq('id', receiptId)
+      .select('id');
     if (error) toast.error('Failed to update status');
+    else if (!data || data.length === 0) toast.error('Status not updated — receipt may have been changed by another user or RLS denied the write');
     else { toast.success('Status updated'); fetchReceipts(); }
     setSavingStatus('');
   };
@@ -126,8 +131,13 @@ export const CollectionStatus = () => {
       toast.error(err?.message || 'Please enter a reason'); return;
     }
     setSavingStatus(bounceTargetId);
-    const { error } = await supabase.from('receipts').update({ payment_status: 'Bounced', bounce_reason: normalizedReason }).eq('id', bounceTargetId);
+    const { data, error } = await supabase
+      .from('receipts')
+      .update({ payment_status: 'Bounced', bounce_reason: normalizedReason })
+      .eq('id', bounceTargetId)
+      .select('id');
     if (error) toast.error('Failed to update');
+    else if (!data || data.length === 0) toast.error('Status not updated — receipt may have been changed by another user or RLS denied the write');
     else { toast.success('Marked as Bounced'); fetchReceipts(); }
     setBounceDialog(false);
     setSavingStatus('');

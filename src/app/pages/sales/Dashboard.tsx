@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { fmtK, isCollectedReceiptStatus } from '@/app/utils';
+import { fmtK, isCollectedReceiptStatus, STATUS_STRIPE } from '@/app/utils';
 import { DEFAULT_SALES_TARGET_SETTINGS, loadSalesTargetSettings } from '@/app/settings';
 import {
   ShoppingCart, TrendingUp, TrendingDown, CheckCircle, CheckCircle2,
@@ -302,15 +302,6 @@ interface SalesDashboardMobileProps {
   maxWeekSales: number;
   recentOrders: any[];
 }
-
-const STATUS_STRIPE: Record<string, string> = {
-  Pending:   'bg-amber-400',
-  Approved:  'bg-emerald-500',
-  Billed:    'bg-blue-500',
-  Delivered: 'bg-violet-500',
-  Rejected:  'bg-rose-500',
-  Voided:    'bg-slate-400',
-};
 
 const SalesDashboardMobile = ({
   firstName, greeting, monthName, stats, monthlyTarget, targetPct, pace,

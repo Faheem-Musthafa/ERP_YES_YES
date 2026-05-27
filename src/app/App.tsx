@@ -1,10 +1,26 @@
 ﻿import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@/app/contexts/AuthContext';
 import { Layout } from '@/app/components/Layout';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { Toaster } from '@/app/components/ui/sonner';
 import { CustomerDialogProvider } from '@/app/components/CustomerDialogProvider';
+import { PROTECTED_ROUTES } from '@/app/navigation/routes';
+
+// Single QueryClient instance shared by all hooks. Sensible defaults for an
+// ERP: don't refetch on window focus (sales rep tabs between mobile + email
+// all day), stale-after 30s so subsequent renders are instant.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 // ── Eagerly loaded (tiny, always needed) ──────────────────────────────────
 import { Login } from '@/app/pages/Login';
@@ -79,13 +95,23 @@ const Loader = (
 // Parent layout shell — mounts Layout once and renders nested route content
 // via Outlet. Persisting across child route changes prevents Layout
 // (notification poll, sidebar state) from remounting on every navigation.
+// Outlet is wrapped in an inline ErrorBoundary keyed by pathname so a single
+// page crash doesn't unmount the entire app chrome; navigating to a working
+// route resets the boundary.
 const ProtectedShell = () => {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return Loader;
   if (!user) return <Navigate to="/login" replace />;
   if (!user.is_active) return <Navigate to="/login" replace />;
   if (user.must_change_password) return <Navigate to="/change-password" replace />;
-  return <Layout><Outlet /></Layout>;
+  return (
+    <Layout>
+      <ErrorBoundary inline resetKey={location.pathname}>
+        <Outlet />
+      </ErrorBoundary>
+    </Layout>
+  );
 };
 
 // Per-route role check. Auth/active/must-change-password already enforced by
@@ -123,6 +149,79 @@ const HomeRedirect = () => {
 };
 
 // ── Routes ────────────────────────────────────────────────────────────────
+//
+// Component-by-path is wired here, but the *list* of paths + per-path
+// `allowedRoles` lives in `navigation/routes.ts`. Adding a new route requires
+// one edit in routes.ts plus one entry in COMPONENTS_BY_PATH below — no
+// hand-written <Route> JSX and no risk of allowedRoles drifting between
+// App.tsx, Sidebar, and SalesMobileNav.
+
+const COMPONENTS_BY_PATH: Record<string, React.ComponentType> = {
+  // Admin
+  '/admin': AdminDashboard,
+  '/admin/staff': StaffManagement,
+  '/admin/customers': Customers,
+  '/admin/customers/new': CustomerForm,
+  '/admin/customers/:id/edit': CustomerForm,
+  '/admin/customer-analysis': CustomerAnalysisReport,
+  '/admin/brands': Brands,
+  '/admin/products': Products,
+  '/admin/sales': SalesRecords,
+  '/admin/reports': AdminReports,
+  '/admin/drivers': DeliveryDrivers,
+  '/admin/activity': ActivityLog,
+  '/admin/settings': AdminSettings,
+  // Sales
+  '/sales': SalesDashboard,
+  '/sales/my-customers': MyCustomers,
+  '/sales/create-order': CreateOrder,
+  '/sales/credit-note': CreditNote,
+  '/sales/my-orders': MyOrders,
+  '/sales/approved-sales': ApprovedSales,
+  '/sales/back-orders': BackOrders,
+  '/sales/receipt': ReceiptEntry,
+  '/sales/my-collection': MyCollection,
+  '/sales/collection-status': CollectionStatus,
+  '/sales/price-list': PriceList,
+  '/sales/more': SalesMore,
+  '/sales/stock-transfer': StockTransfer,
+  // Accounts
+  '/accounts': AccountsDashboard,
+  '/accounts/pending-orders': OrderReview,
+  '/accounts/back-orders': BackOrders,
+  '/accounts/billing': Billing,
+  '/accounts/sales': SalesRecords,
+  '/accounts/collection-status': CollectionStatus,
+  '/accounts/payments': Payments,
+  // Shared
+  '/stock': StockManagement,
+  // Inventory
+  '/inventory': InventoryDashboard,
+  '/inventory/stock': InventoryStock,
+  '/inventory/brands': Brands,
+  '/inventory/products': Products,
+  '/inventory/adjustment': StockAdjustment,
+  '/inventory/transfer': StockTransfer,
+  '/inventory/reports': InventoryReports,
+  '/inventory/delivery': DeliveryManagement,
+  // Procurement
+  '/procurement': ProcurementDashboard,
+  '/procurement/orders': PurchaseOrders,
+  '/procurement/history': PurchaseHistory,
+  '/procurement/suppliers': Suppliers,
+  '/procurement/grn': GRN,
+  '/procurement/reports': ProcurementReports,
+};
+
+// Sanity check at boot: every protected route in the registry must have a
+// component wired up here. Catches drift in dev/CI instead of at runtime.
+if (import.meta.env.DEV) {
+  for (const r of PROTECTED_ROUTES) {
+    if (!COMPONENTS_BY_PATH[r.path]) {
+      console.error(`[routes] No component wired for ${r.path} — add it to COMPONENTS_BY_PATH in App.tsx`);
+    }
+  }
+}
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
@@ -140,65 +239,21 @@ const AppRoutes = () => {
             routes — sidebar/notification state and the notification polling
             interval no longer reset on every page change. */}
         <Route element={<ProtectedShell />}>
-          {/* Admin Routes */}
-          <Route path="/admin" element={<RoleGate allowedRoles={['admin']}><AdminDashboard /></RoleGate>} />
-          <Route path="/admin/staff" element={<RoleGate allowedRoles={['admin']}><StaffManagement /></RoleGate>} />
-          <Route path="/admin/customers" element={<RoleGate allowedRoles={['admin']}><Customers /></RoleGate>} />
-          <Route path="/admin/customers/new" element={<RoleGate allowedRoles={['admin']}><CustomerForm /></RoleGate>} />
-          <Route path="/admin/customers/:id/edit" element={<RoleGate allowedRoles={['admin']}><CustomerForm /></RoleGate>} />
-          <Route path="/admin/customer-analysis" element={<RoleGate allowedRoles={['admin']}><CustomerAnalysisReport /></RoleGate>} />
-          <Route path="/admin/brands" element={<RoleGate allowedRoles={['admin']}><Brands /></RoleGate>} />
-          <Route path="/admin/products" element={<RoleGate allowedRoles={['admin']}><Products /></RoleGate>} />
-          <Route path="/admin/sales" element={<RoleGate allowedRoles={['admin']}><SalesRecords /></RoleGate>} />
-          <Route path="/admin/reports" element={<RoleGate allowedRoles={['admin']}><AdminReports /></RoleGate>} />
-          <Route path="/admin/drivers" element={<RoleGate allowedRoles={['admin']}><DeliveryDrivers /></RoleGate>} />
-          <Route path="/admin/activity" element={<RoleGate allowedRoles={['admin']}><ActivityLog /></RoleGate>} />
-          <Route path="/admin/settings" element={<RoleGate allowedRoles={['admin']}><AdminSettings /></RoleGate>} />
-
-          {/* Sales Routes */}
-          <Route path="/sales" element={<RoleGate allowedRoles={['sales']}><SalesDashboard /></RoleGate>} />
-          <Route path="/sales/create-order" element={<RoleGate allowedRoles={['sales', 'admin']}><CreateOrder /></RoleGate>} />
-          <Route path="/sales/credit-note" element={<RoleGate allowedRoles={['sales', 'admin']}><CreditNote /></RoleGate>} />
-          <Route path="/sales/my-orders" element={<RoleGate allowedRoles={['sales']}><MyOrders /></RoleGate>} />
-          <Route path="/sales/my-customers" element={<RoleGate allowedRoles={['sales']}><MyCustomers /></RoleGate>} />
-          <Route path="/sales/receipt" element={<RoleGate allowedRoles={['sales', 'admin']}><ReceiptEntry /></RoleGate>} />
-          <Route path="/sales/my-collection" element={<RoleGate allowedRoles={['sales', 'admin']}><MyCollection /></RoleGate>} />
-          <Route path="/sales/collection-status" element={<RoleGate allowedRoles={['sales', 'admin']}><CollectionStatus /></RoleGate>} />
-          <Route path="/sales/back-orders" element={<RoleGate allowedRoles={['sales', 'admin', 'accounts']}><BackOrders /></RoleGate>} />
-          <Route path="/sales/approved-sales" element={<RoleGate allowedRoles={['sales', 'admin']}><ApprovedSales /></RoleGate>} />
-          <Route path="/sales/price-list" element={<RoleGate allowedRoles={['sales', 'admin']}><PriceList /></RoleGate>} />
-          <Route path="/sales/more" element={<RoleGate allowedRoles={['sales']}><SalesMore /></RoleGate>} />
-          <Route path="/accounts/back-orders" element={<RoleGate allowedRoles={['accounts', 'admin']}><BackOrders /></RoleGate>} />
-
-          {/* Accounts Routes */}
-          <Route path="/accounts" element={<RoleGate allowedRoles={['accounts']}><AccountsDashboard /></RoleGate>} />
-          <Route path="/accounts/collection-status" element={<RoleGate allowedRoles={['accounts', 'admin']}><CollectionStatus /></RoleGate>} />
-          <Route path="/accounts/pending-orders" element={<RoleGate allowedRoles={['accounts', 'admin']}><OrderReview /></RoleGate>} />
-          <Route path="/accounts/billing" element={<RoleGate allowedRoles={['accounts', 'admin']}><Billing /></RoleGate>} />
-          <Route path="/accounts/sales" element={<RoleGate allowedRoles={['accounts', 'admin']}><SalesRecords /></RoleGate>} />
-          <Route path="/accounts/payments" element={<RoleGate allowedRoles={['accounts', 'admin']}><Payments /></RoleGate>} />
-
-          {/* Shared Routes */}
-          <Route path="/stock" element={<RoleGate allowedRoles={['admin', 'accounts', 'sales', 'inventory', 'procurement']}><StockManagement /></RoleGate>} />
-
-          {/* Inventory Routes */}
-          <Route path="/inventory" element={<RoleGate allowedRoles={['inventory', 'admin']}><InventoryDashboard /></RoleGate>} />
-          <Route path="/inventory/stock" element={<RoleGate allowedRoles={['inventory', 'admin']}><InventoryStock /></RoleGate>} />
-          <Route path="/inventory/brands" element={<RoleGate allowedRoles={['inventory', 'admin']}><Brands /></RoleGate>} />
-          <Route path="/inventory/products" element={<RoleGate allowedRoles={['inventory', 'admin']}><Products /></RoleGate>} />
-          <Route path="/inventory/adjustment" element={<RoleGate allowedRoles={['inventory', 'admin']}><StockAdjustment /></RoleGate>} />
-          <Route path="/inventory/transfer" element={<RoleGate allowedRoles={['inventory', 'admin']}><StockTransfer /></RoleGate>} />
-          <Route path="/sales/stock-transfer" element={<RoleGate allowedRoles={['sales', 'admin', 'inventory']}><StockTransfer /></RoleGate>} />
-          <Route path="/inventory/reports" element={<RoleGate allowedRoles={['inventory', 'admin']}><InventoryReports /></RoleGate>} />
-          <Route path="/inventory/delivery" element={<RoleGate allowedRoles={['inventory', 'admin']}><DeliveryManagement /></RoleGate>} />
-
-          {/* Procurement Routes */}
-          <Route path="/procurement" element={<RoleGate allowedRoles={['procurement', 'admin']}><ProcurementDashboard /></RoleGate>} />
-          <Route path="/procurement/orders" element={<RoleGate allowedRoles={['procurement', 'admin']}><PurchaseOrders /></RoleGate>} />
-          <Route path="/procurement/history" element={<RoleGate allowedRoles={['procurement', 'admin']}><PurchaseHistory /></RoleGate>} />
-          <Route path="/procurement/suppliers" element={<RoleGate allowedRoles={['procurement', 'admin']}><Suppliers /></RoleGate>} />
-          <Route path="/procurement/grn" element={<RoleGate allowedRoles={['procurement', 'admin']}><GRN /></RoleGate>} />
-          <Route path="/procurement/reports" element={<RoleGate allowedRoles={['procurement', 'admin']}><ProcurementReports /></RoleGate>} />
+          {PROTECTED_ROUTES.map((r) => {
+            const Component = COMPONENTS_BY_PATH[r.path];
+            if (!Component) return null;
+            return (
+              <Route
+                key={r.path}
+                path={r.path}
+                element={
+                  <RoleGate allowedRoles={r.allowedRoles}>
+                    <Component />
+                  </RoleGate>
+                }
+              />
+            );
+          })}
         </Route>
 
         {/* 404 */}
@@ -211,14 +266,16 @@ const AppRoutes = () => {
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <BrowserRouter>
-          <CustomerDialogProvider>
-            <AppRoutes />
-          </CustomerDialogProvider>
-          <Toaster />
-        </BrowserRouter>
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <BrowserRouter>
+            <CustomerDialogProvider>
+              <AppRoutes />
+            </CustomerDialogProvider>
+            <Toaster />
+          </BrowserRouter>
+        </AuthProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }

@@ -62,10 +62,13 @@ export const Payments = () => {
     const pageSize = 10;
 
     useEffect(() => {
-        fetchData();
+        let cancelled = false;
+        void fetchData(() => cancelled);
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dateFrom, dateTo]);
 
-    const fetchData = async () => {
+    const fetchData = async (isCancelled: () => boolean = () => false) => {
         setLoading(true);
         try {
             // Query 1: Fetch orders with customer info
@@ -107,6 +110,7 @@ export const Payments = () => {
                 customersQuery,
             ]);
 
+            if (isCancelled()) return;
             if (ordersError) throw ordersError;
             if (receiptsError) throw receiptsError;
             if (customersError) throw customersError;
@@ -168,15 +172,19 @@ export const Payments = () => {
             }
 
             for (const [customerId, entry] of customerMap) {
-                entry.totalPaid = receiptsByCustomer.get(customerId) ?? entry.totalPaid;
+                const paid = receiptsByCustomer.get(customerId);
+                entry.totalPaid = Number.isFinite(paid) ? (paid as number) : entry.totalPaid;
+                if (!Number.isFinite(entry.openingBalance)) entry.openingBalance = 0;
+                if (!Number.isFinite(entry.totalBilled)) entry.totalBilled = 0;
+                if (!Number.isFinite(entry.totalPaid)) entry.totalPaid = 0;
                 entry.outstanding = entry.openingBalance + entry.totalBilled - entry.totalPaid;
             }
 
-            setCustomers(Array.from(customerMap.values()));
+            if (!isCancelled()) setCustomers(Array.from(customerMap.values()));
         } catch (err: any) {
-            toast.error('Failed to load payment data: ' + err.message);
+            if (!isCancelled()) toast.error('Failed to load payment data: ' + err.message);
         } finally {
-            setLoading(false);
+            if (!isCancelled()) setLoading(false);
         }
     };
 

@@ -1307,7 +1307,7 @@ export const Billing = () => {
 
       toast.success(action === 'approve'
         ? 'Billing reversal approved successfully'
-        : 'Billing reversal request Advance');
+        : 'Billing reversal rejected');
       setReviewDialogOpen(false);
       setReviewRequest(null);
       setAdminPassword('');

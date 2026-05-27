@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router';
 import { supabase } from '@/app/supabase';
 import { Button } from '@/app/components/ui/button';
@@ -19,6 +19,10 @@ import { useCustomerDialog } from '@/app/components/CustomerDialogProvider';
 import { CustomerNameLink } from '@/app/components/CustomerNameLink';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { COMPANY_LIST } from '@/app/companyProfiles';
+import { usePagedQuery } from '@/app/lib/queries/usePagedQuery';
+import { useQueryClient } from '@tanstack/react-query';
+import { escapePostgrestLike } from '@/app/utils';
+import { useDebounced } from '@/app/hooks/useDebounced';
 
 interface Customer {
     id: string;
@@ -38,29 +42,33 @@ interface Customer {
 }
 
 export const Customers = () => {
-    const [customers, setCustomers] = useState<Customer[]>([]);
-    const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [companyFilter, setCompanyFilter] = useState<string>('all');
     const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-    const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
     const { openCustomer } = useCustomerDialog();
+    const queryClient = useQueryClient();
+    const debouncedSearch = useDebounced(search, 250);
 
-    const fetchCustomers = async () => {
-        setLoading(true);
-        const { data, error } = await supabase
-            .from('customers')
-            .select('id, name, place, address, phone, pincode, gst_pan, location, company, opening_invoice, opening_delivery_challan, opening_balance, is_active, created_at')
-            .order('name');
-        if (error) toast.error('Failed to load customers');
-        else setCustomers(data ?? []);
-        setLoading(false);
-    };
+    const { rows: paginated, totalItems, isLoading: loading, page, setPage } = usePagedQuery<Customer>({
+        key: ['customers', debouncedSearch, companyFilter],
+        pageSize,
+        buildQuery: () => {
+            let q = supabase
+                .from('customers')
+                .select('id, name, place, address, phone, pincode, gst_pan, location, company, opening_invoice, opening_delivery_challan, opening_balance, is_active, created_at', { count: 'exact' })
+                .order('name');
+            if (companyFilter === 'unassigned') q = q.is('company', null);
+            else if (companyFilter !== 'all') q = q.eq('company', companyFilter as never);
+            if (debouncedSearch) {
+                const safe = escapePostgrestLike(debouncedSearch);
+                q = q.or(`name.ilike.%${safe}%,phone.ilike.%${safe}%,place.ilike.%${safe}%`);
+            }
+            return q;
+        },
+    });
 
-    useEffect(() => {
-        void fetchCustomers();
-    }, []);
+    const invalidate = () => queryClient.invalidateQueries({ queryKey: ['customers'] });
 
     const restoreCustomer = async (id: string, name: string) => {
         try {
@@ -70,14 +78,14 @@ export const Customers = () => {
                 entityLabel: name,
             });
             toast.success('Customer restored');
-            await fetchCustomers();
+            await invalidate();
         } catch (error: any) {
             toast.error(error?.message || 'Failed to restore customer');
         }
     };
 
     const deleteCustomer = async (id: string) => {
-        const target = customers.find((customer) => customer.id === id);
+        const target = paginated.find((customer) => customer.id === id);
         if (!target) return;
 
         try {
@@ -90,39 +98,17 @@ export const Customers = () => {
             });
             toast.success('Customer archived');
             setDeleteTarget(null);
-            await fetchCustomers();
+            await invalidate();
         } catch (error: any) {
             toast.error(error?.message || 'Failed to archive customer');
         }
     };
 
-    const filtered = customers.filter(c => {
-        if (companyFilter === 'unassigned' && c.company) return false;
-        if (companyFilter !== 'all' && companyFilter !== 'unassigned' && c.company !== companyFilter) return false;
-        const term = search.toLowerCase();
-        if (!term) return true;
-        return (
-            c.name?.toLowerCase().includes(term) ||
-            c.phone?.includes(search) ||
-            c.place?.toLowerCase().includes(term)
-        );
-    });
-
-    const companyCounts = customers.reduce((acc, c) => {
-        const key = c.company || 'unassigned';
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-
-    useEffect(() => { setCurrentPage(1); }, [search, companyFilter, customers.length]);
-    const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
-    const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
-
     return (
         <div className="space-y-5">
             <PageHeader
                 title="Customers"
-                subtitle={`${customers.length} total customers`}
+                subtitle={`${totalItems} total customers`}
                 actions={
                     <CustomTooltip content="Create a new customer record" side="bottom">
                         <Link to="/admin/customers/new">
@@ -146,20 +132,18 @@ export const Customers = () => {
                         <SelectValue placeholder="Filter by company" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">All companies ({customers.length})</SelectItem>
+                        <SelectItem value="all">All companies</SelectItem>
                         {COMPANY_LIST.map((c) => (
-                            <SelectItem key={c} value={c}>
-                                {c} ({companyCounts[c] ?? 0})
-                            </SelectItem>
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
                         ))}
-                        <SelectItem value="unassigned">Unassigned ({companyCounts.unassigned ?? 0})</SelectItem>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
 
             <DataCard>
                 {loading ? <Spinner /> :
-                    filtered.length === 0 ? (
+                    totalItems === 0 ? (
                         <EmptyState
                             icon={UserCircle}
                             message="No customers found"
@@ -292,10 +276,10 @@ export const Customers = () => {
                                 </table>
                             </div>
                             <TablePagination
-                                totalItems={filtered.length}
+                                totalItems={totalItems}
                                 currentPage={page}
                                 pageSize={pageSize}
-                                onPageChange={setCurrentPage}
+                                onPageChange={setPage}
                                 itemLabel="customers"
                             />
                         </>

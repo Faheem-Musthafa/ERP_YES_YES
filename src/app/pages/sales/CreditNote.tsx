@@ -296,16 +296,43 @@ export const CreditNote = () => {
       return;
     }
 
+    // Live-check prior credit notes against this bill so a second CN cannot
+    // re-credit an already-credited amount. Sum the absolute value of any
+    // existing CN orders that reference this bill and subtract from the cap.
+    let alreadyCredited = 0;
+    if (selectedBill?.id) {
+      try {
+        const { data: priorCNs } = await supabase
+          .from('orders')
+          .select('id, grand_total')
+          .eq('invoice_type', 'Credit Note')
+          .eq('parent_bill_id', selectedBill.id)
+          .neq('status', 'Voided');
+        if (priorCNs && priorCNs.length > 0) {
+          alreadyCredited = priorCNs.reduce(
+            (sum: number, row: { grand_total: number | null }) => sum + Math.abs(Number(row.grand_total) || 0),
+            0,
+          );
+        }
+      } catch {
+        // If parent_bill_id column does not exist (old schema), skip the
+        // check rather than blocking the CN. RPC / DB constraint should be
+        // the ultimate guard.
+      }
+    }
+
     if (isOrderItemCreditNote) {
-      const maxAllowed = normalizeAmount(selectedItem?.amount ?? 0);
-      if (maxAllowed > 0 && noteAmount > maxAllowed) {
-        toast.error(`Credit amount cannot exceed selected item amount (₹${maxAllowed.toLocaleString('en-IN')})`);
+      const itemMax = normalizeAmount(selectedItem?.amount ?? 0);
+      const maxAllowed = Math.max(0, itemMax - alreadyCredited);
+      if (itemMax > 0 && noteAmount > maxAllowed) {
+        toast.error(`Credit amount cannot exceed remaining creditable balance (₹${maxAllowed.toLocaleString('en-IN')}). Already credited: ₹${alreadyCredited.toLocaleString('en-IN')}`);
         return;
       }
     } else {
-      const maxAllowed = normalizeAmount(selectedBill?.grand_total ?? 0);
-      if (maxAllowed > 0 && noteAmount > maxAllowed) {
-        toast.error(`Credit amount cannot exceed selected bill total (₹${maxAllowed.toLocaleString('en-IN')})`);
+      const billMax = normalizeAmount(selectedBill?.grand_total ?? 0);
+      const maxAllowed = Math.max(0, billMax - alreadyCredited);
+      if (billMax > 0 && noteAmount > maxAllowed) {
+        toast.error(`Credit amount cannot exceed remaining creditable balance (₹${maxAllowed.toLocaleString('en-IN')}). Already credited: ₹${alreadyCredited.toLocaleString('en-IN')}`);
         return;
       }
     }

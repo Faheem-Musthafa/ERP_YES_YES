@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useMemo, useState, useEffect } from 'react';
 import { supabase } from '@/app/supabase';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { Button } from '@/app/components/ui/button';
@@ -13,7 +13,9 @@ import {
     CustomTooltip
 } from '@/app/components/ui/primitives';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+// Recharts pulled lazily — desktop-only block (hidden lg:block). Saves ~95 KB
+// gz from the initial sales-mobile bundle.
+const CustomerCharts = lazy(() => import('./MyCustomersCharts'));
 import {
     Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/app/components/ui/dialog';
@@ -333,20 +335,40 @@ export const MyCustomers = () => {
     const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
     const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-    const locationData = locationOptions.map(loc => ({
-        name: loc,
-        customers: customers.filter(c => c.location === loc).length,
-        revenue: customers.filter(c => c.location === loc).reduce((s, c) => s + c.totalRevenue, 0),
-    }));
+    // Heavy aggregations — memoize so search-input keystrokes don't pay the
+    // full-array filter + reduce passes on every render.
+    const locationData = useMemo(() => {
+        const buckets = new Map<string, { customers: number; revenue: number }>();
+        for (const c of customers) {
+            if (!c.location) continue;
+            const b = buckets.get(c.location) ?? { customers: 0, revenue: 0 };
+            b.customers += 1;
+            b.revenue += c.totalRevenue;
+            buckets.set(c.location, b);
+        }
+        return locationOptions.map(loc => ({
+            name: loc,
+            customers: buckets.get(loc)?.customers ?? 0,
+            revenue: buckets.get(loc)?.revenue ?? 0,
+        }));
+    }, [customers, locationOptions]);
 
-    const stats = {
-        totalCustomers: customers.length,
-        totalRevenue: customers.reduce((s, c) => s + c.totalRevenue, 0),
-        avgOrderValue: customers.length > 0 ? customers.reduce((s, c) => s + c.averageOrderValue, 0) / customers.length : 0,
-        totalOrders: customers.reduce((s, c) => s + c.totalOrders, 0),
-    };
-
-    const COLORS = ['#00bdb4', '#ff6b6b', '#4ecdc4', '#ffe66d'];
+    const stats = useMemo(() => {
+        let totalRevenue = 0;
+        let totalOrders = 0;
+        let totalAov = 0;
+        for (const c of customers) {
+            totalRevenue += c.totalRevenue;
+            totalOrders += c.totalOrders;
+            totalAov += c.averageOrderValue;
+        }
+        return {
+            totalCustomers: customers.length,
+            totalRevenue,
+            avgOrderValue: customers.length > 0 ? totalAov / customers.length : 0,
+            totalOrders,
+        };
+    }, [customers]);
 
     return (
         <>
@@ -596,39 +618,10 @@ export const MyCustomers = () => {
                 })}
             </div>
 
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <DataCard className="p-4">
-                    <h3 className="text-sm font-semibold mb-4">Customers by Location</h3>
-                    {locationData.filter(l => l.customers > 0).length > 0 ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                            <PieChart>
-                                <Pie data={locationData.filter(l => l.customers > 0)} dataKey="customers" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                                    {locationData.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
-                                </Pie>
-                                <Tooltip />
-                                <Legend />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    ) : <p className="text-muted-foreground text-sm">No location data</p>}
-                </DataCard>
-
-                <DataCard className="p-4">
-                    <h3 className="text-sm font-semibold mb-4">Revenue by Location</h3>
-                    {locationData.filter(l => l.revenue > 0).length > 0 ? (
-                        <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={locationData.filter(l => l.revenue > 0)}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" />
-                                <YAxis />
-                                <Tooltip />
-                                <Legend />
-                                <Bar dataKey="revenue" fill="#00bdb4" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : <p className="text-muted-foreground text-sm">No revenue data</p>}
-                </DataCard>
-            </div>
+            {/* Charts — lazy-loaded so mobile users don't pay the recharts cost */}
+            <Suspense fallback={<div className="h-[250px]" aria-hidden />}>
+                <CustomerCharts locationData={locationData} />
+            </Suspense>
 
             {/* Filter & Search */}
             <FilterBar>

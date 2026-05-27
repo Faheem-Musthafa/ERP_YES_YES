@@ -26,6 +26,24 @@ export const STATUS_COLOR: Record<string, string> = {
     Delivered: 'bg-purple-100 text-purple-700',
 };
 
+/** Order/bill status → left-stripe Tailwind class for list rows. */
+export const STATUS_STRIPE: Record<string, string> = {
+    Pending:   'bg-amber-400',
+    Approved:  'bg-emerald-500',
+    Billed:    'bg-blue-500',
+    Delivered: 'bg-violet-500',
+    Rejected:  'bg-rose-500',
+    Voided:    'bg-slate-400',
+};
+
+/** Payment-mode → badge color. Used in receipt + collection lists. */
+export const MODE_COLORS: Record<PaymentModeEnum | string, string> = {
+    Cash: 'bg-emerald-100 text-emerald-700',
+    Cheque: 'bg-blue-100 text-blue-700',
+    UPI: 'bg-purple-100 text-purple-700',
+    'Bank Transfer': 'bg-teal-100 text-teal-700',
+};
+
 // ── Receipt status helpers ────────────────────────────────────────────────
 
 export const DEFAULT_RECEIPT_STATUS = 'Not Collected' as const;

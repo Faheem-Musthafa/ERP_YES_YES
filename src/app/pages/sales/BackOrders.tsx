@@ -16,6 +16,7 @@ import {
 import { CustomerNameLink } from '@/app/components/CustomerNameLink';
 import type { BackOrderStatusEnum, Json } from '@/app/types/database';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
+import { computeLineAmount, formatMoney, toNumber } from '@/app/money';
 
 interface BackOrderRow {
   id: string;
@@ -48,7 +49,9 @@ interface OrderGroup {
   rows: BackOrderRow[];
 }
 
-const formatCurrency = (n: number) => `₹ ${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+const formatCurrency = (n: number) => formatMoney(n);
+const lineAmount = (qty: number, dp: number, disc: number) =>
+  toNumber(computeLineAmount(dp, qty, disc));
 
 export const BackOrders = () => {
   const { user } = useAuth();
@@ -148,7 +151,7 @@ export const BackOrders = () => {
     const sel = selected[r.id];
     if (!sel?.checked) return s;
     const qty = sel.qty || 0;
-    const lineAmt = qty * r.dealer_price * (1 - (r.discount_pct || 0) / 100);
+    const lineAmt = lineAmount(qty, r.dealer_price, r.discount_pct || 0);
     return s + lineAmt;
   }, 0);
 
@@ -243,7 +246,7 @@ export const BackOrders = () => {
         <div className="space-y-4">
           {groups.map((g) => {
             const pendingTotal = g.rows.filter((r) => r.status === 'Pending').reduce((s, r) => s + r.pending_qty, 0);
-            const pendingAmount = g.rows.filter((r) => r.status === 'Pending').reduce((s, r) => s + r.pending_qty * r.dealer_price * (1 - (r.discount_pct || 0) / 100), 0);
+            const pendingAmount = g.rows.filter((r) => r.status === 'Pending').reduce((s, r) => s + lineAmount(r.pending_qty, r.dealer_price, r.discount_pct || 0), 0);
             const hasPending = pendingTotal > 0;
             return (
               <DataCard key={g.orderId} className="p-0 overflow-hidden">
@@ -305,7 +308,7 @@ export const BackOrders = () => {
                         <div className="flex flex-col gap-0.5">
                           <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Line Value</span>
                           <span className="font-mono font-bold text-foreground">
-                            {formatCurrency(r.pending_qty * r.dealer_price * (1 - (r.discount_pct || 0) / 100))}
+                            {formatCurrency(lineAmount(r.pending_qty, r.dealer_price, r.discount_pct || 0))}
                           </span>
                         </div>
                       </div>
@@ -341,7 +344,7 @@ export const BackOrders = () => {
                           <StyledTd right mono className="font-semibold">{r.pending_qty}</StyledTd>
                           <StyledTd right mono className="text-muted-foreground">{formatCurrency(r.dealer_price)}</StyledTd>
                           <StyledTd right mono className="text-muted-foreground">{r.discount_pct}%</StyledTd>
-                          <StyledTd right mono className="font-semibold">{formatCurrency(r.pending_qty * r.dealer_price * (1 - (r.discount_pct || 0) / 100))}</StyledTd>
+                          <StyledTd right mono className="font-semibold">{formatCurrency(lineAmount(r.pending_qty, r.dealer_price, r.discount_pct || 0))}</StyledTd>
                           <StyledTd><StatusBadge status={r.status} /></StyledTd>
                           <StyledTd mono className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString('en-IN')}</StyledTd>
                         </StyledTr>
@@ -373,7 +376,7 @@ export const BackOrders = () => {
               <div className="lg:hidden space-y-3">
                 {modalPendingRows.map((r) => {
                   const sel = selected[r.id] ?? { checked: false, qty: r.pending_qty };
-                  const lineAmt = (sel.qty || 0) * r.dealer_price * (1 - (r.discount_pct || 0) / 100);
+                  const lineAmt = lineAmount(sel.qty || 0, r.dealer_price, r.discount_pct || 0);
                   return (
                     <div
                       key={r.id}
@@ -452,7 +455,7 @@ export const BackOrders = () => {
                   <tbody className="divide-y divide-border/60">
                     {modalPendingRows.map((r) => {
                       const sel = selected[r.id] ?? { checked: false, qty: r.pending_qty };
-                      const lineAmt = (sel.qty || 0) * r.dealer_price * (1 - (r.discount_pct || 0) / 100);
+                      const lineAmt = lineAmount(sel.qty || 0, r.dealer_price, r.discount_pct || 0);
                       return (
                         <tr key={r.id} className={sel.checked ? 'bg-emerald-50/40 dark:bg-emerald-950/20' : ''}>
                           <td className="px-3 py-2">

@@ -1,5 +1,6 @@
 # Node
 node_modules/
+bun.lockb
 
 # Logs
 logs
@@ -12,30 +13,71 @@ pnpm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Build
 /dist
 /build
+*.tsbuildinfo
 
 # Vite
 .vite
+node_modules/.vite/
 
-# Env
+# Env (commit `.env.example` as a template; never commit secrets)
 .env
 .env.*
+!.env.example
+
+# Certs / private keys — never commit
+*.pem
+*.key
+*.crt
 
 # MCP local server config (may carry tokens, never commit)
 .mcp.json
 
-# VSCode
+# Editors
 .vscode/
+.idea/
+.nova/
+.zed/
+*.swp
+*.swo
+*~
+/.history/
 
 # Firebase
 .firebase/
 
-# Others
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
+supabase/.env
+supabase/.env.*
+
+# Deploy artifacts
+/.netlify/
+/.vercel/
+
+# Coverage / misc
 coverage/
 *.local
+
+# Local DB dumps / SQLite scratch
+*.sql.bak
+*.db
+*.sqlite
+*.sqlite3
+
+# Scratch images / unsorted assets (e.g. "image copy.png")
+"image copy*.png"
+"image copy*.jpg"
+/screenshots/
+/tmp/
+
+# Caveman compression backups (mode tracker writes FILE.original.md)
+*.original.md
 
 # Optional: ignore OneDrive sync files
 *.tmp.driveupload

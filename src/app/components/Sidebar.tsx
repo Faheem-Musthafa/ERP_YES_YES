@@ -3,154 +3,9 @@ import { Link, useLocation } from 'react-router';
 import { useAuth } from '@/app/contexts/AuthContext';
 import { cloneCompanyProfiles, getPrimaryCompanyName, loadCompanyProfiles } from '@/app/companyProfiles';
 import {
-  LayoutDashboard, Users, Package, ShoppingCart, TrendingUp,
-  BarChart3, FileText, LogOut, DollarSign, FileCheck, Boxes,
-  Plus, Receipt, Wallet, ClipboardCheck, Truck, Car,
-  UserCircle, ChevronRight, ChevronDown, X, PanelLeftClose, PanelLeftOpen,
-  Activity, Settings, PackageOpen, Tags,
+  LogOut, ChevronRight, ChevronDown, X, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
-
-interface NavItem { label: string; path: string; icon: React.ReactNode; }
-interface NavGroup { title: string; items: NavItem[]; }
-
-const useNavGroups = (role: string | undefined): NavGroup[] => {
-  if (role === 'admin') return [
-    {
-      title: 'Overview',
-      items: [
-        { label: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={16} /> },
-        { label: 'Team Management', path: '/admin/staff', icon: <Users size={16} /> },
-        { label: 'Customers', path: '/admin/customers', icon: <UserCircle size={16} /> },
-      ],
-    },
-    {
-      title: 'Inventory',
-      items: [
-        { label: 'Brands', path: '/admin/brands', icon: <Package size={16} /> },
-        { label: 'Products', path: '/admin/products', icon: <Boxes size={16} /> },
-        { label: 'Price List', path: '/sales/price-list', icon: <Tags size={16} /> },
-        { label: 'Stock View', path: '/stock', icon: <BarChart3 size={16} /> },
-        { label: 'Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={16} /> },
-        { label: 'Delivery', path: '/inventory/delivery', icon: <Truck size={16} /> },
-        { label: 'Delivery Drivers', path: '/admin/drivers', icon: <Car size={16} /> },
-      ],
-    },
-    {
-      title: 'Sales & Finance',
-      items: [
-        { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={16} /> },
-        { label: 'All Orders', path: '/admin/sales', icon: <ShoppingCart size={16} /> },
-        { label: 'Pending Orders', path: '/accounts/pending-orders', icon: <FileCheck size={16} /> },
-        { label: 'Back Orders', path: '/accounts/back-orders', icon: <PackageOpen size={16} /> },
-        { label: 'Billing', path: '/accounts/billing', icon: <Receipt size={16} /> },
-        { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={16} /> },
-        { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={16} /> },
-        { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={16} /> },
-        { label: 'Customer Analysis', path: '/admin/customer-analysis', icon: <BarChart3 size={16} /> },
-        { label: 'Reports', path: '/admin/reports', icon: <FileText size={16} /> },
-      ],
-    },
-    {
-      title: 'System',
-      items: [
-        { label: 'Activity Log', path: '/admin/activity', icon: <Activity size={16} /> },
-        { label: 'Settings', path: '/admin/settings', icon: <Settings size={16} /> },
-      ],
-    },
-  ];
-
-  if (role === 'sales') return [
-    {
-      title: 'My Performance',
-      items: [{ label: 'Dashboard', path: '/sales', icon: <LayoutDashboard size={16} /> }],
-    },
-    {
-      title: 'Customers',
-      items: [
-        { label: 'My Customers', path: '/sales/my-customers', icon: <UserCircle size={16} /> },
-      ],
-    },
-    {
-      title: 'Orders',
-      items: [
-        { label: 'Create Order', path: '/sales/create-order', icon: <Plus size={16} /> },
-        { label: 'My Orders', path: '/sales/my-orders', icon: <ShoppingCart size={16} /> },
-        { label: 'Sales', path: '/sales/approved-sales', icon: <TrendingUp size={16} /> },
-        { label: 'Back Orders', path: '/sales/back-orders', icon: <PackageOpen size={16} /> },
-      ],
-    },
-    {
-      title: 'Collections',
-      items: [
-        { label: 'Receipt Entry', path: '/sales/receipt', icon: <Receipt size={16} /> },
-        { label: 'My Collection', path: '/sales/my-collection', icon: <Wallet size={16} /> },
-      ],
-    },
-    {
-      title: 'Inventory',
-      items: [
-        { label: 'Price List', path: '/sales/price-list', icon: <Tags size={16} /> },
-        { label: 'Stock View', path: '/stock', icon: <BarChart3 size={16} /> },
-      ],
-    },
-  ];
-
-  if (role === 'accounts') return [
-    {
-      title: 'Overview',
-      items: [{ label: 'Dashboard', path: '/accounts', icon: <LayoutDashboard size={16} /> }],
-    },
-    {
-      title: 'Approvals',
-      items: [
-        { label: 'Pending Orders', path: '/accounts/pending-orders', icon: <FileCheck size={16} /> },
-        { label: 'Back Orders', path: '/accounts/back-orders', icon: <PackageOpen size={16} /> },
-        { label: 'Billing', path: '/accounts/billing', icon: <Receipt size={16} /> },
-        { label: 'Sales Records', path: '/accounts/sales', icon: <TrendingUp size={16} /> },
-      ],
-    },
-    {
-      title: 'Finance',
-      items: [
-        { label: 'Collection Status', path: '/accounts/collection-status', icon: <ClipboardCheck size={16} /> },
-        { label: 'Payments', path: '/accounts/payments', icon: <DollarSign size={16} /> },
-        { label: 'Stock View', path: '/stock', icon: <Package size={16} /> },
-      ],
-    },
-  ];
-
-  if (role === 'inventory') return [
-    {
-      title: 'Overview',
-      items: [{ label: 'Dashboard', path: '/inventory', icon: <LayoutDashboard size={16} /> }],
-    },
-    {
-      title: 'Stock',
-      items: [
-        { label: 'Stock View', path: '/stock', icon: <BarChart3 size={16} /> },
-        { label: 'Stock Adjustment', path: '/inventory/adjustment', icon: <FileCheck size={16} /> },
-        { label: 'Delivery', path: '/inventory/delivery', icon: <Truck size={16} /> },
-      ],
-    },
-    {
-      title: 'Catalogue',
-      items: [
-        { label: 'Brands', path: '/inventory/brands', icon: <Package size={16} /> },
-        { label: 'Products', path: '/inventory/products', icon: <ShoppingCart size={16} /> },
-        { label: 'Reports', path: '/inventory/reports', icon: <BarChart3 size={16} /> },
-      ],
-    },
-  ];
-
-  if (role === 'procurement') return [
-    {
-      title: 'Inventory',
-      items: [{ label: 'Stock View', path: '/stock', icon: <Package size={16} /> }],
-    },
-  ];
-
-  return [];
-};
+import { getSidebarGroupsForRole, type Role } from '@/app/navigation/routes';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -182,7 +37,7 @@ const NavTooltip = ({
 export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: SidebarProps) => {
   const { user, logout } = useAuth();
   const location = useLocation();
-  const groups = useNavGroups(user?.role);
+  const groups = getSidebarGroupsForRole(user?.role as Role | undefined);
   const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(
@@ -288,6 +143,7 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                 }`}>
                 {group.items.map((item) => {
                   const active = isActive(item.path);
+                  const Icon = item.icon;
                   return (
                     <li key={item.path}>
                       <NavTooltip label={item.label} collapsed={isCollapsed}>
@@ -316,7 +172,7 @@ export const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }: Side
                             ? 'text-white'
                             : 'text-white/70 group-hover/link:text-white'
                             }`}>
-                            {item.icon}
+                            <Icon size={16} />
                           </span>
                           {!isCollapsed && (
                             <span className="flex-1 truncate">{item.label}</span>

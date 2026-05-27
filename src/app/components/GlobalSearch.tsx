@@ -56,6 +56,9 @@ export const GlobalSearch = ({
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  // Monotonic search request id — a slower in-flight query for an older
+  // term cannot overwrite a faster newer one once user types ahead.
+  const searchSeq = useRef(0);
 
   // Focus input when dialog opens. Track the timer so a rapid open/close
   // doesn't leak a focus call on an unmounted ref.
@@ -92,10 +95,13 @@ export const GlobalSearch = ({
     setError(null);
     setSelectedIndex(0);
 
+    const mySeq = ++searchSeq.current;
+    const isStale = () => mySeq !== searchSeq.current;
+
     try {
       const safe = escapePostgrestLike(searchQuery.toLowerCase());
       if (!safe) {
-        setResults([]);
+        if (!isStale()) setResults([]);
         return;
       }
       const results_list: SearchResult[] = [];
@@ -212,12 +218,12 @@ export const GlobalSearch = ({
         });
       }
 
-      setResults(results_list);
+      if (!isStale()) setResults(results_list);
     } catch (err) {
       if (import.meta.env.DEV) console.error('Search error:', err);
-      setError('Failed to search. Please try again.');
+      if (!isStale()) setError('Failed to search. Please try again.');
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, [user?.role]);
 

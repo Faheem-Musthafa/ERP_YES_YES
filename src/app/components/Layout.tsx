@@ -6,21 +6,11 @@ import { Menu, Bell, Search, Command, AlertTriangle, ClipboardCheck, Truck, Shop
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useNavigate } from 'react-router';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/app/components/ui/dropdown-menu';
-import { loadStockHealthSummary } from '@/app/stockHealth';
-import { supabase } from '@/app/supabase';
 import { cloneCompanyProfiles, getPrimaryCompanyName, loadCompanyProfiles } from '@/app/companyProfiles';
-import { todayLocalISO } from '@/app/dates';
+import { useNotifications } from '@/app/lib/queries/notifications';
 
 interface LayoutProps {
   children: ReactNode;
-}
-
-interface NotificationEntry {
-  id: string;
-  title: string;
-  detail: string;
-  href: string;
-  tone: 'rose' | 'amber' | 'blue';
 }
 
 export const Layout = ({ children }: LayoutProps) => {
@@ -29,11 +19,13 @@ export const Layout = ({ children }: LayoutProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationOpenMobile, setNotificationOpenMobile] = useState(false);
   const [notificationOpenDesktop, setNotificationOpenDesktop] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationEntry[]>([]);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
   const { user } = useAuth();
   const navigate = useNavigate();
+  // Shared notification feed across all mounts. react-query handles dedupe,
+  // 60s refetch, and skips polling while tab is hidden via its built-in
+  // visibilityState integration (refetchIntervalInBackground: false).
+  const { notifications, isLoading: notificationsLoading } = useNotifications(user?.role);
   const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   const primaryCompanyName = getPrimaryCompanyName(companyProfiles);
 
@@ -43,103 +35,8 @@ export const Layout = ({ children }: LayoutProps) => {
       .catch(() => undefined);
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    let inFlight = false;
-
-    const fetchNotifications = async () => {
-      if (!user?.role) {
-        setNotifications([]);
-        return;
-      }
-      // Skip tick if previous fetch is still running — slow networks would
-      // otherwise pile up overlapping requests every 60s.
-      if (inFlight) return;
-      inFlight = true;
-
-      setNotificationsLoading(true);
-      try {
-        const [stockHealth, pendingOrdersResult, overdueCollectionsResult, failedDeliveriesResult] = await Promise.all([
-          loadStockHealthSummary(5, 3).catch(() => null),
-          supabase.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'Pending'),
-          supabase
-            .from('collections')
-            .select('id', { count: 'exact', head: true })
-            .or(`status.eq.Overdue,and(status.eq.Pending,due_date.lt.${todayLocalISO()})`),
-          supabase.from('deliveries').select('id', { count: 'exact', head: true }).eq('status', 'Failed'),
-        ]);
-
-        const next: NotificationEntry[] = [];
-        const lowStockCount = stockHealth?.lowStockCount ?? 0;
-        const pendingOrdersCount = pendingOrdersResult.count ?? 0;
-        const overdueCollectionsCount = overdueCollectionsResult.count ?? 0;
-        const failedDeliveriesCount = failedDeliveriesResult.count ?? 0;
-        const role = user.role;
-
-        if (lowStockCount > 0 && ['admin', 'inventory', 'accounts', 'sales', 'procurement'].includes(role)) {
-          next.push({
-            id: 'low-stock',
-            title: `${lowStockCount} low stock alert${lowStockCount === 1 ? '' : 's'}`,
-            detail: 'Products are at or below the reorder threshold.',
-            href: role === 'inventory' || role === 'admin' ? '/inventory/stock' : '/stock',
-            tone: 'rose',
-          });
-        }
-
-        if (pendingOrdersCount > 0 && ['admin', 'accounts'].includes(role)) {
-          next.push({
-            id: 'pending-orders',
-            title: `${pendingOrdersCount} order${pendingOrdersCount === 1 ? '' : 's'} awaiting review`,
-            detail: 'Pending orders need approval or follow-up.',
-            href: '/accounts/pending-orders',
-            tone: 'amber',
-          });
-        }
-
-        if (overdueCollectionsCount > 0 && ['admin', 'accounts', 'sales'].includes(role)) {
-          next.push({
-            id: 'overdue-collections',
-            title: `${overdueCollectionsCount} collection${overdueCollectionsCount === 1 ? '' : 's'} overdue`,
-            detail: 'Receivables need attention before they age further.',
-            href: role === 'accounts' || role === 'admin' ? '/accounts/collection-status' : '/sales/collection-status',
-            tone: 'blue',
-          });
-        }
-
-        if (failedDeliveriesCount > 0 && ['admin', 'inventory'].includes(role)) {
-          next.push({
-            id: 'failed-deliveries',
-            title: `${failedDeliveriesCount} delivery failure${failedDeliveriesCount === 1 ? '' : 's'}`,
-            detail: 'Some dispatches need reattempt or reassignment.',
-            href: '/inventory/delivery',
-            tone: 'amber',
-          });
-        }
-
-        if (active) {
-          setNotifications(next);
-        }
-      } finally {
-        inFlight = false;
-        if (active) {
-          setNotificationsLoading(false);
-        }
-      }
-    };
-
-    void fetchNotifications();
-    const refreshId = window.setInterval(() => {
-      void fetchNotifications();
-    }, 60000);
-
-    return () => {
-      active = false;
-      window.clearInterval(refreshId);
-    };
-  }, [user?.role]);
-
   const notificationCount = notifications.length;
-  const toneIcon = (tone: NotificationEntry['tone']) => {
+  const toneIcon = (tone: 'rose' | 'amber' | 'blue') => {
     if (tone === 'rose') return <AlertTriangle size={14} className="text-rose-500" />;
     if (tone === 'amber') return <Truck size={14} className="text-amber-500" />;
     return <ClipboardCheck size={14} className="text-blue-500" />;

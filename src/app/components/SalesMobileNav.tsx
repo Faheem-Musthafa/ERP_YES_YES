@@ -1,59 +1,43 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router';
 import { Home, Users, Plus, Wallet, MoreHorizontal, type LucideIcon } from 'lucide-react';
+import { getSalesMobilePaths, type SalesMobileTab } from '@/app/navigation/routes';
 
 interface TabDef {
   label: string;
   path: string;
   icon: LucideIcon;
-  match: (pathname: string) => boolean;
+  tab: SalesMobileTab;
   prominent?: boolean;
 }
 
 const TABS: TabDef[] = [
-  {
-    label: 'Home',
-    path: '/sales',
-    icon: Home,
-    match: (p) => p === '/sales' || p === '/sales/',
-  },
-  {
-    label: 'Customers',
-    path: '/sales/my-customers',
-    icon: Users,
-    match: (p) => p.startsWith('/sales/my-customers'),
-  },
-  {
-    label: 'New Order',
-    path: '/sales/create-order',
-    icon: Plus,
-    match: (p) => p.startsWith('/sales/create-order'),
-    prominent: true,
-  },
-  {
-    label: 'Collect',
-    path: '/sales/receipt',
-    icon: Wallet,
-    match: (p) =>
-      p.startsWith('/sales/receipt')
-      || p.startsWith('/sales/my-collection'),
-  },
-  {
-    label: 'More',
-    path: '/sales/more',
-    icon: MoreHorizontal,
-    match: (p) =>
-      p.startsWith('/sales/more')
-      || p.startsWith('/sales/my-orders')
-      || p.startsWith('/sales/approved-sales')
-      || p.startsWith('/sales/back-orders')
-      || p.startsWith('/sales/price-list')
-      || p.startsWith('/sales/credit-note')
-      || p.startsWith('/sales/stock-transfer')
-      || p.startsWith('/sales/collection-status')
-      || p.startsWith('/stock'),
-  },
+  { label: 'Home',      path: '/sales',                 icon: Home,            tab: 'home' },
+  { label: 'Customers', path: '/sales/my-customers',    icon: Users,           tab: 'customers' },
+  { label: 'New Order', path: '/sales/create-order',    icon: Plus,            tab: 'newOrder', prominent: true },
+  { label: 'Collect',   path: '/sales/receipt',         icon: Wallet,          tab: 'collect' },
+  { label: 'More',      path: '/sales/more',            icon: MoreHorizontal,  tab: 'more' },
 ];
+
+// Resolve each tab's matching path list once at module load. Adding a new
+// sales route to routes.ts auto-extends the relevant tab match.
+const TAB_PATHS: Record<SalesMobileTab, string[]> = {
+  home:      getSalesMobilePaths('home'),
+  customers: getSalesMobilePaths('customers'),
+  newOrder:  getSalesMobilePaths('newOrder'),
+  collect:   getSalesMobilePaths('collect'),
+  more:      getSalesMobilePaths('more'),
+};
+
+const matchTab = (tab: SalesMobileTab, pathname: string): boolean => {
+  for (const p of TAB_PATHS[tab]) {
+    if (pathname === p) return true;
+    if (!p.includes(':') && pathname.startsWith(p + '/')) return true;
+  }
+  // Special-case Home tab on the bare `/sales` root.
+  if (tab === 'home' && (pathname === '/sales' || pathname === '/sales/')) return true;
+  return false;
+};
 
 export const SalesMobileNav = () => {
   const { pathname } = useLocation();
@@ -65,7 +49,7 @@ export const SalesMobileNav = () => {
       <div className="mx-2 mb-2 sm-card overflow-visible !rounded-2xl bg-white/95 backdrop-blur-md shadow-[0_-12px_28px_-12px_rgba(15,23,42,0.18)]">
         <ul className="grid grid-cols-5 px-1 pt-1.5">
           {TABS.map((tab) => {
-            const isActive = tab.match(pathname);
+            const isActive = matchTab(tab.tab, pathname);
             const Icon = tab.icon;
             if (tab.prominent) {
               return (

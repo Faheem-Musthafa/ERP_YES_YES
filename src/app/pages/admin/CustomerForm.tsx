@@ -537,14 +537,14 @@ export const CustomerForm = () => {
                                     <span className="text-violet-400/70 dark:text-violet-600/70 select-none pt-3 text-lg leading-none">├─</span>
                                     <div className="flex-1 space-y-1.5">
                                         <Label className="text-[11px] uppercase tracking-wider text-violet-700/80 dark:text-violet-400/80 font-bold">Invoice</Label>
-                                        <Input type="number" value={form.opening_invoice} onChange={(e) => setForm(f => ({ ...f, opening_invoice: parseFloat(e.target.value) || 0 }))} placeholder="0.00" step="0.01" className="h-11 rounded-xl bg-white dark:bg-slate-900 font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
+                                        <Input type="number" min="0" value={form.opening_invoice} onChange={(e) => setForm(f => ({ ...f, opening_invoice: Math.max(0, parseFloat(e.target.value) || 0) }))} placeholder="0.00" step="0.01" className="h-11 rounded-xl bg-white dark:bg-slate-900 font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-2">
                                     <span className="text-violet-400/70 dark:text-violet-600/70 select-none pt-3 text-lg leading-none">└─</span>
                                     <div className="flex-1 space-y-1.5">
                                         <Label className="text-[11px] uppercase tracking-wider text-violet-700/80 dark:text-violet-400/80 font-bold">Delivery Challan</Label>
-                                        <Input type="number" value={form.opening_delivery_challan} onChange={(e) => setForm(f => ({ ...f, opening_delivery_challan: parseFloat(e.target.value) || 0 }))} placeholder="0.00" step="0.01" className="h-11 rounded-xl bg-white dark:bg-slate-900 font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
+                                        <Input type="number" min="0" value={form.opening_delivery_challan} onChange={(e) => setForm(f => ({ ...f, opening_delivery_challan: Math.max(0, parseFloat(e.target.value) || 0) }))} placeholder="0.00" step="0.01" className="h-11 rounded-xl bg-white dark:bg-slate-900 font-mono tracking-widest shadow-inner border-violet-200 dark:border-violet-800 focus-visible:ring-violet-500/30" />
                                     </div>
                                 </div>
                             </div>

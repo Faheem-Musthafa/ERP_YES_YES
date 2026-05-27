@@ -1,8 +1,10 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Download, FileText } from 'lucide-react';
-import { supabase } from '@/app/supabase';
 import { downloadCSV } from '@/app/utils';
+import { ordersQuery, type OrderListRow } from '@/app/lib/api/orders';
+import { usePagedQuery } from '@/app/lib/queries/usePagedQuery';
+import { useDebounced } from '@/app/hooks/useDebounced';
 import { Button } from '@/app/components/ui/button';
 import { cloneCompanyProfiles, getCompanyDisplayName, loadCompanyProfiles } from '@/app/companyProfiles';
 import {
@@ -13,26 +15,25 @@ import {
 import { CustomerNameLink } from '@/app/components/CustomerNameLink';
 
 export const SalesRecords = () => {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const [companyProfiles, setCompanyProfiles] = useState(cloneCompanyProfiles());
   const pageSize = 10;
+  const debouncedSearch = useDebounced(search, 250);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from('orders')
-        .select('id, order_number, status, company, invoice_type, grand_total, approved_at, created_at, customer_id, customers(name)')
-        .in('status', ['Approved', 'Billed', 'Delivered'])
-        .order('approved_at', { ascending: false });
-      setOrders(data ?? []);
-      setLoading(false);
-    })();
-  }, []);
+  const status: string[] | string = statusFilter && statusFilter !== 'all'
+    ? statusFilter
+    : ['Approved', 'Billed', 'Delivered'];
+
+  const { rows: paginated, totalItems, isLoading: loading, page, setPage } = usePagedQuery<OrderListRow>({
+    key: ['sales-records', debouncedSearch, statusFilter],
+    pageSize,
+    buildQuery: () => ordersQuery({
+      status,
+      search: debouncedSearch || undefined,
+      orderBy: 'approved_at',
+    }),
+  });
 
   useEffect(() => {
     void loadCompanyProfiles()
@@ -40,22 +41,12 @@ export const SalesRecords = () => {
       .catch(() => undefined);
   }, []);
 
-  const filtered = orders.filter(o => {
-    const matchSearch = !search ||
-      o.order_number.toLowerCase().includes(search.toLowerCase()) ||
-      (o.customers?.name ?? '').toLowerCase().includes(search.toLowerCase());
-    const matchStatus = !statusFilter || statusFilter === 'all' || o.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
-  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, orders.length]);
-  const page = Math.min(currentPage, Math.max(1, Math.ceil(filtered.length / pageSize)));
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-  const total = filtered.reduce((s, o) => s + (o.grand_total ?? 0), 0);
+  // Page-scoped export — server-paginated, full-dataset export would need a
+  // separate unbounded fetch. Document name reflects the slice.
   const exportOrders = () => {
     downloadCSV(
       ['Order No', 'Customer', 'Company', 'Invoice Type', 'Status', 'Grand Total', 'Approved Date'],
-      filtered.map((order) => [
+      paginated.map((order) => [
         order.order_number,
         order.customers?.name ?? '—',
         getCompanyDisplayName(order.company, companyProfiles),
@@ -64,7 +55,7 @@ export const SalesRecords = () => {
         order.grand_total ?? 0,
         order.approved_at ? new Date(order.approved_at).toLocaleDateString('en-IN') : '—',
       ]),
-      `sales-records-${new Date().toISOString().slice(0, 10)}.csv`,
+      `sales-records-page${page}-${new Date().toISOString().slice(0, 10)}.csv`,
     );
   };
 
@@ -105,7 +96,7 @@ export const SalesRecords = () => {
 
       <DataCard>
         {loading ? <Spinner /> :
-          filtered.length === 0 ? (
+          totalItems === 0 ? (
             <EmptyState icon={FileText} message="No sales records found" />
           ) : (
             <>
@@ -146,16 +137,16 @@ export const SalesRecords = () => {
                 </table>
               </div>
               <div className="px-4 py-3 border-t border-border bg-muted/20 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">{filtered.length} records</span>
-                <span className="text-sm font-bold font-mono text-foreground">
-                  Total: ₹{total.toLocaleString('en-IN')}
+                <span className="text-xs text-muted-foreground">{totalItems} records</span>
+                <span className="text-xs text-muted-foreground">
+                  Page {page} subtotal: ₹{paginated.reduce((s, o) => s + (o.grand_total ?? 0), 0).toLocaleString('en-IN')}
                 </span>
               </div>
               <TablePagination
-                totalItems={filtered.length}
+                totalItems={totalItems}
                 currentPage={page}
                 pageSize={pageSize}
-                onPageChange={setCurrentPage}
+                onPageChange={setPage}
                 itemLabel="records"
               />
             </>
