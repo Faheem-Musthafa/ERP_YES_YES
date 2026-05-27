@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
-import { AlertTriangle, PackageSearch } from 'lucide-react';
+import {
+  AlertTriangle, PackageSearch, Boxes, Wallet, AlertCircle, XCircle,
+} from 'lucide-react';
 import { supabase } from '@/app/supabase';
 import {
   PageHeader, SearchBar, FilterBar, FilterField, DataCard,
@@ -21,6 +23,40 @@ interface ProductWithStock {
   total_stock: number;
   total_reserved: number;
 }
+
+type StatAccent = 'slate' | 'emerald' | 'amber' | 'red';
+
+const STAT_ACCENT: Record<StatAccent, { bar: string; iconBg: string; iconText: string; value: string }> = {
+  slate:   { bar: 'bg-slate-400',   iconBg: 'bg-slate-100',   iconText: 'text-slate-600',   value: 'text-foreground' },
+  emerald: { bar: 'bg-emerald-500', iconBg: 'bg-emerald-100', iconText: 'text-emerald-700', value: 'text-emerald-600' },
+  amber:   { bar: 'bg-amber-500',   iconBg: 'bg-amber-100',   iconText: 'text-amber-700',   value: 'text-amber-600' },
+  red:     { bar: 'bg-red-500',     iconBg: 'bg-red-100',     iconText: 'text-red-700',     value: 'text-red-600' },
+};
+
+interface StatCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  accent: StatAccent;
+}
+
+const StatCard = ({ icon, label, value, accent }: StatCardProps) => {
+  const palette = STAT_ACCENT[accent];
+  return (
+    <div className="relative overflow-hidden bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+      <span className={`absolute inset-y-0 left-0 w-1 ${palette.bar}`} aria-hidden="true" />
+      <div className="flex items-start justify-between gap-3 pl-2">
+        <div className="min-w-0">
+          <p className="text-sm text-muted-foreground font-medium">{label}</p>
+          <p className={`text-2xl font-bold mt-1 truncate ${palette.value}`}>{value}</p>
+        </div>
+        <div className={`shrink-0 h-9 w-9 rounded-lg flex items-center justify-center ${palette.iconBg} ${palette.iconText}`}>
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const StockManagement = () => {
   const [products, setProducts] = useState<ProductWithStock[]>([]);
@@ -50,12 +86,33 @@ export const StockManagement = () => {
       }
 
       const productIds = (prod ?? []).map(p => p.id);
-      const { data: stockData, error: stockError } = await supabase
+      type StockRow = { product_id: string; location: string | null; stock_qty: number | null; reserved_qty: number | null };
+      let stockData: StockRow[] = [];
+      const availRes = await supabase
         .from('v_available_stock')
         .select('product_id, location, stock_qty, reserved_qty')
         .in('product_id', productIds);
 
-      if (stockError) throw stockError;
+      if (availRes.error) {
+        // v_available_stock joins stock_reservations; fall back to base table
+        // when the caller lacks SELECT on reservations (reserved_qty unknown).
+        const msg = (availRes.error.message || '').toLowerCase();
+        const isPermissionDenied = msg.includes('permission denied') || availRes.error.code === '42501';
+        if (!isPermissionDenied) throw availRes.error;
+        const fallback = await supabase
+          .from('product_stock_locations')
+          .select('product_id, location, stock_qty')
+          .in('product_id', productIds);
+        if (fallback.error) throw fallback.error;
+        stockData = (fallback.data ?? []).map((row: any) => ({
+          product_id: row.product_id,
+          location: row.location,
+          stock_qty: row.stock_qty,
+          reserved_qty: 0,
+        }));
+      } else {
+        stockData = (availRes.data ?? []) as StockRow[];
+      }
 
       const configuredLocations = Array.from(new Set(
         settings.Godowns
@@ -63,9 +120,9 @@ export const StockManagement = () => {
           .filter((location) => location.length > 0),
       ));
       const detectedLocations = Array.from(new Set(
-        (stockData ?? [])
-          .map((row: any) => (typeof row.location === 'string' ? row.location.trim() : ''))
-          .filter((location: string) => location.length > 0),
+        stockData
+          .map((row) => (typeof row.location === 'string' ? row.location.trim() : ''))
+          .filter((location) => location.length > 0),
       ));
       const nextLocationOptions = configuredLocations.length > 0
         ? configuredLocations
@@ -74,7 +131,7 @@ export const StockManagement = () => {
 
       const stockByProduct = new Map<string, Record<string, number>>();
       const reservedByProduct = new Map<string, Record<string, number>>();
-      (stockData ?? []).forEach((row: any) => {
+      stockData.forEach((row) => {
         const location = typeof row.location === 'string' ? row.location.trim() : '';
         if (!location) return;
         const existingStock = stockByProduct.get(row.product_id) ?? {};
@@ -192,29 +249,48 @@ export const StockManagement = () => {
         subtitle="Detailed view of product quantities, locations, and total stock value"
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white border rounded-xl p-4 shadow-sm">
-          <p className="text-sm text-muted-foreground font-medium">Total Items</p>
-          <p className="text-2xl font-bold mt-1 text-foreground">{totalItems}</p>
-        </div>
-        <div className="bg-white border rounded-xl p-4 shadow-sm">
-          <p className="text-sm text-muted-foreground font-medium">Total Stock Value</p>
-          <p className="text-2xl font-bold mt-1 text-emerald-600">₹ {totalStockValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
-        </div>
-        <div className="bg-white border rounded-xl p-4 shadow-sm">
-          <p className="text-sm text-muted-foreground font-medium">Low Stock Items</p>
-          <p className="text-2xl font-bold mt-1 text-amber-600">{lowCount}</p>
-        </div>
-        <div className="bg-white border rounded-xl p-4 shadow-sm">
-          <p className="text-sm text-muted-foreground font-medium">Out of Stock</p>
-          <p className="text-2xl font-bold mt-1 text-red-600">{outOfStockCount}</p>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          icon={<Boxes size={18} />}
+          label="Total Items"
+          value={totalItems.toLocaleString('en-IN')}
+          accent="slate"
+        />
+        <StatCard
+          icon={<Wallet size={18} />}
+          label="Total Stock Value"
+          value={`₹ ${totalStockValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+          accent="emerald"
+        />
+        <StatCard
+          icon={<AlertCircle size={18} />}
+          label="Low Stock Items"
+          value={lowCount.toLocaleString('en-IN')}
+          accent="amber"
+        />
+        <StatCard
+          icon={<XCircle size={18} />}
+          label="Out of Stock"
+          value={outOfStockCount.toLocaleString('en-IN')}
+          accent="red"
+        />
       </div>
 
-      {lowCount > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3" role="status" aria-live="polite">
-          <AlertTriangle className="text-amber-600 flex-shrink-0" size={18} />
-          <span className="text-amber-800 text-sm font-medium">{lowCount} item(s) are low on stock or out of stock</span>
+      {(lowCount > 0 || outOfStockCount > 0) && (
+        <div
+          className="bg-gradient-to-r from-amber-50 to-white border border-amber-200 rounded-xl p-3.5 flex items-center gap-3 shadow-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="shrink-0 h-8 w-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+            <AlertTriangle size={16} />
+          </span>
+          <span className="text-amber-900 text-sm">
+            <span className="font-semibold">Attention:</span>{' '}
+            {lowCount > 0 && <>{lowCount} low-stock item{lowCount === 1 ? '' : 's'}</>}
+            {lowCount > 0 && outOfStockCount > 0 && <> · </>}
+            {outOfStockCount > 0 && <>{outOfStockCount} out of stock</>}
+          </span>
         </div>
       )}
 

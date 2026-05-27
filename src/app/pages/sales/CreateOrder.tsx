@@ -339,7 +339,7 @@ export const CreateOrder = () => {
         if (!customerState) throw new Error('Select a state');
         if (customerState === 'Kerala' && !customerDistrict) throw new Error('Select a district');
         const customerLocation = customerState === 'Kerala' ? customerDistrict : null;
-        const { data: newCust, error: custErr } = await supabase.from('customers').insert({ name: normalizedCustomerName, phone: normalizedCustomerPhone, address: normalizedCustomerAddress, gst_pan: normalizedCustomerGst, state: customerState, location: customerLocation, is_active: true }).select('id').single();
+        const { data: newCust, error: custErr } = await supabase.from('customers').insert({ name: normalizedCustomerName, phone: normalizedCustomerPhone, address: normalizedCustomerAddress, gst_pan: normalizedCustomerGst, state: customerState, location: customerLocation, company: company as CompanyEnum, is_active: true }).select('id').single();
         if (custErr) throw custErr;
         customerId = newCust.id;
       } else if (customerType === 'existing') {

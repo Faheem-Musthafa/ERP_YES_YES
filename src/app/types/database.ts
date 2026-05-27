@@ -188,6 +188,7 @@ export interface Database {
           pincode: string | null;
           gst_pan: string | null;
           pan_no: string | null;
+          company: CompanyEnum | null;
           opening_invoice: number;
           opening_delivery_challan: number;
           opening_balance: number;
@@ -212,6 +213,7 @@ export interface Database {
           pincode?: string | null;
           gst_pan?: string | null;
           pan_no?: string | null;
+          company?: CompanyEnum | null;
           opening_invoice?: number;
           opening_delivery_challan?: number;
           assigned_to?: string | null;
@@ -233,6 +235,7 @@ export interface Database {
           pincode?: string | null;
           gst_pan?: string | null;
           pan_no?: string | null;
+          company?: CompanyEnum | null;
           opening_invoice?: number;
           opening_delivery_challan?: number;
           assigned_to?: string | null;
